@@ -32,4 +32,20 @@ spec:
         name: keda
         namespace: keda
       interval: 1m
+  values:
+    resources:
+      operator:
+        limits:
+          cpu: 1
+          memory: 1000Mi
+        requests:
+          cpu: 10m
+          memory: 100Mi
+      metricServer:
+        limits:
+          cpu: 1
+          memory: 1000Mi
+        requests:
+          cpu: 10m
+          memory: 100Mi
 
