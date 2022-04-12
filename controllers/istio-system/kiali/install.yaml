@@ -1,0 +1,16 @@
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta2
+kind: Kustomization
+metadata:
+  name: kiali-crds
+  namespace: flux-system
+spec:
+  dependsOn:
+    - name: istio-system-namespace
+  interval: 1m0s
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  path: ./controllers/istio-system/kiali
+  prune: true
+  wait: true
+  timeout: 5m0s
