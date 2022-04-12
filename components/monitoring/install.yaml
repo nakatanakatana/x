@@ -1,14 +1,14 @@
 apiVersion: kustomize.toolkit.fluxcd.io/v1beta2
 kind: Kustomization
 metadata:
-  name: prometheus-crds
+  name: components-monitoring
   namespace: flux-system
 spec:
   interval: 1m0s
   sourceRef:
     kind: GitRepository
     name: flux-system
-  path: ./crds/prometheus
+  path: ./components/monitoring
   prune: true
   wait: true
   timeout: 5m0s
