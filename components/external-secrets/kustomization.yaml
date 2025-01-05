@@ -3,5 +3,5 @@ kind: Component
 namespace: external-secrets
 resources:
   - namespace.yaml
-  - ../../repos/helm/external-secrets.yaml
+  - repo.yaml
   - release.yaml
