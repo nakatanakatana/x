@@ -3,5 +3,5 @@ kind: Component
 namespace: external-secrets
 resources:
   - namespace.yaml
-  - repo.yaml
+  - repository.yaml
   - release.yaml
