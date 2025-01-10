@@ -44,6 +44,7 @@ metrics:
   kube-state-metrics:
     enabled: true
     metricsTuning:
+      useDefaultAllowList: false
       includeMetrics:
         - "gotk_resource_info"
 logs:
@@ -79,6 +80,7 @@ kepler:
 kube-state-metrics:
   enabled: true
   metricsTuning:
+    useDefaultAllowList: false
     includeMetrics:
       - "gotk_resource_info"
   # add flux custom metrics
