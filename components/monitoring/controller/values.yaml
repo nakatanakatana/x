@@ -50,6 +50,11 @@ logs:
   enabled: true
   pod_logs:
     enabled: true
+    extraRelabelingRules: |
+      rule {
+        action = "labelmap"
+        regex = "__meta_kubernetes_pod_label_(app)"
+      }
   cluster_events:
     enabled: true
 traces:
