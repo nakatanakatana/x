@@ -35,6 +35,11 @@ metrics:
   alloy:
     metricsTuning:
       useIntegrationAllowList: true
+  cadvisor:
+    enabled: true
+    metricsTuning:
+      includeMetrics:
+        - "machine_cpu_cores"
   cost:
     enabled: false
   kepler:
