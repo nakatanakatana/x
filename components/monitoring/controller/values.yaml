@@ -359,6 +359,12 @@ kube-state-metrics:
 #                   ready: [ status, conditions, "[type=Ready]", status ]
 #                   suspended: [ spec, suspend ]
 #                   source_name: [ spec, sourceRef, name ]
-alloy: {}
-alloy-events: {}
-alloy-logs: {}
+alloy:
+  logging:
+    format: "json"
+alloy-events:
+  logging:
+    format: "json"
+alloy-logs:
+  logging:
+    format: "json"
