@@ -1,0 +1,20 @@
+apiVersion: helm.toolkit.fluxcd.io/v2beta2
+kind: HelmRelease
+metadata:
+  name: cloudflare-tunnel-ingress
+  namespace: cloudflare-tunnel-ingress
+spec:
+  interval: 10m
+  timeout: 5m
+  chart:
+    spec:
+      interval: 10m
+      chart: cloudflare-tunnel-ingress-controller
+      version: '0.0.16'
+      sourceRef:
+        kind: HelmRepository
+        name: cloudflare-tunnel-ingress
+  releaseName: cloudflare-tunnel-ingress
+  valuesFrom:
+    - kind: ConfigMap
+      name: cloudflare-tunnel-ingress
