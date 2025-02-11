@@ -26,6 +26,7 @@ destinations:
   - name: tracesService
     type: otlp
     url: https://tempo-us-central1.grafana.net:443
+    protocol: "grpc"
     metrics:
       enabled: false
     logs:
