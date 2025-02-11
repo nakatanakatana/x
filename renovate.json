@@ -23,6 +23,13 @@
       "\\.ya?ml$"
     ]
   },
+  "flux": {
+    "fileMatch": [
+      "(?:^|/)gotk-components\\.ya?ml$",
+      "(?:^|/)repository\\.ya?ml$",
+      "(?:^|/)release\\.ya?ml$"
+    ]
+  },
   "helmv3": {
     "fileMatch": [
       "\\.ya?ml$"
