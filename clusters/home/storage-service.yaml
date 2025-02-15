@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    tailscale.com/tailnet-fqdn: nasf7a251.mora-egret.ts.net
+  name: storage
+  namespace: tailscale
+spec:
+  externalName: placeholder
+  type: ExternalName
