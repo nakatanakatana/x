@@ -4,3 +4,4 @@ resources:
   - secret-store.yaml
   - cloudflare-external-secret.yaml
   - grafana-cloud-secret.yaml
+  - tailscale-secret.yaml
