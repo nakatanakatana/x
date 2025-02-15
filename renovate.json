@@ -21,6 +21,9 @@
   "kubernetes": {
     "fileMatch": [
       "\\.ya?ml$"
+    ],
+    "ignorePaths": [
+      "**/flux-system/**"
     ]
   },
   "flux": {
