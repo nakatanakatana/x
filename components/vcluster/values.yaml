@@ -1,0 +1,51 @@
+controlPlane:
+  distro:
+    k3s:
+      enabled: true
+      extraArgs:
+        - --tls-san=rk1 --tls-san=rk2 --tls-san=rk3 --tls-san=rk4
+      image:
+        repository: rancher/k3s
+        tag: v1.32.1-k3s1
+      resources:
+        limits:
+          cpu: 100m
+          memory: 256Mi
+        requests:
+          cpu: 40m
+          memory: 64Mi
+  proxy:
+    extraSANs:
+      - rk1
+      - rk2
+      - rk3
+      - rk4
+  coredns:
+    enabled: true
+  statefulSet:
+    resources:
+      limits:
+        ephemeral-storage: 2Gi
+        memory: 2Gi
+      requests:
+        ephemeral-storage: 400Mi
+        cpu: 200m
+        memory: 256Mi
+    highAvailability:
+      replicas: 1
+    security:
+      podSecurityContext: {}
+      containerSecurityContext:
+        allowPrivilegeEscalation: false
+        runAsUser: 0
+        runAsGroup: 0
+    persistence:
+      volumeClaim:
+        enabled: auto
+        retentionPolicy: Retain
+        size: 2Gi
+        storageClass: ""
+        accessModes: ["ReadWriteOnce"]
+exportKubeConfig:
+  server: "https://rk1:8443"
+  insecure: false
