@@ -15,4 +15,12 @@ spec:
         kind: HelmRepository
         name: tailscale
   releaseName: tailscale
-
+  valuesFrom:
+    - kind: Secret
+      name: tailscale-client
+      targetPath: oauth.clientId
+      valuesKey: client_id
+    - kind: Secret
+      name: tailscale-client
+      targetPath: oauth.clientSecret
+      valuesKey: client_secret
