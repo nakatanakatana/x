@@ -20,3 +20,13 @@ spec:
       name: vcluster
     - kind: ConfigMap
       name: vcluster-policy
+    - kind: Secret
+      name: vcluster-db
+      targetPath: controlPlane.backingStore.database.external.dataSource
+      valuesKey: db
+  values:
+    controlPlane:
+      backingStore:
+        database:
+          external:
+            enabled: true

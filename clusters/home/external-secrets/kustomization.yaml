@@ -5,3 +5,4 @@ resources:
   - cloudflare-external-secret.yaml
   - grafana-cloud-secret.yaml
   - tailscale-secret.yaml
+  - vcluster-secret.yaml
