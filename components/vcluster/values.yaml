@@ -4,6 +4,8 @@ controlPlane:
       enabled: true
       extraArgs:
         - --tls-san=rk1 --tls-san=rk2 --tls-san=rk3 --tls-san=rk4
+        - --kube-apiserver-arg=oidc-issuer-url=https://accounts.google.com
+        - --kube-apiserver-arg=oidc-client-id=829062615345-ol62l3fri5kpki5dv7400eq88ml0pu59.apps.googleusercontent.com
       image:
         repository: rancher/k3s
         tag: v1.32.1-k3s1
