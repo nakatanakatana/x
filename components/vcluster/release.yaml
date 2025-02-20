@@ -18,3 +18,5 @@ spec:
   valuesFrom:
     - kind: ConfigMap
       name: vcluster
+    - kind: ConfigMap
+      name: vcluster-policy

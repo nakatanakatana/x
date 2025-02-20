@@ -9,6 +9,9 @@ resources:
 configMapGenerator:
   - name: vcluster
     files:
-      - values.yaml=values.yaml
+      - values.yaml
+  - name: vcluster-policy
+    files:
+      - policy-values.yaml
 configurations:
   - kustomizeconfig.yaml
