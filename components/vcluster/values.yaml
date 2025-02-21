@@ -25,6 +25,11 @@ controlPlane:
   coredns:
     enabled: true
   statefulSet:
+    env:
+      - name: LOFT_LOG_ENCODING
+        value: json
+      - name: LOFT_LOG_LEVEL
+        value: warn
     resources:
       limits:
         ephemeral-storage: 2Gi
