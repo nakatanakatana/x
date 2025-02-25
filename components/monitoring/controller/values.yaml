@@ -425,6 +425,18 @@ clusterMetrics:
     metricsTuning:
       includeMetrics:
         - machine_cpu_cores
+annotationAutodiscovery:
+  enabled: true
+  annotations:
+    scrape: prometheus.io/scrape
+    metricsPath: prometheus.io/path
+    metricsPortNumber: prometheus.io/port
+    metricsScheme: prometheus.io/scheme
+  metricsTuning:
+    includeMetrics:
+      - "traefik_*"
+    excludeMetrics: 
+      - "go_*"
 alloy-metrics:
   logging:
     format: json
