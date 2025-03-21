@@ -1,0 +1,17 @@
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata:
+  name: alerts-external-secret
+  namespace: flux-system
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: gitlab-secret-store
+  target:
+    name: slack-bot-token
+    creationPolicy: Owner
+  data:
+    - secretKey: token
+      remoteRef:
+        key: slack_bot_token
