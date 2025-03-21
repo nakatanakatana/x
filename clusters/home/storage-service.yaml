@@ -6,5 +6,4 @@ metadata:
   name: storage
   namespace: tailscale
 spec:
-  externalName: placeholder
   type: ExternalName
