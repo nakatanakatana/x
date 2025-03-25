@@ -26,6 +26,12 @@
       "**/flux-system/**"
     ]
   },
+  "kustomize": {
+    "fileMatch": [
+      "(^|/)kustomization\\.ya?ml$"
+    ],
+    "pinDigests": false
+  },
   "flux": {
     "fileMatch": [
       "(?:^|/)gotk-components\\.ya?ml$",
