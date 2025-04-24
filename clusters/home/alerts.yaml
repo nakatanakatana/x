@@ -27,6 +27,8 @@ spec:
       name: '*'
     - kind: HelmRelease
       name: '*'
+  exclusionList:
+    - 'dial tcp'
 ---
 apiVersion: notification.toolkit.fluxcd.io/v1beta3
 kind: Provider
