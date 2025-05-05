@@ -53,6 +53,13 @@ controlPlane:
         size: 2Gi
         storageClass: ""
         accessModes: ["ReadWriteOnce"]
+sync:
+  toHost:
+    ingresses:
+      enabled: true
+  fromHost:
+    ingressClasses:
+      enabled: true
 exportKubeConfig:
   server: "https://rk1:8443"
   insecure: false
