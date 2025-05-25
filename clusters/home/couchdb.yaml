@@ -1,0 +1,30 @@
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: couchdb
+  namespace: flux-system
+spec:
+  interval: 10m
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  targetNamespace: couchdb
+  path: "components/couchdb"
+  prune: true
+  timeout: 1m
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: couchdb
+  namespace: couchdb
+spec:
+  defaultBackend:
+    service:
+      name: couchdb-svc-couchdb
+      port:
+        number: 5984
+  ingressClassName: tailscale
+  tls:
+    - hosts:
+        - couchdb
