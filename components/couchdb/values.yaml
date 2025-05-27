@@ -1,5 +1,13 @@
 persistentVolume:
   enabled: true
+ingress:
+  enabled: true
+  className: tailscale
+  hosts:
+    - couchdb
+  tls:
+    - hosts:
+        - couchdb
 
 couchdbConfig:
   couchdb:
@@ -14,7 +22,7 @@ couchdbConfig:
   httpd:
     WWW-Authenticate: Basic realm="couchdb"
     enable_cors: true
-  cors: 
+  cors:
     origins: app://obsidian.md,capacitor://localhost,http://localhost
     credentials: true
     headers: accept, authorization, content-type, origin, referer
