@@ -1,0 +1,13 @@
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: OCIRepository
+metadata:
+  name: arc-systems-controller
+  namespace: arc-systems
+spec:
+  layerSelector:
+    mediaType: "application/vnd.cncf.helm.chart.content.v1.tar+gzip"
+    operation: extract
+  interval: 1h0m0s
+  url: oci://ghcr.io/actions/actions-runner-controller-charts/gha-runner-scale-set-controller
+  ref:
+    tag: 0.12.0
