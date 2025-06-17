@@ -1,0 +1,78 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: obsidian-clippings-feed
+  namespace: default
+  labels:
+    app: obsidian-clippings-feed
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: obsidian-clippings-feed
+  template:
+    metadata:
+      labels:
+        app: obsidian-clippings-feed
+    spec:
+      containers:
+        - name: obsidian-clippings-feed
+          image: ghcr.io/nakatanakatana/obsidian-clippings-feed:latest
+          imagePullPolicy: Always
+          env:
+            - name: FEED_TARGET_DIR
+              value: /app/data
+          volumeMounts:
+            - name: data
+              mountPath: /app/data
+          ports:
+            - containerPort: 8080
+      initContainers:
+        - name: livesync-bridge
+          image: ghcr.io/nakatanakatana/livesync-bridge:latest
+          imagePullPolicy: Always
+          restartPolicy: Always
+          volumeMounts:
+            - name: data
+              mountPath: /app/data
+            - name: livesync-config
+              mountPath: /app/dat
+      volumes:
+        - name: data
+          emptyDir: {}
+        - name: livesync-config
+          secret:
+            secretName: obsidian-secret
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: obsidian-clippings-feed
+  namespace: default
+spec:
+  type: ClusterIP
+  selector:
+    app: obsidian-clippings-feed
+  ports:
+  - protocol: TCP
+    port: 8080
+    targetPort: 8080
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: obsidian-clipping-feed
+  namespace: default
+spec:
+  ingressClassName: cloudflare-tunnel
+  rules:
+  - host: feed.nakatanakatana.dev
+    http:
+      paths:
+      - pathType: Prefix
+        path: "/"
+        backend:
+          service:
+            name: obsidian-clippings-feed
+            port:
+              number: 8080
