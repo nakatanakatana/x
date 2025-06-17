@@ -10,6 +10,8 @@ ingress:
         - couchdb
 
 couchdbConfig:
+  log:
+    level: warn
   couchdb:
     uuid: aedeb892-206b-4b69-bbf7-a0e315adf960
     max_document_size: 50000000
