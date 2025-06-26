@@ -4,14 +4,14 @@ metadata:
   name: alerts-external-secret
   namespace: flux-system
 spec:
-  refreshInterval: 1h
+  refreshInterval: 10m
   secretStoreRef:
     kind: ClusterSecretStore
-    name: gitlab-secret-store
+    name: 1password-sdk
   target:
     name: slack-bot-token
     creationPolicy: Owner
   data:
     - secretKey: token
       remoteRef:
-        key: slack_bot_token
+        key: slack-bot-alert/bot-token
