@@ -8,7 +8,7 @@ controlPlane:
         - --kube-apiserver-arg=oidc-client-id=829062615345-ol62l3fri5kpki5dv7400eq88ml0pu59.apps.googleusercontent.com
       image:
         repository: rancher/k3s
-        tag: v1.33.1-k3s1
+        tag: v1.33.2-k3s1
       resources:
         limits:
           cpu: 100m
