@@ -1,0 +1,24 @@
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: qnap-csi-plugin
+  namespace: trident
+spec:
+  refreshInterval: 10m
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: 1password-sdk
+  target:
+    name: qnap-csi-plugin
+    creationPolicy: Owner
+  data:
+    - secretKey: username
+      remoteRef:
+        key: qnap-csi-plugin/username
+    - secretKey: password
+      remoteRef:
+        key: qnap-csi-plugin/password
+    - secretKey: storageAddress
+      remoteRef:
+        key: qnap-csi-plugin/storageAddress
+

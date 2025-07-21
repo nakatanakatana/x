@@ -1,0 +1,21 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: qnap-csi-plugin
+  namespace: trident
+spec:
+  interval: 10m
+  timeout: 5m
+  chart:
+    spec:
+      interval: 10m
+      chart: ./Helm/trident
+      sourceRef:
+        kind: GitRepository
+        name: qnap-csi-plugin
+  releaseName: qnap-csi-plugin
+  values:
+    tridentOperator:
+      logLevel: error
+    tridentOrchestrator:
+      debug: false
