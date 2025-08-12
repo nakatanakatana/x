@@ -25,6 +25,10 @@ controlPlane:
   coredns:
     enabled: true
   statefulSet:
+    image:
+      registry: ghcr.io
+      repository: loft-sh/vcluster-oss
+      tag: 0.27.0
     env:
       - name: LOFT_LOG_ENCODING
         value: json
