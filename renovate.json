@@ -52,7 +52,8 @@
         "\\.ya?ml$"
       ],
       "matchStrings": [
-        "image: *\n +repository: +(?<registry>[^/]+)/(?<depName>[^ \n]+)\n +tag: +(?<currentValue>[^ \n]+)"
+        "image: *\n +repository: +(?<registry>[^/]+)/(?<depName>[^ \n]+)\n +tag: +(?<currentValue>[^ \n]+)",
+        "image: *\n +registry: +(?<registry>[^/]+)\n +repository: +(?<depName>[^ \n]+)\n +tag: +(?<currentValue>[^ \n]+)"
       ],
       "packageNameTemplate": "{{registry}}/{{depName}}"
     }
