@@ -1,45 +1,30 @@
-apiVersion: trident.qnap.io/v1
-kind: TridentBackendConfig
-metadata:
-  name: backend-qts
-  namespace: trident
-spec:
-  version: 1
-  storageDriverName: qnap-nas
-  backendName: qts
-  networkInterfaces: []
-  credentials:
-    name: qnap-csi-plugin
-  debugTraceFlags:
-    method: true
-  storage:
-    - serviceLevel: pool1
-      labels:
-        performance: performance1
-      features:
-        tiering: Enable
----
-apiVersion: storage.k8s.io/v1
-kind: StorageClass
-metadata:
-  name: nas
-provisioner: csi.trident.qnap.io
-parameters:
-  selector: "performance=performance1"
-  fsType: "ext4"
-allowVolumeExpansion: true
-# ---
-# kind: PersistentVolumeClaim
-# apiVersion: v1
+# apiVersion: trident.qnap.io/v1
+# kind: TridentBackendConfig
 # metadata:
-#   name: pvc1
-#   annotations:
-#     trident.qnap.io/Threshold: "90"
-#     trident.qnap.io/ThinAllocate: "true"
+#   name: backend-qts
+#   namespace: trident
 # spec:
-#   accessModes:
-#     - ReadWriteOnce
-#   resources:
-#     requests:
-#       storage: 10Gi
-#   storageClassName: storageclass1
+#   version: 1
+#   storageDriverName: qnap-nas
+#   backendName: qts
+#   networkInterfaces: []
+#   credentials:
+#     name: qnap-csi-plugin
+#   debugTraceFlags:
+#     method: true
+#   storage:
+#     - serviceLevel: pool1
+#       labels:
+#         performance: performance1
+#       features:
+#         tiering: Enable
+# ---
+# apiVersion: storage.k8s.io/v1
+# kind: StorageClass
+# metadata:
+#   name: nas
+# provisioner: csi.trident.qnap.io
+# parameters:
+#   selector: "performance=performance1"
+#   fsType: "ext4"
+# allowVolumeExpansion: true
