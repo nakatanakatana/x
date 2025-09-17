@@ -479,7 +479,8 @@ annotationAutodiscovery:
   metricsTuning:
     includeMetrics:
       - "traefik_*"
-    excludeMetrics: 
+      - "ceph_*"
+    excludeMetrics:
       - "go_*"
 prometheusOperatorObjects:
   enabled: true
