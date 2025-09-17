@@ -478,10 +478,10 @@ annotationAutodiscovery:
     metricsScheme: prometheus.io/scheme
   metricsTuning:
     includeMetrics:
-      - "traefik_*"
-      - "ceph_*"
+      - traefik_.*
+      - ceph_.*
     excludeMetrics:
-      - "go_*"
+      - go_.*
 prometheusOperatorObjects:
   enabled: true
   crds:
