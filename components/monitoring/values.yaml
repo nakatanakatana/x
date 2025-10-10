@@ -419,7 +419,7 @@ clusterMetrics:
   opencost:
     enabled: false
   kepler:
-    enabled: true
+    enabled: false
   cadvisor:
     enabled: true
     metricsTuning:
