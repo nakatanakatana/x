@@ -74,6 +74,12 @@ spec:
     useAllDevices: false
     config:
     nodes:
+      - name: "n5"
+        devices:
+          - name: "sda"
+          - name: "sdb"
+          - name: "sdc"
+          - name: "sdd"
       - name: "rpi"
         devices:
           - name: "nvme0n1p3"
