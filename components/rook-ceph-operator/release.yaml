@@ -10,7 +10,7 @@ spec:
     spec:
       interval: 10m
       chart: rook-ceph
-      version: 'v1.18.6'
+      version: 'v1.18.7'
       sourceRef:
         kind: HelmRepository
         name: rook-ceph
