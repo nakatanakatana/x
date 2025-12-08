@@ -29,7 +29,7 @@ controlPlane:
     image:
       registry: ghcr.io
       repository: loft-sh/vcluster-oss
-      tag: 0.30.2
+      tag: 0.30.3
     env:
       - name: LOFT_LOG_ENCODING
         value: json
