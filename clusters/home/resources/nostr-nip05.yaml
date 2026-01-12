@@ -1,0 +1,57 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nostr-nip05
+  namespace: default
+spec:
+  selector:
+    matchLabels:
+      run: nostr-nip05
+  replicas: 2
+  template:
+    metadata:
+      labels:
+        run: nostr-nip05
+    spec:
+      containers:
+      - name: nostr-nip05
+        image: ghcr.io/nakatanakatana/nostr-tools:0.0.1
+        command: ["/app/nip05"]
+        env:
+        - name: NIP05_MAPPING
+          value: _:513e9ab3e372f0484fdf7c1cb630fe195c344edc7e275f419c2b62fb9d749252
+        ports:
+        - containerPort: 8080
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nostr-nip05
+  namespace: default
+  labels:
+    run: nostr-nip05
+spec:
+  ports:
+  - port: 8080
+    protocol: TCP
+  selector:
+    run: nostr-nip05
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: cf-ingress-nostr-nip05
+  namespace: default
+spec:
+  ingressClassName: cloudflare-tunnel
+  rules:
+  - host: nakatanakatana.dev
+    http:
+      paths:
+      - pathType: Prefix
+        path: "/"
+        backend:
+          service:
+            name: nostr-nip05
+            port:
+              number: 8080
