@@ -10,7 +10,7 @@ spec:
     spec:
       interval: 10m
       chart: k8s-monitoring
-      version: '3.7.1'
+      version: '3.7.2'
       sourceRef:
         kind: HelmRepository
         name: grafana
