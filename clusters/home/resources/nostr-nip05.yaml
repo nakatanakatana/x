@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
       - name: nostr-nip05
-        image: ghcr.io/nakatanakatana/nostr-tools:0.0.2
+        image: ghcr.io/nakatanakatana/nostr-tools:0.0.3
         command: ["/app/nip05"]
         env:
         - name: NIP05_MAPPING
