@@ -1,0 +1,21 @@
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: feed-reader-storage
+  namespace: feed-reader
+spec:
+  refreshInterval: 60m
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: 1password-sdk
+  target:
+    name: feed-reader-storage
+    creationPolicy: Owner
+  data:
+    - secretKey: access_key
+      remoteRef:
+        key: feed-reader-storage/access_key
+    - secretKey: access_secret
+      remoteRef:
+        key: feed-reader-storage/access_secret
+

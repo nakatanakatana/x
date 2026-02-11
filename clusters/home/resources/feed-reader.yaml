@@ -1,0 +1,130 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: feed-reader
+  namespace: feed-reader
+  labels:
+    app: feed-reader
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: feed-reader
+  template:
+    metadata:
+      labels:
+        app: feed-reader
+    spec:
+      containers:
+        - name: feed-reader
+          image: ghcr.io/nakatanakatana/feed-reader:0.2.0
+          imagePullPolicy: Always
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          ports:
+            - containerPort: 8080
+        - name: litestream
+          image: litestream/litestream:0.5.7
+          args:
+            - replicate
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            - name: litestream-config
+              mountPath: /etc/litestream.yml
+              subPath: litestream.yml
+          env:
+            - name: LITESTREAM_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: feed-reader-storage
+                  key: access_key
+            - name: LITESTREAM_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: feed-reader-storage
+                  key: access_secret
+      initContainers:
+        - name: init-litestream
+          image: litestream/litestream:0.5.7
+          restartPolicy: always
+          command:
+            - /bin/sh
+            - -c
+          args:
+            - |
+              /usr/local/bin/litestream restore /data/feed-reader.db && chmod 777 /data/feed-reader.db
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            - name: litestream-config
+              mountPath: /etc/litestream.yml
+              subPath: litestream.yml
+          env:
+            - name: LITESTREAM_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: feed-reader-storage
+                  key: access_key
+            - name: LITESTREAM_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: feed-reader-storage
+                  key: access_secret
+      volumes:
+        - name: data
+          emptyDir: {}
+        - name: litestream-config
+          configMap:
+            name: litestream
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: litestream
+  namespace: feed-reader
+data:
+  litestream.yml: |
+    dbs:
+      - path: /data/feed-reader.db
+        replica:
+          type: s3
+          endpoint: http://storage.tailscale.svc.cluster.local:8010
+          bucket: feed-reader
+          path: feed-reader.db
+          sync-interval: 10s
+          sign-payload: true
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: feed-reader
+  namespace: feed-reader
+spec:
+  type: ClusterIP
+  selector:
+    app: feed-reader
+  ports:
+  - protocol: TCP
+    port: 8080
+    targetPort: 8080
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: feed-reader
+  namespace: feed-reader
+spec:
+  ingressClassName: cloudflare-tunnel
+  rules:
+  - host: feed.nakatanakatana.app
+    http:
+      paths:
+      - pathType: Prefix
+        path: "/"
+        backend:
+          service:
+            name: feed-reader
+            port:
+              number: 8080
