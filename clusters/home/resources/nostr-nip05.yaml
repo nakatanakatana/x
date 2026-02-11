@@ -45,6 +45,16 @@ metadata:
 spec:
   ingressClassName: cloudflare-tunnel
   rules:
+  - host: nakatanakatana.app
+    http:
+      paths:
+      - pathType: Prefix
+        path: "/"
+        backend:
+          service:
+            name: nostr-nip05
+            port:
+              number: 8080
   - host: nakatanakatana.dev
     http:
       paths:
