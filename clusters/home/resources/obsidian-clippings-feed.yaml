@@ -66,6 +66,16 @@ metadata:
 spec:
   ingressClassName: cloudflare-tunnel
   rules:
+  - host: clippings.nakatanakatana.app
+    http:
+      paths:
+      - pathType: Prefix
+        path: "/"
+        backend:
+          service:
+            name: obsidian-clippings-feed
+            port:
+              number: 8080
   - host: feed.nakatanakatana.dev
     http:
       paths:
