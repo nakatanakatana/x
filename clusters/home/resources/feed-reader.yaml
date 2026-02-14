@@ -25,7 +25,7 @@ spec:
           ports:
             - containerPort: 8080
         - name: litestream
-          image: litestream/litestream:0.5.7
+          image: litestream/litestream:0.5.8
           args:
             - replicate
           volumeMounts:
@@ -47,7 +47,7 @@ spec:
                   key: access_secret
       initContainers:
         - name: init-litestream
-          image: litestream/litestream:0.5.7
+          image: litestream/litestream:0.5.8
           restartPolicy: always
           command:
             - /bin/sh
