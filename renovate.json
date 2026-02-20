@@ -19,37 +19,37 @@
     }
   ],
   "kubernetes": {
-    "fileMatch": [
-      "\\.ya?ml$"
+    "managerFilePatterns": [
+      "/\\.ya?ml$/"
     ],
     "ignorePaths": [
       "**/flux-system/**"
     ]
   },
   "kustomize": {
-    "fileMatch": [
-      "(^|/)kustomization\\.ya?ml$"
+    "managerFilePatterns": [
+      "/(^|/)kustomization\\.ya?ml$/"
     ],
     "pinDigests": false
   },
   "flux": {
-    "fileMatch": [
-      "(?:^|/)gotk-components\\.ya?ml$",
-      "(?:^|/)repository\\.ya?ml$",
-      "(?:^|/)release\\.ya?ml$"
+    "managerFilePatterns": [
+      "/(?:^|/)gotk-components\\.ya?ml$/",
+      "/(?:^|/)repository\\.ya?ml$/",
+      "/(?:^|/)release\\.ya?ml$/"
     ]
   },
   "helmv3": {
-    "fileMatch": [
-      "\\.ya?ml$"
+    "managerFilePatterns": [
+      "/\\.ya?ml$/"
     ]
   },
   "customManagers": [
     {
       "customType": "regex",
       "datasourceTemplate": "docker",
-      "fileMatch": [
-        "\\.ya?ml$"
+      "managerFilePatterns": [
+        "/\\.ya?ml$/"
       ],
       "matchStrings": [
         "image: *\n +repository: +(?<registry>[^/]+)/(?<depName>[^ \n]+)\n +tag: +(?<currentValue>[^ \n]+)",
