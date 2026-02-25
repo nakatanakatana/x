@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
         - name: feed-reader
-          image: ghcr.io/nakatanakatana/feed-reader:0.11.4
+          image: ghcr.io/nakatanakatana/feed-reader:0.11.5
           imagePullPolicy: Always
           volumeMounts:
             - name: data
