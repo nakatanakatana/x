@@ -19,6 +19,9 @@ spec:
         - name: feed-reader
           image: ghcr.io/nakatanakatana/feed-reader:0.13.0
           imagePullPolicy: Always
+          env:
+            - name: CORS_ALLOWED_ORIGINS
+              value: https://nakatanakatana.cloudflareaccess.com
           volumeMounts:
             - name: data
               mountPath: /data
