@@ -51,7 +51,7 @@ spec:
       initContainers:
         - name: init-litestream
           image: litestream/litestream:0.5.9
-          restartPolicy: always
+          restartPolicy: Always
           command:
             - /bin/sh
             - -c
