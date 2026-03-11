@@ -76,6 +76,8 @@ kind: Ingress
 metadata:
   name: tailscale-ingress-example
   namespace: default
+  annotations:
+    tailscale.com/proxy-class: avoid-slow-nodes
 spec:
   defaultBackend:
     service:

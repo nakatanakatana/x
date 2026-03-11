@@ -4,3 +4,4 @@ namespace: tailscale
 resources:
   - repository.yaml
   - release.yaml
+  - proxyclass.yaml

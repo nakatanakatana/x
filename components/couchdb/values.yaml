@@ -3,6 +3,8 @@ persistentVolume:
 ingress:
   enabled: true
   className: tailscale
+  annotations:
+    tailscale.com/proxy-class: avoid-slow-nodes
   hosts:
     - couchdb
   tls:

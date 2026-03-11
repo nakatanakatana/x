@@ -15,17 +15,7 @@ spec:
         kind: HelmRepository
         name: tailscale
   releaseName: tailscale
-  values:
-    operatorConfig:
-      affinity:
-        nodeAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-            nodeSelectorTerms:
-            - matchExpressions:
-              - key: network
-                operator: NotIn
-                values:
-                - slow
+  values: {}
   valuesFrom:
     - kind: Secret
       name: tailscale-client
