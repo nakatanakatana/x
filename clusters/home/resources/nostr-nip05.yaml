@@ -55,13 +55,3 @@ spec:
             name: nostr-nip05
             port:
               number: 8080
-  - host: nakatanakatana.dev
-    http:
-      paths:
-      - pathType: Prefix
-        path: "/"
-        backend:
-          service:
-            name: nostr-nip05
-            port:
-              number: 8080

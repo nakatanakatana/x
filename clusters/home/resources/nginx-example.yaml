@@ -36,44 +36,6 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: cf-ingress-example
-  namespace: default
-spec:
-  ingressClassName: cloudflare-tunnel
-  rules:
-  - host: nginx.nakatanakatana.dev
-    http:
-      paths:
-      - pathType: Prefix
-        path: "/"
-        backend:
-          service:
-            name: my-nginx
-            port:
-              number: 80
----
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: cf-ingress-example-private
-  namespace: default
-spec:
-  ingressClassName: cloudflare-tunnel
-  rules:
-  - host: private-nginx.nakatanakatana.dev
-    http:
-      paths:
-      - pathType: Prefix
-        path: "/"
-        backend:
-          service:
-            name: my-nginx
-            port:
-              number: 80
----
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
   name: tailscale-ingress-example
   namespace: default
   annotations:
