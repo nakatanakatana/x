@@ -1,14 +1,15 @@
 controlPlane:
   distro:
-    k3s:
+    k8s:
       enabled: true
-      extraArgs:
-        - --tls-san=rpi --tls-san=rk1 --tls-san=rk2 --tls-san=rk3 --tls-san=rk4
-        - --kube-apiserver-arg=oidc-issuer-url=https://accounts.google.com
-        - --kube-apiserver-arg=oidc-client-id=613184563802-3ibtt184darm98idtv2kjcph6ol3nuga.apps.googleusercontent.com
+      apiServer:
+        extraArgs:
+          - --oidc-issuer-url=https://accounts.google.com
+          - --oidc-client-id=613184563802-3ibtt184darm98idtv2kjcph6ol3nuga.apps.googleusercontent.com
       image:
-        repository: rancher/k3s
-        tag: v1.35.3-k3s1
+        registry: ghcr.io
+        repository: loft-sh/kubernetes
+        tag: v1.35.3
       resources:
         limits:
           cpu: 100m
@@ -31,8 +32,6 @@ controlPlane:
       repository: loft-sh/vcluster-oss
       tag: 0.33.1
     env:
-      - name: LOFT_LOG_ENCODING
-        value: json
       - name: LOFT_LOG_LEVEL
         value: warn
     resources:
