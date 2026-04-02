@@ -1,14 +1,14 @@
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
-  name: vcluster-sandbox
+  name: vcluster-agent
   namespace: flux-system
 spec:
   interval: 10m
   sourceRef:
     kind: GitRepository
     name: flux-system
-  targetNamespace: sandbox
+  targetNamespace: agent
   path: "components/vcluster/base"
   prune: true
   timeout: 1m
