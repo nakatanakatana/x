@@ -1,7 +1,5 @@
-cluster:
-  name: home-k3s
 destinations:
-  - name: metricsService
+  metricsService:
     type: prometheus
     url: https://prometheus-us-central1.grafana.net/api/prom/push
     secret:
@@ -12,7 +10,7 @@ destinations:
       type: basic
       usernameKey: prom_user
       passwordKey: password
-  - name: logsService
+  logsService:
     type: loki
     url: https://logs-prod-us-central1.grafana.net/loki/api/v1/push
     secret:
@@ -23,10 +21,10 @@ destinations:
       type: basic
       usernameKey: loki_user
       passwordKey: password
-  - name: tracesService
+  tracesService:
     type: otlp
     url: https://tempo-us-central1.grafana.net:443
-    protocol: "grpc"
+    protocol: grpc
     metrics:
       enabled: false
     logs:
@@ -41,6 +39,39 @@ destinations:
       type: basic
       usernameKey: tempo_user
       passwordKey: password
+collectors:
+  alloy-metrics:
+    presets:
+      - clustered
+      - statefulset
+    logging:
+      format: json
+  alloy-logs:
+    presets:
+      - filesystem-log-reader
+      - daemonset
+    logging:
+      format: json
+  alloy-singleton:
+    presets:
+      - singleton
+    logging:
+      format: json
+  alloy-receiver:
+    presets:
+      - deployment
+    logging:
+      format: json
+    alloy:
+      extraPorts:
+        - name: otlp-grpc
+          port: 4317
+          targetPort: 4317
+          protocol: TCP
+        - name: otlp-http
+          port: 4318
+          targetPort: 4318
+          protocol: TCP
 clusterMetrics:
   enabled: true
   kube-state-metrics:
@@ -48,28 +79,6 @@ clusterMetrics:
       useDefaultAllowList: false
       includeMetrics:
         - gotk_resource_info
-    rbac:
-      extraRules:
-        - apiGroups:
-            - source.toolkit.fluxcd.io
-            - kustomize.toolkit.fluxcd.io
-            - helm.toolkit.fluxcd.io
-            - notification.toolkit.fluxcd.io
-            - image.toolkit.fluxcd.io
-          resources:
-            - gitrepositories
-            - buckets
-            - helmrepositories
-            - helmcharts
-            - ocirepositories
-            - kustomizations
-            - helmreleases
-            - alerts
-            - providers
-            - receivers
-          verbs:
-            - list
-            - watch
     customResourceState:
       enabled: true
       config:
@@ -411,50 +420,51 @@ clusterMetrics:
                     webhook_path:
                       - status
                       - webhookPath
-    deploy: true
-    enabled: true
-  node-exporter:
-    deploy: true
-    enabled: true
-  opencost:
-    enabled: false
-  kepler:
-    enabled: false
   cadvisor:
     enabled: true
     metricsTuning:
       includeMetrics:
         - machine_cpu_cores
-alloy-metrics:
-  logging:
-    format: json
+  collector: alloy-metrics
+telemetryServices:
+  kube-state-metrics:
+    deploy: true
+    rbac:
+      extraRules:
+        - apiGroups:
+            - source.toolkit.fluxcd.io
+            - kustomize.toolkit.fluxcd.io
+            - helm.toolkit.fluxcd.io
+            - notification.toolkit.fluxcd.io
+            - image.toolkit.fluxcd.io
+          resources:
+            - gitrepositories
+            - buckets
+            - helmrepositories
+            - helmcharts
+            - ocirepositories
+            - kustomizations
+            - helmreleases
+            - alerts
+            - providers
+            - receivers
+          verbs:
+            - list
+            - watch
+  node-exporter:
+    deploy: true
+  opencost:
+    deploy: false
+hostMetrics:
+  linuxHosts:
+    enabled: true
   enabled: true
-alloy-singleton:
-  logging:
-    format: json
-  enabled: true
-alloy-logs:
-  logging:
-    format: json
-  enabled: true
-alloy-receiver:
-  logging:
-    format: json
-  enabled: true
-  alloy:
-    extraPorts:
-      - name: otlp-grpc
-        port: 4317
-        targetPort: 4317
-        protocol: TCP
-      - name: otlp-http
-        port: 4318
-        targetPort: 4318
-        protocol: TCP
+  collector: alloy-metrics
+cluster:
+  name: home-k3s
 clusterEvents:
   enabled: true
-# autoInstrumentation:
-#   enabled: true
+  collector: alloy-singleton
 applicationObservability:
   enabled: true
   receivers:
@@ -462,13 +472,15 @@ applicationObservability:
       includeDebugMetrics: true
       grpc:
         enabled: true
-podLogs:
+  collector: alloy-receiver
+podLogsViaLoki:
   enabled: true
   extraDiscoveryRules: |
     rule {
       action = "labelmap"
       regex = "__meta_kubernetes_pod_label_(app)"
     }
+  collector: alloy-logs
 annotationAutodiscovery:
   enabled: true
   annotations:
@@ -482,12 +494,10 @@ annotationAutodiscovery:
       - ceph_.*
     excludeMetrics:
       - go_.*
+  collector: alloy-metrics
 prometheusOperatorObjects:
   enabled: true
-  crds:
-    deploy: true
-  podMonitors:
-    enabled: true
+  collector: alloy-metrics
 integrations:
   alloy:
     instances:
@@ -503,4 +513,4 @@ integrations:
             useDefaultAllowList: true
             includeMetrics:
               - alloy_build_info
-
+  collector: alloy-metrics
