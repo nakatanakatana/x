@@ -9,7 +9,7 @@ controlPlane:
       image:
         registry: ghcr.io
         repository: loft-sh/kubernetes
-        tag: v1.35.3
+        tag: v1.35.4@sha256:92a9a6b200bbf868934f0b4f591c7344c13b40230abaa0240a549b514452841d
       resources:
         limits:
           cpu: 100m
