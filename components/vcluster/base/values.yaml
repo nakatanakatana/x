@@ -17,6 +17,10 @@ controlPlane:
         requests:
           cpu: 40m
           memory: 64Mi
+  service:
+    enabled: true
+    spec:
+      type: ClusterIP
   proxy:
     extraSANs:
       - rpi
@@ -24,6 +28,8 @@ controlPlane:
       - rk2
       - rk3
       - rk4
+      - vcluster-agent
+      - vcluster-sandbox
   coredns:
     enabled: true
   statefulSet:
@@ -65,7 +71,7 @@ sync:
     ingressClasses:
       enabled: true
 exportKubeConfig:
-  server: "https://rk1:8443"
+  server: "https://vcluster-agent:443"
   insecure: false
 experimental:
   deploy:

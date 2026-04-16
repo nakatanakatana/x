@@ -12,3 +12,18 @@ spec:
   path: "components/vcluster/base"
   prune: true
   timeout: 1m
+  patches:
+    - target:
+        kind: HelmRelease
+        name: vcluster
+      patch: |
+        - op: add
+          path: /spec/values
+          value:
+            controlPlane:
+              service:
+                annotations:
+                  tailscale.com/expose: "true"
+                  tailscale.com/hostname: "vcluster-agent"
+                spec:
+                  type: LoadBalancer

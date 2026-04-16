@@ -4,7 +4,6 @@ namespace: vcluster
 resources:
   - ../base/repository.yaml
   - release.yaml
-  - ../base/lb.yaml
 configMapGenerator:
   - name: vcluster
     files:
