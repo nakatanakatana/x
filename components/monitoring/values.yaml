@@ -79,6 +79,15 @@ clusterMetrics:
       useDefaultAllowList: false
       includeMetrics:
         - gotk_resource_info
+  cadvisor:
+    enabled: true
+    metricsTuning:
+      includeMetrics:
+        - machine_cpu_cores
+  collector: alloy-metrics
+telemetryServices:
+  kube-state-metrics:
+    deploy: true
     customResourceState:
       enabled: true
       config:
@@ -420,15 +429,6 @@ clusterMetrics:
                     webhook_path:
                       - status
                       - webhookPath
-  cadvisor:
-    enabled: true
-    metricsTuning:
-      includeMetrics:
-        - machine_cpu_cores
-  collector: alloy-metrics
-telemetryServices:
-  kube-state-metrics:
-    deploy: true
     rbac:
       extraRules:
         - apiGroups:
