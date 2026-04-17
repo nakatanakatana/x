@@ -6,6 +6,10 @@
   ],
   "packageRules": [
     {
+      "matchManagers": ["flux"],
+      "pinDigests": false
+    },
+    {
       "matchUpdateTypes": [
         "minor",
         "patch"
