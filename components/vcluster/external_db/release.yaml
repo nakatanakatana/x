@@ -10,7 +10,7 @@ spec:
     spec:
       interval: 10m
       chart: vcluster
-      version: '0.33.2'
+      version: '0.34.0'
       sourceRef:
         kind: HelmRepository
         name: loft-sh
