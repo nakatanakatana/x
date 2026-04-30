@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
       - name: my-nginx
-        image: nginx
+        image: nginx@sha256:6e23479198b998e5e25921dff8455837c7636a67111a04a635cf1bb363d199dc
         ports:
         - containerPort: 80
 ---
