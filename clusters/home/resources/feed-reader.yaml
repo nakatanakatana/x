@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
         - name: feed-reader
-          image: ghcr.io/nakatanakatana/feed-reader:0.16.1
+          image: ghcr.io/nakatanakatana/feed-reader:0.16.1@sha256:f192dcbd6e569ca2aaf0e60a2d6ed1a6ad2daac6e4b6d426c5c72588178c993f
           imagePullPolicy: Always
           env:
             - name: CORS_ALLOWED_ORIGINS

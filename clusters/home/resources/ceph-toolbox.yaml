@@ -19,7 +19,7 @@ spec:
       serviceAccountName: rook-ceph-default
       containers:
         - name: rook-ceph-tools
-          image: quay.io/ceph/ceph:v20
+          image: quay.io/ceph/ceph:v20@sha256:0bae386bc859cd9a05b804d1ca16cca8853a64f90809044e2bf43095419dc337
           command:
             - /bin/bash
             - -c
