@@ -3,3 +3,10 @@ kind: Component
 namespace: pipelines-as-code
 resources:
   - https://github.com/tektoncd/pipelines-as-code/releases/download/v0.46.0/release.k8s.yaml
+patches:
+  - patch: |
+      apiVersion: v1
+      kind: Namespace
+      metadata:
+        name: pipelines-as-code
+      $patch: delete
