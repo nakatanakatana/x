@@ -52,8 +52,8 @@
   "customManagers": [
     {
       "customType": "regex",
-      "fileMatch": [
-        "(^|/)components/.*/kustomization\\.yaml$"
+      "managerFilePatterns": [
+        "/(^|/)components/.*/kustomization\\.yaml$/"
       ],
       "matchStrings": [
         "https://github\\.com/(?<depName>[^/]+/[^/]+)/releases/download/(?<currentValue>v?[^/]+)/[^\\s\"']+"
