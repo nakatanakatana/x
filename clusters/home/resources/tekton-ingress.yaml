@@ -1,0 +1,42 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: tekton-pac-webhook
+  namespace: tekton-pipelines
+spec:
+  ingressClassName: cloudflare-tunnel
+  rules:
+    - host: ci-webhook.nakatanakatana.app
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: pipelines-as-code-controller
+                port:
+                  number: 8080
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: tekton-dashboard
+  namespace: tekton-pipelines
+  annotations:
+    tailscale.com/proxy-class: avoid-slow-nodes
+spec:
+  ingressClassName: tailscale
+  rules:
+    - host: ci
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: tekton-dashboard
+                port:
+                  number: 9097
+  tls:
+    - hosts:
+        - ci

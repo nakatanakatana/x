@@ -1,0 +1,28 @@
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: tekton-secret
+  namespace: tekton-pipelines
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: 1password-sdk
+  target:
+    name: pipelines-as-code-secret
+    creationPolicy: Owner
+    template:
+      data:
+        github-application-id: "{{ .app_id }}"
+        github-private-key: "{{ .private_key }}"
+        webhook.secret: "{{ .webhook_secret }}"
+  data:
+    - secretKey: app_id
+      remoteRef:
+        key: pac-github-app/app_id
+    - secretKey: private_key
+      remoteRef:
+        key: pac-github-app/private_key
+    - secretKey: webhook_secret
+      remoteRef:
+        key: pac-github-app/webhook_secret

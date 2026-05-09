@@ -1,0 +1,7 @@
+apiVersion: pipelinesascode.tekton.dev/v1alpha1
+kind: Repository
+metadata:
+  name: tekton-sandbox
+  namespace: tekton-workspace
+spec:
+  url: https://github.com/nakatanakatana/tekton-sandbox
