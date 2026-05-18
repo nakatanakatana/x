@@ -70,6 +70,18 @@ sync:
   fromHost:
     ingressClasses:
       enabled: true
+    secrets:
+      enabled: true
+      mappings:
+        byName:
+          # syncs all Secrets from virtual cluster's host namespace
+          # to "secrets" namespace in a virtual cluster.
+          "": "synced"
+    configMaps:
+      enabled: true
+      mappings:
+        byName:
+          "": "synced"
 exportKubeConfig:
   server: "https://vcluster-agent:443"
   insecure: false
