@@ -30,6 +30,8 @@ controlPlane:
       - rk4
       - vcluster-agent
       - vcluster-sandbox
+      - vcluster.agent.svc.cluster.local
+      - vcluster.sandbox.svc.cluster.local
   coredns:
     enabled: true
   statefulSet:
