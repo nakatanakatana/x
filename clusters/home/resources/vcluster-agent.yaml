@@ -27,3 +27,8 @@ spec:
                   tailscale.com/hostname: "vcluster-agent"
                 spec:
                   type: LoadBalancer
+            exportKubeConfig:
+              server: "https://vcluster.agent.svc.cluster.local:443"
+              additionalSecrets:
+                - name: vcluster-agent-kubeconfig
+                  namespace: flux-system

@@ -1,0 +1,19 @@
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: vcluster-sandbox-sync
+  namespace: flux-system
+spec:
+  interval: 10m
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  path: "clusters/vcluster-sandbox"
+  prune: true
+  timeout: 2m
+  kubeConfig:
+    secretRef:
+      name: vcluster-sandbox-kubeconfig
+      key: config
+  dependsOn:
+    - name: vcluster-sandbox

@@ -1,0 +1,19 @@
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: vcluster-agent-sync
+  namespace: flux-system
+spec:
+  interval: 10m
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  path: "clusters/vcluster-agent"
+  prune: true
+  timeout: 2m
+  kubeConfig:
+    secretRef:
+      name: vcluster-agent-kubeconfig
+      key: config
+  dependsOn:
+    - name: vcluster-agent
