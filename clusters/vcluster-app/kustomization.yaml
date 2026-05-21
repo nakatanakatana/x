@@ -1,5 +1,5 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
-  - namespace.yaml
-  - nginx-example.yaml
+  - nostr-nip05.yaml
+  - obsidian-clippings-feed.yaml

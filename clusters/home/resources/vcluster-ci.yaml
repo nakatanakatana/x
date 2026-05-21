@@ -1,0 +1,31 @@
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: vcluster-ci
+  namespace: flux-system
+spec:
+  interval: 10m
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  targetNamespace: ci
+  path: "components/vcluster/base"
+  prune: true
+  timeout: 1m
+  patches:
+    - target:
+        kind: HelmRelease
+        name: vcluster
+      patch: |
+        - op: add
+          path: /spec/values
+          value:
+            controlPlane:
+              service:
+                annotations:
+                  tailscale.com/expose: "true"
+                  tailscale.com/hostname: "vcluster-ci"
+                spec:
+                  type: LoadBalancer
+            exportKubeConfig:
+              server: "https://vcluster.ci.svc.cluster.local:443"

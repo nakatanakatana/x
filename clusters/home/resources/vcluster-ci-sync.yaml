@@ -1,0 +1,21 @@
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: vcluster-ci-sync
+  namespace: ci
+spec:
+  interval: 10m
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  path: "clusters/vcluster-ci"
+  prune: true
+  timeout: 2m
+  kubeConfig:
+    secretRef:
+      name: vc-vcluster
+      key: config
+  dependsOn:
+    - name: vcluster-ci
+      namespace: flux-system
