@@ -1,8 +1,13 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: nostr-nip05
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: nostr-nip05
-  namespace: default
+  namespace: nostr-nip05
 spec:
   selector:
     matchLabels:
@@ -27,7 +32,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: nostr-nip05
-  namespace: default
+  namespace: nostr-nip05
   labels:
     run: nostr-nip05
 spec:
@@ -41,7 +46,7 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: cf-ingress-nostr-nip05
-  namespace: default
+  namespace: nostr-nip05
 spec:
   ingressClassName: cloudflare-tunnel
   rules:

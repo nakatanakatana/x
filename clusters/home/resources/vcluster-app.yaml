@@ -31,4 +31,11 @@ spec:
               replicateServices:
                 fromHost:
                   - from: couchdb/couchdb-svc-couchdb
-                    to: synced/couchdb-svc-couchdb
+                    to: obsidian-clippings-feed/couchdb-svc-couchdb
+            sync:
+              fromHost:
+                secrets:
+                  enabled: true
+                  mappings:
+                    byName:
+                      "app/obsidian-secret": "obsidian-clippings-feed/obsidian-secret"
