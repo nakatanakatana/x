@@ -25,7 +25,5 @@ spec:
                 annotations:
                   tailscale.com/expose: "true"
                   tailscale.com/hostname: "vcluster-agent"
-                spec:
-                  type: LoadBalancer
             exportKubeConfig:
               server: "https://vcluster.agent.svc.cluster.local:443"
