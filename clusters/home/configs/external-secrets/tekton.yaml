@@ -2,7 +2,7 @@ apiVersion: external-secrets.io/v1
 kind: ExternalSecret
 metadata:
   name: tekton-secret
-  namespace: tekton-pipelines
+  namespace: ci
 spec:
   refreshInterval: 1h
   secretStoreRef:

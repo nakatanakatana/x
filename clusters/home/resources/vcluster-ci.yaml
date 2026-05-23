@@ -27,3 +27,10 @@ spec:
                   tailscale.com/hostname: "vcluster-ci"
             exportKubeConfig:
               server: "https://vcluster.ci.svc.cluster.local:443"
+            sync:
+              fromHost:
+                secrets:
+                  enabled: true
+                  mappings:
+                    byName:
+                      "ci/pipelines-as-code-secret": "tekton-pipelines/pipelines-as-code-secret"

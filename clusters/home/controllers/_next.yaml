@@ -11,6 +11,5 @@ spec:
   path: ./clusters/home/resources
   dependsOn:
     - name: cluster-controllers
-    - name: tekton
   prune: true
   timeout: 1m
