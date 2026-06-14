@@ -34,7 +34,7 @@ spec:
             - containerPort: 8080
       initContainers:
         - name: livesync-bridge
-          image: ghcr.io/nakatanakatana/livesync-bridge:latest@sha256:5459bbf08939084ac3e6ca4200079c462e313266c8e7bf22c95f2e6333d16ee8
+          image: ghcr.io/nakatanakatana/livesync-bridge:latest@sha256:c1794ceb96b39cb20e4d478730df3148b182429fbb861d4876967b09311d366e
           imagePullPolicy: Always
           restartPolicy: Always
           volumeMounts:
