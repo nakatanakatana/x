@@ -22,7 +22,7 @@ spec:
     spec:
       containers:
         - name: obsidian-clippings-feed
-          image: ghcr.io/nakatanakatana/obsidian-clippings-feed:latest@sha256:0cf9f179a8cc2b43de7b75232dfde5f183b899994261c5ee628c7ed2a35ffaee
+          image: ghcr.io/nakatanakatana/obsidian-clippings-feed:latest@sha256:bc9b5bdf43f1f0a13ac913dc908b67fc46896d3ec0027c6dc9b60279d27aeb70
           imagePullPolicy: Always
           env:
             - name: FEED_TARGET_DIR
