@@ -92,7 +92,7 @@ spec:
             - name: NOSTR_BRIDGE_ACCOUNT_DID
               value: did:plc:ndlnnkil3dfa7m7z4tkk2pes
             - name: NOSTR_BRIDGE_BLUESKY_BASE_URL
-              value: https://bsky.social
+              value: https://verpa.us-west.host.bsky.network
             - name: NOSTR_BRIDGE_JETSTREAM_URL
               value: wss://jetstream2.us-east.bsky.network/subscribe
             - name: NOSTR_BRIDGE_LIST_URIS
