@@ -9,7 +9,7 @@ data:
       - path: /var/lib/nostr-relay/relay.db
         replica:
           type: s3
-          endpoint: http://storage:8010
+          endpoint: http://storage.tailscale.svc.cluster.local:8010
           bucket: nostr
           path: relay/relay.db
           sync-interval: 10s
@@ -26,7 +26,7 @@ data:
       - path: /var/lib/nostr-bridge/bridge.db
         replica:
           type: s3
-          endpoint: http://storage:8010
+          endpoint: http://storage.tailscale.svc.cluster.local:8010
           bucket: nostr
           path: bridge/bridge.db
           sync-interval: 10s

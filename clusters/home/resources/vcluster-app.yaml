@@ -28,12 +28,12 @@ spec:
             exportKubeConfig:
               server: "https://vcluster.app.svc.cluster.local:443"
             networking:
+              advanced:
+                fallbackHostCluster: true
               replicateServices:
                 fromHost:
                   - from: couchdb/couchdb-svc-couchdb
                     to: obsidian-clippings-feed/couchdb-svc-couchdb
-                  - from: tailscale/storage
-                    to: nostr/storage
             sync:
               fromHost:
                 secrets:
