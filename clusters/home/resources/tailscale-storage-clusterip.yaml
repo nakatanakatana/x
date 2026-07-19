@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: storage-clusterip
+  namespace: tailscale
+spec:
+  type: ClusterIP
+  selector:
+    tailscale.com/managed: "true"
+    tailscale.com/parent-resource: storage
+    tailscale.com/parent-resource-ns: tailscale
+    tailscale.com/parent-resource-type: svc
+  ports:
+    - name: s3
+      protocol: TCP
+      port: 8010
+      targetPort: 8010
