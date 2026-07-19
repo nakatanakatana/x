@@ -154,8 +154,8 @@ The resulting remote paths match `clusters/home/configs/external-secrets/nostr.y
 - `nostr-bridge/oauth-client-signing-key`
 - `nostr-bridge/oauth-encryption-key`
 
-The storage credentials continue to use the existing `feed-reader-storage/access_key` and `feed-reader-storage/access_secret` values.
-Verify that both fields are already registered in the `k8s` vault.
+The storage credentials use the dedicated `nostr-storage/access_key` and `nostr-storage/access_secret` values.
+Verify that the `nostr-storage` item and both fields are registered in the `k8s` vault.
 
 After registration, explicitly remove the temporary directory and disable the cleanup trap.
 
@@ -170,7 +170,7 @@ unset secret_dir
 Create a `nostr` bucket in the existing S3-compatible storage.
 The relay and bridge Litestream processes use separate prefixes in the same bucket, so changing the bucket name requires updating both Litestream configurations.
 
-Grant the `feed-reader-storage` access key permission to read, write, and list objects in the `nostr` bucket.
+Grant the `nostr-storage` access key permission to read, write, and list objects in the `nostr` bucket.
 Bucket creation commands vary by S3-compatible product; use the corresponding administration CLI or console.
 
 ## Synchronize secrets and authorize OAuth
