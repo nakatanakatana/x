@@ -81,6 +81,8 @@ spec:
               value: private-sqlite
             - name: NOSTR_RELAY_DATABASE_PATH
               value: /var/lib/nostr-relay/relay.db
+            - name: NOSTR_RELAY_MANAGEMENT_PORT
+              value: "8081"
             - name: NOSTR_RELAY_READER_PUBKEYS
               value: 513e9ab3e372f0484fdf7c1cb630fe195c344edc7e275f419c2b62fb9d749252
             - name: NOSTR_RELAY_SERVICE_URL

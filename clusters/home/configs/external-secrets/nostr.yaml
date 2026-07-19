@@ -67,7 +67,7 @@ spec:
   data:
     - secretKey: access-key-id
       remoteRef:
-        key: feed-reader-storage/access_key
+        key: nostr-storage/access_key
     - secretKey: secret-access-key
       remoteRef:
-        key: feed-reader-storage/access_secret
+        key: nostr-storage/access_secret
