@@ -1,0 +1,33 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nostr-relay-litestream
+  namespace: nostr
+data:
+  litestream.yml: |
+    dbs:
+      - path: /var/lib/nostr-relay/relay.db
+        replica:
+          type: s3
+          endpoint: http://storage:8010
+          bucket: nostr
+          path: relay/relay.db
+          sync-interval: 10s
+          sign-payload: true
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nostr-bridge-litestream
+  namespace: nostr
+data:
+  litestream.yml: |
+    dbs:
+      - path: /var/lib/nostr-bridge/bridge.db
+        replica:
+          type: s3
+          endpoint: http://storage:8010
+          bucket: nostr
+          path: bridge/bridge.db
+          sync-interval: 10s
+          sign-payload: true
