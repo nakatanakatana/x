@@ -1,0 +1,73 @@
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: nostr-config
+  namespace: app
+spec:
+  refreshInterval: 60m
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: 1password-sdk
+  target:
+    name: nostr-config
+    creationPolicy: Owner
+    template:
+      data:
+        relay-service-url: "https://nostr-relay.{{ .tailnetDomain }}"
+        relay-websocket-url: "wss://nostr-relay.{{ .tailnetDomain }}"
+        bridge-callback-url: "https://nostr-bridge.{{ .tailnetDomain }}/oauth/callback"
+  data:
+    - secretKey: tailnetDomain
+      remoteRef:
+        key: nostr-bridge/tailnet-domain
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: nostr-credentials
+  namespace: app
+spec:
+  refreshInterval: 60m
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: 1password-sdk
+  target:
+    name: nostr-credentials
+    creationPolicy: Owner
+  data:
+    - secretKey: relay-admin-private-key
+      remoteRef:
+        key: nostr-bridge/relay-admin-private-key
+    - secretKey: relay-admin-public-key
+      remoteRef:
+        key: nostr-bridge/relay-admin-public-key
+    - secretKey: master-seed
+      remoteRef:
+        key: nostr-bridge/master-seed
+    - secretKey: oauth-client-signing-key
+      remoteRef:
+        key: nostr-bridge/oauth-client-signing-key
+    - secretKey: oauth-encryption-key
+      remoteRef:
+        key: nostr-bridge/oauth-encryption-key
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: nostr-storage
+  namespace: app
+spec:
+  refreshInterval: 60m
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: 1password-sdk
+  target:
+    name: nostr-storage
+    creationPolicy: Owner
+  data:
+    - secretKey: access-key-id
+      remoteRef:
+        key: feed-reader-storage/access_key
+    - secretKey: secret-access-key
+      remoteRef:
+        key: feed-reader-storage/access_secret

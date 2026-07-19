@@ -1,0 +1,248 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: nostr-bridge-data
+  namespace: nostr
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+  storageClassName: rook-ceph-block
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nostr-bridge
+  namespace: nostr
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: nostr-bridge
+  template:
+    metadata:
+      labels:
+        app: nostr-bridge
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        fsGroup: 65532
+        runAsNonRoot: true
+        runAsGroup: 65532
+        runAsUser: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      initContainers:
+        - name: init-litestream
+          image: litestream/litestream:0.5.14@sha256:ef0ac5958cf81725b7a85fb76f82ef71ace030db9429086eeefc59ee6ca53941
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+          args:
+            - restore
+            - -if-db-not-exists
+            - -if-replica-exists
+            - /var/lib/nostr-bridge/bridge.db
+          env:
+            - name: LITESTREAM_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: nostr-storage
+                  key: access-key-id
+            - name: LITESTREAM_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: nostr-storage
+                  key: secret-access-key
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/nostr-bridge
+            - name: litestream-config
+              mountPath: /etc/litestream.yml
+              subPath: litestream.yml
+      containers:
+        - name: nostr-bridge
+          image: ghcr.io/nakatanakatana/nostr-bridge:0.5.0@sha256:391b9603f5fc24e578b02560d7b7ec14b6e8fc67ce3f9d8e68b36f4ad7f05be7
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+          env:
+            - name: NOSTR_BRIDGE_HOST
+              value: 0.0.0.0
+            - name: NOSTR_BRIDGE_PORT
+              value: "8080"
+            - name: NOSTR_BRIDGE_DATABASE_PATH
+              value: /var/lib/nostr-bridge/bridge.db
+            - name: NOSTR_BRIDGE_RELAY_MANAGEMENT_URL
+              value: http://nostr-relay-management:8081
+            - name: NOSTR_BRIDGE_OAUTH_AUTHORIZATION_SERVER_URL
+              value: https://bsky.social
+            - name: NOSTR_BRIDGE_OAUTH_CLIENT_ID
+              value: https://nostr-bridge.nakatanakatana.app/oauth/client-metadata.json
+            - name: NOSTR_BRIDGE_ACCOUNT_DID
+              value: did:plc:ndlnnkil3dfa7m7z4tkk2pes
+            - name: NOSTR_BRIDGE_BLUESKY_BASE_URL
+              value: https://bsky.social
+            - name: NOSTR_BRIDGE_JETSTREAM_URL
+              value: wss://jetstream2.us-east.bsky.network/subscribe
+            - name: NOSTR_BRIDGE_LIST_URIS
+              value: at://did:plc:ndlnnkil3dfa7m7z4tkk2pes/app.bsky.graph.list/3kkzs3w53n524
+            - name: NOSTR_BRIDGE_RELAY_URL
+              valueFrom:
+                secretKeyRef:
+                  name: nostr-config
+                  key: relay-websocket-url
+            - name: NOSTR_BRIDGE_RELAY_CANONICAL_URL
+              valueFrom:
+                secretKeyRef:
+                  name: nostr-config
+                  key: relay-service-url
+            - name: NOSTR_BRIDGE_OAUTH_CALLBACK_URL
+              valueFrom:
+                secretKeyRef:
+                  name: nostr-config
+                  key: bridge-callback-url
+            - name: NOSTR_BRIDGE_RELAY_ADMIN_PRIVATE_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: nostr-credentials
+                  key: relay-admin-private-key
+            - name: NOSTR_BRIDGE_MASTER_SEED
+              valueFrom:
+                secretKeyRef:
+                  name: nostr-credentials
+                  key: master-seed
+            - name: NOSTR_BRIDGE_OAUTH_CLIENT_SIGNING_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: nostr-credentials
+                  key: oauth-client-signing-key
+            - name: NOSTR_BRIDGE_OAUTH_ENCRYPTION_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: nostr-credentials
+                  key: oauth-encryption-key
+          ports:
+            - name: http
+              containerPort: 8080
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/nostr-bridge
+            - name: tmp
+              mountPath: /tmp
+        - name: litestream
+          image: litestream/litestream:0.5.14@sha256:ef0ac5958cf81725b7a85fb76f82ef71ace030db9429086eeefc59ee6ca53941
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+          args:
+            - replicate
+          env:
+            - name: LITESTREAM_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: nostr-storage
+                  key: access-key-id
+            - name: LITESTREAM_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: nostr-storage
+                  key: secret-access-key
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/nostr-bridge
+            - name: litestream-config
+              mountPath: /etc/litestream.yml
+              subPath: litestream.yml
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: nostr-bridge-data
+        - name: tmp
+          emptyDir: {}
+        - name: litestream-config
+          configMap:
+            name: nostr-bridge-litestream
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nostr-bridge
+  namespace: nostr
+spec:
+  publishNotReadyAddresses: true
+  selector:
+    app: nostr-bridge
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: nostr-bridge
+  namespace: nostr
+spec:
+  ingressClassName: tailscale
+  tls:
+    - hosts:
+        - nostr-bridge
+  rules:
+    - host: nostr-bridge
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: nostr-bridge
+                port:
+                  number: 8080
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: nostr-bridge-cloudflare
+  namespace: nostr
+spec:
+  ingressClassName: cloudflare-tunnel
+  rules:
+    - host: nostr-bridge.nakatanakatana.app
+      http:
+        paths:
+          - path: /oauth/client-metadata.json
+            pathType: Exact
+            backend:
+              service:
+                name: nostr-bridge
+                port:
+                  number: 8080
+          - path: /oauth/jwks
+            pathType: Exact
+            backend:
+              service:
+                name: nostr-bridge
+                port:
+                  number: 8080

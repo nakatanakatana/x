@@ -32,6 +32,8 @@ spec:
                 fromHost:
                   - from: couchdb/couchdb-svc-couchdb
                     to: obsidian-clippings-feed/couchdb-svc-couchdb
+                  - from: tailscale/storage
+                    to: nostr/storage
             sync:
               fromHost:
                 secrets:
@@ -39,3 +41,6 @@ spec:
                   mappings:
                     byName:
                       "app/obsidian-secret": "obsidian-clippings-feed/obsidian-secret"
+                      "app/nostr-config": "nostr/nostr-config"
+                      "app/nostr-credentials": "nostr/nostr-credentials"
+                      "app/nostr-storage": "nostr/nostr-storage"
