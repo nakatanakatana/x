@@ -3,7 +3,9 @@ kind: Component
 namespace: rook-ceph
 resources:
   - repository.yaml
+  - csi-repository.yaml
   - release.yaml
+  - csi-release.yaml
 configMapGenerator:
   - name: rook-ceph
     files:
