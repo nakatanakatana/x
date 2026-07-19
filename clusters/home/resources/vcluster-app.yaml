@@ -28,6 +28,8 @@ spec:
             exportKubeConfig:
               server: "https://vcluster.app.svc.cluster.local:443"
             networking:
+              advanced:
+                fallbackHostCluster: true
               replicateServices:
                 fromHost:
                   - from: couchdb/couchdb-svc-couchdb
