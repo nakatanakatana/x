@@ -3,6 +3,26 @@
 These instructions assume an administrative workstation with `openssl`, `jq`, the 1Password CLI (`op`), and `kubectl` installed.
 Sign in to `op` with an account that can read and write the `k8s` vault before proceeding.
 
+## Register the Mastodon OAuth application
+
+Create an application in the developer settings for the `nakatanakatana@mstdn.jp` account on `mstdn.jp`.
+Use these values:
+
+- Application name: `nostr-bridge`
+- Redirect URI: `https://nostr-bridge.nakatanakatana.app/oauth/mastodon/callback`
+
+Request these scopes:
+
+- `profile`
+- `read:accounts`
+- `read:follows`
+- `read:lists`
+- `read:statuses`
+- `read:notifications`
+
+Record the Client ID and Client Secret.
+The configured Client ID is `8arEwiI-CnRtHSukPgRc1yPz9EnZ54Qde4ibc2WTH6Q`; store the Client Secret only in 1Password.
+
 ## Generate secrets
 
 Run the following shell commands in a single session.
@@ -14,9 +34,15 @@ umask 077
 secret_dir=$(mktemp -d)
 trap 'rm -rf -- "$secret_dir"' EXIT HUP INT TERM
 
-# Both values decode to seeds that are exactly 32 bytes long.
+# All three values decode to secrets that are exactly 32 bytes long.
 openssl rand -base64 32 >"$secret_dir/master-seed"
 openssl rand -base64 32 >"$secret_dir/oauth-encryption-key"
+openssl rand -base64 32 >"$secret_dir/mastodon-oauth-encryption-key"
+
+read -r -s -p 'Mastodon OAuth client secret: ' MASTODON_OAUTH_CLIENT_SECRET
+printf '\n'
+printf '%s' "$MASTODON_OAUTH_CLIENT_SECRET" >"$secret_dir/mastodon-oauth-client-secret"
+unset MASTODON_OAUTH_CLIENT_SECRET
 
 # Convert a P-256 private key to PKCS#8 DER and store it as single-line base64.
 openssl genpkey \
@@ -66,6 +92,8 @@ tail -c 64 "$secret_dir/relay-admin-public.der" |
 # Validate the generated formats without printing the secret values.
 test "$(openssl base64 -d -A -in "$secret_dir/master-seed" | wc -c)" -eq 32
 test "$(openssl base64 -d -A -in "$secret_dir/oauth-encryption-key" | wc -c)" -eq 32
+test "$(openssl base64 -d -A -in "$secret_dir/mastodon-oauth-encryption-key" | wc -c)" -eq 32
+test -s "$secret_dir/mastodon-oauth-client-secret"
 test "$(wc -c <"$secret_dir/relay-admin-private-key")" -eq 64
 test "$(wc -c <"$secret_dir/relay-admin-public-key")" -eq 64
 openssl pkey \
@@ -105,6 +133,8 @@ jq \
   --rawfile master "$secret_dir/master-seed" \
   --rawfile signing "$secret_dir/oauth-client-signing-key" \
   --rawfile encryption "$secret_dir/oauth-encryption-key" \
+  --rawfile mastodon_client_secret "$secret_dir/mastodon-oauth-client-secret" \
+  --rawfile mastodon_encryption "$secret_dir/mastodon-oauth-encryption-key" \
   '
     def put($label; $value):
       .fields = ((.fields // []) as $fields
@@ -129,6 +159,8 @@ jq \
     | put("master-seed"; $master)
     | put("oauth-client-signing-key"; $signing)
     | put("oauth-encryption-key"; $encryption)
+    | put("mastodon-oauth-client-secret"; $mastodon_client_secret)
+    | put("mastodon-oauth-encryption-key"; $mastodon_encryption)
   ' "$secret_dir/nostr-bridge-item.json" \
   >"$secret_dir/nostr-bridge-item.updated.json"
 
@@ -153,6 +185,8 @@ The resulting remote paths match `clusters/home/configs/external-secrets/nostr.y
 - `nostr-bridge/master-seed`
 - `nostr-bridge/oauth-client-signing-key`
 - `nostr-bridge/oauth-encryption-key`
+- `nostr-bridge/mastodon-oauth-client-secret`
+- `nostr-bridge/mastodon-oauth-encryption-key`
 
 The storage credentials use the dedicated `nostr-storage/access_key` and `nostr-storage/access_secret` values.
 Verify that the `nostr-storage` item and both fields are registered in the `k8s` vault.
@@ -230,3 +264,46 @@ After establishing the OAuth connection, verify the bridge rollout and Pod readi
 kubectl -n nostr rollout status deployment/nostr-bridge --timeout=5m
 kubectl -n nostr get pods
 ```
+
+## Authorize Mastodon
+
+After the Mastodon configuration and ExternalSecret changes have reconciled, verify that the new keys exist without printing their values.
+
+```bash
+kubectl -n app get externalsecret nostr-config nostr-credentials
+kubectl -n app get secret nostr-config nostr-credentials
+```
+
+From within the tailnet, start Mastodon OAuth authorization.
+`/oauth/mastodon/start` accepts only `POST` requests and must not be exposed through the Cloudflare Ingress.
+
+```bash
+authorization_url=$(
+  curl --fail --silent --show-error \
+    --request POST \
+    "https://nostr-bridge.<tailnet-domain>/oauth/mastodon/start" |
+    jq -er '.authorization_url | select(type == "string" and length > 0)'
+)
+printf '%s\n' "$authorization_url"
+```
+
+Open the displayed URL in a browser, sign in to `mstdn.jp` as `nakatanakatana@mstdn.jp`, and grant access.
+The public callback is `https://nostr-bridge.nakatanakatana.app/oauth/mastodon/callback`.
+Authorization is rejected if the authenticated account does not match `nakatanakatana@mstdn.jp`.
+After passing the URL to the browser, run `unset authorization_url`.
+
+Verify health, readiness, and metrics through the Tailscale Ingress, then inspect the bridge logs.
+
+```bash
+curl --fail --silent --show-error \
+  "https://nostr-bridge.<tailnet-domain>/healthz" >/dev/null
+curl --fail --silent --show-error \
+  "https://nostr-bridge.<tailnet-domain>/readyz" >/dev/null
+curl --fail --silent --show-error \
+  "https://nostr-bridge.<tailnet-domain>/metrics" >/dev/null
+kubectl -n nostr logs deployment/nostr-bridge -c nostr-bridge --follow
+```
+
+Confirm that authentication, initial reconciliation, and streaming succeed, and that the outbox does not remain at its limit.
+Investigate repeated `authentication failed` or `initial reconciliation failed` messages.
+Only public Mastodon posts are bridged; boosts, unlisted, private, and direct posts are excluded.
