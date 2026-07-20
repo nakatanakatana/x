@@ -20,7 +20,7 @@ image:
   repository: cr.strrl.dev/strrl/cloudflare-tunnel-ingress-controller
   pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart appVersion.
-  tag: "latest@sha256:9fb26163f6cca96f860018ff3791d56f5e2a8a92eacbfc741fad7c0d9a911997"
+  tag: "0.0.24@sha256:e67e2307218dd41bd9131479f5028c1affdfe5739214245b2338ef0be0125a61"
 
 imagePullSecrets: []
 nameOverride: ""
