@@ -218,7 +218,8 @@ Open the displayed authorization URL in a browser connected to Tailscale.
 Authorize `nakatanakatana.dev` on the Bluesky authorization page and verify that the `/oauth/bluesky/callback` callback reports success.
 After passing the URL to the browser, run `unset authorization_url` so the value does not remain in the shell environment.
 Run `/oauth/bluesky/start` only through the Tailscale Ingress.
-The Cloudflare Ingress exposes only `/oauth/bluesky/client-metadata.json` and `/oauth/bluesky/jwks`; it does not expose the authorization start or callback endpoints.
+The Cloudflare Ingress exposes `/oauth/bluesky/callback`, `/oauth/bluesky/client-metadata.json`, and `/oauth/bluesky/jwks`; it does not expose the authorization start endpoint.
+The callback and client metadata URLs must use the same public origin, `https://nostr-bridge.nakatanakatana.app`.
 
 When migrating from a bridge release that used the generic OAuth routes, complete Bluesky authorization again after deployment.
 The migration adds an RPC scope, so refreshing the existing token is not sufficient.
