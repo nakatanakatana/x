@@ -15,7 +15,7 @@ spec:
       data:
         relay-service-url: "https://nostr-relay.{{ .tailnetDomain }}"
         relay-websocket-url: "wss://nostr-relay.{{ .tailnetDomain }}"
-        bridge-callback-url: "https://nostr-bridge.{{ .tailnetDomain }}/oauth/bluesky/callback"
+        bridge-callback-url: "https://nostr-bridge.nakatanakatana.app/oauth/bluesky/callback"
   data:
     - secretKey: tailnetDomain
       remoteRef:
