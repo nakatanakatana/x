@@ -16,6 +16,7 @@ spec:
         relay-service-url: "https://nostr-relay.{{ .tailnetDomain }}"
         relay-websocket-url: "wss://nostr-relay.{{ .tailnetDomain }}"
         bridge-callback-url: "https://nostr-bridge.nakatanakatana.app/oauth/bluesky/callback"
+        mastodon-callback-url: "https://nostr-bridge.nakatanakatana.app/oauth/mastodon/callback"
   data:
     - secretKey: tailnetDomain
       remoteRef:
@@ -50,6 +51,12 @@ spec:
     - secretKey: oauth-encryption-key
       remoteRef:
         key: nostr-bridge/oauth-encryption-key
+    - secretKey: mastodon-oauth-client-secret
+      remoteRef:
+        key: nostr-bridge/mastodon-oauth-client-secret
+    - secretKey: mastodon-oauth-encryption-key
+      remoteRef:
+        key: nostr-bridge/mastodon-oauth-encryption-key
 ---
 apiVersion: external-secrets.io/v1
 kind: ExternalSecret

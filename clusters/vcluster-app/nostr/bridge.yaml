@@ -131,6 +131,27 @@ spec:
                 secretKeyRef:
                   name: nostr-credentials
                   key: oauth-encryption-key
+            - name: NOSTR_BRIDGE_MASTODON_BASE_URL
+              value: https://mstdn.jp
+            - name: NOSTR_BRIDGE_MASTODON_ACCOUNT
+              value: nakatanakatana@mstdn.jp
+            - name: NOSTR_BRIDGE_MASTODON_OAUTH_CALLBACK_URL
+              valueFrom:
+                secretKeyRef:
+                  name: nostr-config
+                  key: mastodon-callback-url
+            - name: NOSTR_BRIDGE_MASTODON_OAUTH_CLIENT_ID
+              value: 8arEwiI-CnRtHSukPgRc1yPz9EnZ54Qde4ibc2WTH6Q
+            - name: NOSTR_BRIDGE_MASTODON_OAUTH_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: nostr-credentials
+                  key: mastodon-oauth-client-secret
+            - name: NOSTR_BRIDGE_MASTODON_OAUTH_ENCRYPTION_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: nostr-credentials
+                  key: mastodon-oauth-encryption-key
           ports:
             - name: http
               containerPort: 8080
@@ -231,6 +252,13 @@ spec:
     - host: nostr-bridge.nakatanakatana.app
       http:
         paths:
+          - path: /oauth/mastodon/callback
+            pathType: Prefix
+            backend:
+              service:
+                name: nostr-bridge
+                port:
+                  number: 8080
           - path: /oauth/bluesky/callback
             pathType: Prefix
             backend:
