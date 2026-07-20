@@ -1,0 +1,201 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: nostr-relay-data
+  namespace: nostr
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+  storageClassName: rook-ceph-block
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nostr-relay
+  namespace: nostr
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: nostr-relay
+  template:
+    metadata:
+      labels:
+        app: nostr-relay
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        fsGroup: 65532
+        runAsNonRoot: true
+        runAsGroup: 65532
+        runAsUser: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      initContainers:
+        - name: init-litestream
+          image: litestream/litestream:0.5.14@sha256:ef0ac5958cf81725b7a85fb76f82ef71ace030db9429086eeefc59ee6ca53941
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+          args:
+            - restore
+            - -if-db-not-exists
+            - -if-replica-exists
+            - /var/lib/nostr-relay/relay.db
+          env:
+            - name: LITESTREAM_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: nostr-storage
+                  key: access-key-id
+            - name: LITESTREAM_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: nostr-storage
+                  key: secret-access-key
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/nostr-relay
+            - name: litestream-config
+              mountPath: /etc/litestream.yml
+              subPath: litestream.yml
+      containers:
+        - name: nostr-relay
+          image: ghcr.io/nakatanakatana/nostr-relay:0.5.4@sha256:ad2914245effacac3410779e0ed56a3e176a32f2e794ad2b442ab1abbf9758e3
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+          env:
+            - name: NOSTR_RELAY_MODE
+              value: private-sqlite
+            - name: NOSTR_RELAY_DATABASE_PATH
+              value: /var/lib/nostr-relay/relay.db
+            - name: NOSTR_RELAY_MANAGEMENT_PORT
+              value: "8081"
+            - name: NOSTR_RELAY_READER_PUBKEYS
+              value: 513e9ab3e372f0484fdf7c1cb630fe195c344edc7e275f419c2b62fb9d749252
+            - name: NOSTR_RELAY_SERVICE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: nostr-config
+                  key: relay-service-url
+            - name: NOSTR_RELAY_ADMIN_PUBKEY
+              valueFrom:
+                secretKeyRef:
+                  name: nostr-credentials
+                  key: relay-admin-public-key
+          ports:
+            - name: protocol
+              containerPort: 8080
+            - name: management
+              containerPort: 8081
+          readinessProbe:
+            httpGet:
+              path: /
+              port: protocol
+              httpHeaders:
+                - name: Accept
+                  value: application/nostr+json
+          livenessProbe:
+            tcpSocket:
+              port: protocol
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/nostr-relay
+            - name: tmp
+              mountPath: /tmp
+        - name: litestream
+          image: litestream/litestream:0.5.14@sha256:ef0ac5958cf81725b7a85fb76f82ef71ace030db9429086eeefc59ee6ca53941
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+          args:
+            - replicate
+          env:
+            - name: LITESTREAM_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: nostr-storage
+                  key: access-key-id
+            - name: LITESTREAM_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: nostr-storage
+                  key: secret-access-key
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/nostr-relay
+            - name: litestream-config
+              mountPath: /etc/litestream.yml
+              subPath: litestream.yml
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: nostr-relay-data
+        - name: tmp
+          emptyDir: {}
+        - name: litestream-config
+          configMap:
+            name: nostr-relay-litestream
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nostr-relay-protocol
+  namespace: nostr
+spec:
+  selector:
+    app: nostr-relay
+  ports:
+    - name: protocol
+      port: 8080
+      targetPort: protocol
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nostr-relay-management
+  namespace: nostr
+spec:
+  selector:
+    app: nostr-relay
+  ports:
+    - name: management
+      port: 8081
+      targetPort: management
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: nostr-relay
+  namespace: nostr
+spec:
+  ingressClassName: tailscale
+  tls:
+    - hosts:
+        - nostr-relay
+  rules:
+    - host: nostr-relay
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: nostr-relay-protocol
+                port:
+                  number: 8080
