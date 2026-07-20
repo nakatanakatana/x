@@ -69,7 +69,7 @@ spec:
               subPath: litestream.yml
       containers:
         - name: nostr-bridge
-          image: ghcr.io/nakatanakatana/nostr-bridge:0.5.5@sha256:e4483927f4ecd067420b556805314d4b6bedf772fb190587f20644e624bc1405
+          image: ghcr.io/nakatanakatana/nostr-bridge:0.6.0@sha256:b29aa0dc60703c03089644d72975e5b35f88f69502b2438280eb5a85f5f95e63
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
@@ -85,17 +85,19 @@ spec:
               value: /var/lib/nostr-bridge/bridge.db
             - name: NOSTR_BRIDGE_RELAY_MANAGEMENT_URL
               value: http://nostr-relay-management:8081
-            - name: NOSTR_BRIDGE_OAUTH_AUTHORIZATION_SERVER_URL
+            - name: NOSTR_BRIDGE_OWNER_ID
+              value: nakatanakatana-bridge
+            - name: NOSTR_BRIDGE_BLUESKY_OAUTH_AUTHORIZATION_SERVER_URL
               value: https://bsky.social
-            - name: NOSTR_BRIDGE_OAUTH_CLIENT_ID
-              value: https://nostr-bridge.nakatanakatana.app/oauth/client-metadata.json
-            - name: NOSTR_BRIDGE_ACCOUNT_DID
+            - name: NOSTR_BRIDGE_BLUESKY_OAUTH_CLIENT_ID
+              value: https://nostr-bridge.nakatanakatana.app/oauth/bluesky/client-metadata.json
+            - name: NOSTR_BRIDGE_BLUESKY_ACCOUNT_DID
               value: did:plc:ndlnnkil3dfa7m7z4tkk2pes
             - name: NOSTR_BRIDGE_BLUESKY_BASE_URL
               value: https://verpa.us-west.host.bsky.network
-            - name: NOSTR_BRIDGE_JETSTREAM_URL
+            - name: NOSTR_BRIDGE_BLUESKY_JETSTREAM_URL
               value: wss://jetstream2.us-east.bsky.network/subscribe
-            - name: NOSTR_BRIDGE_LIST_URIS
+            - name: NOSTR_BRIDGE_BLUESKY_LIST_URIS
               value: at://did:plc:ndlnnkil3dfa7m7z4tkk2pes/app.bsky.graph.list/3kkzs3w53n524
             - name: NOSTR_BRIDGE_RELAY_URL
               value: ws://nostr-relay-protocol:8080
@@ -104,7 +106,7 @@ spec:
                 secretKeyRef:
                   name: nostr-config
                   key: relay-service-url
-            - name: NOSTR_BRIDGE_OAUTH_CALLBACK_URL
+            - name: NOSTR_BRIDGE_BLUESKY_OAUTH_CALLBACK_URL
               valueFrom:
                 secretKeyRef:
                   name: nostr-config
@@ -119,12 +121,12 @@ spec:
                 secretKeyRef:
                   name: nostr-credentials
                   key: master-seed
-            - name: NOSTR_BRIDGE_OAUTH_CLIENT_SIGNING_KEY
+            - name: NOSTR_BRIDGE_BLUESKY_OAUTH_CLIENT_SIGNING_KEY
               valueFrom:
                 secretKeyRef:
                   name: nostr-credentials
                   key: oauth-client-signing-key
-            - name: NOSTR_BRIDGE_OAUTH_ENCRYPTION_KEY
+            - name: NOSTR_BRIDGE_BLUESKY_OAUTH_ENCRYPTION_KEY
               valueFrom:
                 secretKeyRef:
                   name: nostr-credentials
@@ -229,14 +231,14 @@ spec:
     - host: nostr-bridge.nakatanakatana.app
       http:
         paths:
-          - path: /oauth/client-metadata.json
+          - path: /oauth/bluesky/client-metadata.json
             pathType: Prefix
             backend:
               service:
                 name: nostr-bridge
                 port:
                   number: 8080
-          - path: /oauth/jwks
+          - path: /oauth/bluesky/jwks
             pathType: Prefix
             backend:
               service:

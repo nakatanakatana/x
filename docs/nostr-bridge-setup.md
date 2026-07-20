@@ -198,8 +198,8 @@ curl --fail --silent --show-error \
   "https://nostr-bridge.<tailnet-domain>/healthz" >/dev/null
 ```
 
-After confirming the relay and bridge process health, start OAuth authorization from within the tailnet.
-`/oauth/start` accepts only `POST` requests and requires the target handle as JSON.
+After confirming the relay and bridge process health, start Bluesky OAuth authorization from within the tailnet.
+`/oauth/bluesky/start` accepts only `POST` requests and requires the target handle as JSON.
 Do not save the complete response to a file; extract only the non-empty authorization URL into a shell variable.
 
 ```bash
@@ -208,16 +208,20 @@ authorization_url=$(
     --request POST \
     --header 'Content-Type: application/json' \
     --data '{"handle":"nakatanakatana.dev"}' \
-    "https://nostr-bridge.<tailnet-domain>/oauth/start" |
+    "https://nostr-bridge.<tailnet-domain>/oauth/bluesky/start" |
     jq -er '.authorization_url | select(type == "string" and length > 0)'
 )
 printf '%s\n' "$authorization_url"
 ```
 
 Open the displayed authorization URL in a browser connected to Tailscale.
-Authorize `nakatanakatana.dev` on the Bluesky authorization page and verify that the callback reports success.
+Authorize `nakatanakatana.dev` on the Bluesky authorization page and verify that the `/oauth/bluesky/callback` callback reports success.
 After passing the URL to the browser, run `unset authorization_url` so the value does not remain in the shell environment.
-Run `/oauth/start` only through the Tailscale Ingress; do not confuse it with the publicly exposed OAuth metadata and JWKS endpoints.
+Run `/oauth/bluesky/start` only through the Tailscale Ingress.
+The Cloudflare Ingress exposes only `/oauth/bluesky/client-metadata.json` and `/oauth/bluesky/jwks`; it does not expose the authorization start or callback endpoints.
+
+When migrating from a bridge release that used the generic OAuth routes, complete Bluesky authorization again after deployment.
+The migration adds an RPC scope, so refreshing the existing token is not sufficient.
 
 After establishing the OAuth connection, verify the bridge rollout and Pod readiness.
 
