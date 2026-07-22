@@ -1,7 +1,7 @@
 apiVersion: kustomize.config.k8s.io/v1alpha1
 kind: Component
 resources:
-  - https://github.com/tektoncd/pipeline/releases/download/v1.14.0/release.yaml
+  - https://github.com/tektoncd/pipeline/releases/download/v1.14.1/release.yaml
   - https://github.com/tektoncd/pipelines-as-code/releases/download/v0.49.0/release.k8s.yaml
   - https://github.com/tektoncd/dashboard/releases/download/v0.70.0/release.yaml
 
