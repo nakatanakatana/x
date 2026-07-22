@@ -38,7 +38,7 @@ spec:
           type: RuntimeDefault
       initContainers:
         - name: init-litestream
-          image: litestream/litestream:0.5.14@sha256:ef0ac5958cf81725b7a85fb76f82ef71ace030db9429086eeefc59ee6ca53941
+          image: litestream/litestream:0.5.15@sha256:f45ca298a567bef6edd23d43429b5f80721473a9a9719e467f11d7888999403e
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
@@ -169,7 +169,7 @@ spec:
             - name: tmp
               mountPath: /tmp
         - name: litestream
-          image: litestream/litestream:0.5.14@sha256:ef0ac5958cf81725b7a85fb76f82ef71ace030db9429086eeefc59ee6ca53941
+          image: litestream/litestream:0.5.15@sha256:f45ca298a567bef6edd23d43429b5f80721473a9a9719e467f11d7888999403e
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
