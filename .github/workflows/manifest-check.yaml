@@ -35,11 +35,16 @@ jobs:
           sudo mv kubeconform /usr/local/bin/
           rm kubeconform-linux-amd64.tar.gz
 
+      - name: Copy Render Script to Temporary Location
+        run: |
+          cp .github/scripts/render-manifests.py /tmp/render-manifests.py
+          chmod +x /tmp/render-manifests.py
+
       - name: Render PR Manifests with official Flux & Helm CLI
         id: render-pr
         run: |
           mkdir -p /tmp/manifests
-          python3 .github/scripts/render-manifests.py /tmp/manifests/pr-rendered.yaml
+          python3 /tmp/render-manifests.py /tmp/manifests/pr-rendered.yaml
           
           # Run schema validation using Kubeconform
           echo "=== Running Kubeconform Schema Validation ==="
@@ -54,7 +59,7 @@ jobs:
         id: render-base
         run: |
           mkdir -p /tmp/manifests
-          python3 .github/scripts/render-manifests.py /tmp/manifests/base-rendered.yaml
+          python3 /tmp/render-manifests.py /tmp/manifests/base-rendered.yaml
 
       - name: Calculate Manifest Diff
         id: diff
