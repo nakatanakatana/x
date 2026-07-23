@@ -2,7 +2,7 @@ apiVersion: external-secrets.io/v1
 kind: ExternalSecret
 metadata:
   name: feed-reader-storage
-  namespace: feed-reader
+  namespace: app
 spec:
   refreshInterval: 60m
   secretStoreRef:
