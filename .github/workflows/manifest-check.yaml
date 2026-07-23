@@ -26,33 +26,103 @@ jobs:
       - name: Setup Flux CLI
         uses: fluxcd/flux2/action@main
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.x'
-
-      - name: Install flux-local & Kubeconform
+      - name: Setup Kubeconform
         run: |
-          pip install flux-local
-          
           KUBECONFORM_VERSION="v0.6.7"
           curl -sLO "https://github.com/yannh/kubeconform/releases/download/${KUBECONFORM_VERSION}/kubeconform-linux-amd64.tar.gz"
           tar xf kubeconform-linux-amd64.tar.gz
           sudo mv kubeconform /usr/local/bin/
           rm kubeconform-linux-amd64.tar.gz
 
-      - name: Build PR Manifests with flux-local & Run Kubeconform Lint
+      - name: Render PR Manifests with official Flux & Helm CLI
         id: render-pr
         run: |
           mkdir -p /tmp/manifests
           
-          # Render all manifests including expanded Helm charts per cluster
-          find clusters -mindepth 1 -maxdepth 1 -type d | sort | while read -r cluster; do
-            echo "# Cluster: $cluster"
-            flux-local build all "$cluster" || true
-            echo "---"
-          done > /tmp/manifests/pr-rendered.yaml
-          
+          python3 -c '
+import os, subprocess, yaml
+
+def render_all(output_file):
+    manifests = []
+    helm_repos = {}
+    helm_releases = []
+
+    # 1. Run flux build on all Kustomizations
+    for root, dirs, files in os.walk("clusters"):
+        for f in files:
+            if f.endswith(".yaml") or f.endswith(".yml"):
+                p = os.path.join(root, f)
+                try:
+                    with open(p) as fp:
+                        content = fp.read()
+                        if "kind: Kustomization" in content and "kustomize.toolkit.fluxcd.io" in content:
+                            dir_path = os.path.dirname(p)
+                            cmd = ["flux", "build", "kustomization", os.path.basename(dir_path), "--path", dir_path, "--dry-run"]
+                            res = subprocess.run(cmd, capture_output=True, text=True)
+                            if res.returncode == 0 and res.stdout.strip():
+                                manifests.append(res.stdout.strip())
+                except Exception:
+                    pass
+
+    full_yaml = "\n---\n".join(manifests)
+    try:
+        docs = list(yaml.safe_load_all(full_yaml))
+    except Exception:
+        docs = []
+
+    clean_manifests = []
+    for d in docs:
+        if not isinstance(d, dict):
+            continue
+        kind = d.get("kind")
+        if kind == "HelmRepository":
+            name = d.get("metadata", {}).get("name")
+            url = d.get("spec", {}).get("url")
+            if name and url:
+                helm_repos[name] = url
+        elif kind == "HelmRelease":
+            helm_releases.append(d)
+        else:
+            clean_manifests.append(yaml.dump(d))
+
+    for r_name, r_url in helm_repos.items():
+        subprocess.run(["helm", "repo", "add", r_name, r_url], capture_output=True)
+    if helm_repos:
+        subprocess.run(["helm", "repo", "update"], capture_output=True)
+
+    for hr in helm_releases:
+        hr_name = hr.get("metadata", {}).get("name", "release")
+        hr_ns = hr.get("metadata", {}).get("namespace", "default")
+        chart_spec = hr.get("spec", {}).get("chart", {}).get("spec", {})
+        chart_name = chart_spec.get("chart")
+        chart_version = chart_spec.get("version")
+        source_ref = chart_spec.get("sourceRef", {}).get("name")
+        values = hr.get("spec", {}).get("values", {})
+
+        if chart_name and source_ref in helm_repos:
+            repo_chart = f"{source_ref}/{chart_name}"
+            cmd = ["helm", "template", hr_name, repo_chart, "--namespace", hr_ns]
+            if chart_version:
+                cmd.extend(["--version", chart_version])
+            if values:
+                val_file = f"/tmp/values_{hr_name}.yaml"
+                with open(val_file, "w") as vf:
+                    yaml.dump(values, vf)
+                cmd.extend(["-f", val_file])
+            res = subprocess.run(cmd, capture_output=True, text=True)
+            if res.returncode == 0 and res.stdout.strip():
+                clean_manifests.append(res.stdout.strip())
+            else:
+                clean_manifests.append(yaml.dump(hr))
+        else:
+            clean_manifests.append(yaml.dump(hr))
+
+    with open(output_file, "w") as out:
+        out.write("\n---\n".join(clean_manifests))
+
+render_all("/tmp/manifests/pr-rendered.yaml")
+'
+
           # Run schema validation using Kubeconform
           echo "=== Running Kubeconform Schema Validation ==="
           cat /tmp/manifests/pr-rendered.yaml | kubeconform -strict -ignore-missing-schemas -summary
@@ -62,15 +132,93 @@ jobs:
         with:
           ref: ${{ github.base_ref }}
 
-      - name: Build Base Manifests with flux-local
+      - name: Render Base Manifests with official Flux & Helm CLI
         id: render-base
         run: |
           mkdir -p /tmp/manifests
-          find clusters -mindepth 1 -maxdepth 1 -type d | sort | while read -r cluster; do
-            echo "# Cluster: $cluster"
-            flux-local build all "$cluster" || true
-            echo "---"
-          done > /tmp/manifests/base-rendered.yaml
+          
+          python3 -c '
+import os, subprocess, yaml
+
+def render_all(output_file):
+    manifests = []
+    helm_repos = {}
+    helm_releases = []
+
+    for root, dirs, files in os.walk("clusters"):
+        for f in files:
+            if f.endswith(".yaml") or f.endswith(".yml"):
+                p = os.path.join(root, f)
+                try:
+                    with open(p) as fp:
+                        content = fp.read()
+                        if "kind: Kustomization" in content and "kustomize.toolkit.fluxcd.io" in content:
+                            dir_path = os.path.dirname(p)
+                            cmd = ["flux", "build", "kustomization", os.path.basename(dir_path), "--path", dir_path, "--dry-run"]
+                            res = subprocess.run(cmd, capture_output=True, text=True)
+                            if res.returncode == 0 and res.stdout.strip():
+                                manifests.append(res.stdout.strip())
+                except Exception:
+                    pass
+
+    full_yaml = "\n---\n".join(manifests)
+    try:
+        docs = list(yaml.safe_load_all(full_yaml))
+    except Exception:
+        docs = []
+
+    clean_manifests = []
+    for d in docs:
+        if not isinstance(d, dict):
+            continue
+        kind = d.get("kind")
+        if kind == "HelmRepository":
+            name = d.get("metadata", {}).get("name")
+            url = d.get("spec", {}).get("url")
+            if name and url:
+                helm_repos[name] = url
+        elif kind == "HelmRelease":
+            helm_releases.append(d)
+        else:
+            clean_manifests.append(yaml.dump(d))
+
+    for r_name, r_url in helm_repos.items():
+        subprocess.run(["helm", "repo", "add", r_name, r_url], capture_output=True)
+    if helm_repos:
+        subprocess.run(["helm", "repo", "update"], capture_output=True)
+
+    for hr in helm_releases:
+        hr_name = hr.get("metadata", {}).get("name", "release")
+        hr_ns = hr.get("metadata", {}).get("namespace", "default")
+        chart_spec = hr.get("spec", {}).get("chart", {}).get("spec", {})
+        chart_name = chart_spec.get("chart")
+        chart_version = chart_spec.get("version")
+        source_ref = chart_spec.get("sourceRef", {}).get("name")
+        values = hr.get("spec", {}).get("values", {})
+
+        if chart_name and source_ref in helm_repos:
+            repo_chart = f"{source_ref}/{chart_name}"
+            cmd = ["helm", "template", hr_name, repo_chart, "--namespace", hr_ns]
+            if chart_version:
+                cmd.extend(["--version", chart_version])
+            if values:
+                val_file = f"/tmp/values_{hr_name}.yaml"
+                with open(val_file, "w") as vf:
+                    yaml.dump(values, vf)
+                cmd.extend(["-f", val_file])
+            res = subprocess.run(cmd, capture_output=True, text=True)
+            if res.returncode == 0 and res.stdout.strip():
+                clean_manifests.append(res.stdout.strip())
+            else:
+                clean_manifests.append(yaml.dump(hr))
+        else:
+            clean_manifests.append(yaml.dump(hr))
+
+    with open(output_file, "w") as out:
+        out.write("\n---\n".join(clean_manifests))
+
+render_all("/tmp/manifests/base-rendered.yaml")
+'
 
       - name: Calculate Manifest Diff
         id: diff
@@ -85,8 +233,8 @@ jobs:
           script: |
             const diff = `${{ steps.diff.outputs.DIFF_OUTPUT }}`;
             const body = diff.trim() ? 
-              `### 🚀 Kubernetes Manifest Diff (Expanded Helm & Kustomize)\n\`\`\`diff\n${diff}\n\`\`\`` :
-              `### 🚀 Kubernetes Manifest Diff (Expanded Helm & Kustomize)\nNo manifest changes detected after render.`;
+              `### 🚀 Kubernetes Manifest Diff (Expanded Helm & Flux)\n\`\`\`diff\n${diff}\n\`\`\`` :
+              `### 🚀 Kubernetes Manifest Diff (Expanded Helm & Flux)\nNo manifest changes detected after render.`;
 
             const { data: comments } = await github.rest.issues.listComments({
               owner: context.repo.owner,
