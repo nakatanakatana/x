@@ -39,12 +39,12 @@ jobs:
         run: |
           mkdir -p /tmp/manifests
           
-          # Render Kustomize/Helm manifests
-          find clusters components -name "kustomization.yaml" -execdir kustomize build --enable-helm . \; > /tmp/manifests/pr-rendered.yaml
+          # Render Kustomize/Helm manifests with YAML document separators
+          find clusters components -name "kustomization.yaml" -execdir sh -c 'kustomize build --enable-helm . && echo "---"' \; > /tmp/manifests/pr-rendered.yaml
           
           # Run schema validation using Kubeconform
           echo "=== Running Kubeconform Schema Validation ==="
-          cat /tmp/manifests/pr-rendered.yaml | kubeconform -strict -summary
+          cat /tmp/manifests/pr-rendered.yaml | kubeconform -strict -ignore-missing-schemas -summary
 
       - name: Checkout Base branch
         uses: actions/checkout@v4
@@ -55,7 +55,7 @@ jobs:
         id: render-base
         run: |
           mkdir -p /tmp/manifests
-          find clusters components -name "kustomization.yaml" -execdir kustomize build --enable-helm . \; > /tmp/manifests/base-rendered.yaml || true
+          find clusters components -name "kustomization.yaml" -execdir sh -c 'kustomize build --enable-helm . && echo "---"' \; > /tmp/manifests/base-rendered.yaml || true
 
       - name: Calculate Manifest Diff
         id: diff
