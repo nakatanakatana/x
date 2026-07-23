@@ -39,8 +39,12 @@ jobs:
         run: |
           mkdir -p /tmp/manifests
           
-          # Render Kustomize/Helm manifests with YAML document separators
-          find clusters components -name "kustomization.yaml" -execdir sh -c 'kustomize build --enable-helm . && echo "---"' \; > /tmp/manifests/pr-rendered.yaml
+          # Render Kustomize/Helm manifests in deterministic order with YAML separators
+          find clusters components -name "kustomization.yaml" | sort | while read -r file; do
+            dir=$(dirname "$file")
+            kustomize build --enable-helm "$dir" || true
+            echo "---"
+          done > /tmp/manifests/pr-rendered.yaml
           
           # Run schema validation using Kubeconform
           echo "=== Running Kubeconform Schema Validation ==="
@@ -55,7 +59,11 @@ jobs:
         id: render-base
         run: |
           mkdir -p /tmp/manifests
-          find clusters components -name "kustomization.yaml" -execdir sh -c 'kustomize build --enable-helm . && echo "---"' \; > /tmp/manifests/base-rendered.yaml || true
+          find clusters components -name "kustomization.yaml" | sort | while read -r file; do
+            dir=$(dirname "$file")
+            kustomize build --enable-helm "$dir" || true
+            echo "---"
+          done > /tmp/manifests/base-rendered.yaml
 
       - name: Calculate Manifest Diff
         id: diff
