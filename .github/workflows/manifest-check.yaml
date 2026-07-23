@@ -43,8 +43,12 @@ jobs:
         run: |
           mkdir -p /tmp/manifests
           
-          # Render all manifests including expanded Helm charts using flux-local
-          flux-local build all clusters > /tmp/manifests/pr-rendered.yaml || true
+          # Render all manifests including expanded Helm charts per cluster
+          find clusters -mindepth 1 -maxdepth 1 -type d | sort | while read -r cluster; do
+            echo "# Cluster: $cluster"
+            flux-local build all "$cluster" || true
+            echo "---"
+          done > /tmp/manifests/pr-rendered.yaml
           
           # Run schema validation using Kubeconform
           echo "=== Running Kubeconform Schema Validation ==="
@@ -59,7 +63,11 @@ jobs:
         id: render-base
         run: |
           mkdir -p /tmp/manifests
-          flux-local build all clusters > /tmp/manifests/base-rendered.yaml || true
+          find clusters -mindepth 1 -maxdepth 1 -type d | sort | while read -r cluster; do
+            echo "# Cluster: $cluster"
+            flux-local build all "$cluster" || true
+            echo "---"
+          done > /tmp/manifests/base-rendered.yaml
 
       - name: Calculate Manifest Diff
         id: diff
