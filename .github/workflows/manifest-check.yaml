@@ -69,7 +69,7 @@ jobs:
         id: diff
         run: |
           echo "DIFF_OUTPUT<<EOF" >> $GITHUB_OUTPUT
-          git diff --no-index /tmp/manifests/base-rendered.yaml /tmp/manifests/pr-rendered.yaml || true
+          git diff --no-index /tmp/manifests/base-rendered.yaml /tmp/manifests/pr-rendered.yaml >> $GITHUB_OUTPUT || true
           echo "EOF" >> $GITHUB_OUTPUT
 
       - name: Comment Diff on PR
