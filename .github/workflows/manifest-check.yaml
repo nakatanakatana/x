@@ -23,6 +23,9 @@ jobs:
       - name: Setup Helm
         uses: azure/setup-helm@v4
 
+      - name: Setup Flux CLI
+        uses: fluxcd/flux2/action@main
+
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
