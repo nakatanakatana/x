@@ -20,13 +20,10 @@ jobs:
       - name: Checkout PR branch
         uses: actions/checkout@v4
 
-      - name: Setup Helm
-        uses: azure/setup-helm@v4
+      - name: Setup Flux CLI
+        uses: fluxcd/flux2/action@main
 
-      - name: Setup Kustomize
-        uses: imranismail/setup-kustomize@v2
-
-      - name: Install Kubeconform
+      - name: Setup Kubeconform
         run: |
           KUBECONFORM_VERSION="v0.6.7"
           curl -sLO "https://github.com/yannh/kubeconform/releases/download/${KUBECONFORM_VERSION}/kubeconform-linux-amd64.tar.gz"
@@ -34,16 +31,16 @@ jobs:
           sudo mv kubeconform /usr/local/bin/
           rm kubeconform-linux-amd64.tar.gz
 
-      - name: Render PR Manifests & Run Kubeconform Lint
+      - name: Render PR Manifests with Flux & Run Kubeconform Lint
         id: render-pr
         run: |
           mkdir -p /tmp/manifests
           
-          # Render Kustomize/Helm manifests in deterministic order with YAML separators
-          find clusters components -name "kustomization.yaml" | sort | while read -r file; do
+          # Render Flux Kustomizations
+          find clusters -name "kustomization.yaml" | sort | while read -r file; do
             dir=$(dirname "$file")
-            kustomize build --enable-helm "$dir" || true
             echo "---"
+            flux build kustomization $(basename "$dir") --path "$dir" --kustomization-file "$file" --dry-run || true
           done > /tmp/manifests/pr-rendered.yaml
           
           # Run schema validation using Kubeconform
@@ -55,14 +52,14 @@ jobs:
         with:
           ref: ${{ github.base_ref }}
 
-      - name: Render Base Manifests
+      - name: Render Base Manifests with Flux
         id: render-base
         run: |
           mkdir -p /tmp/manifests
-          find clusters components -name "kustomization.yaml" | sort | while read -r file; do
+          find clusters -name "kustomization.yaml" | sort | while read -r file; do
             dir=$(dirname "$file")
-            kustomize build --enable-helm "$dir" || true
             echo "---"
+            flux build kustomization $(basename "$dir") --path "$dir" --kustomization-file "$file" --dry-run || true
           done > /tmp/manifests/base-rendered.yaml
 
       - name: Calculate Manifest Diff
@@ -78,8 +75,8 @@ jobs:
           script: |
             const diff = `${{ steps.diff.outputs.DIFF_OUTPUT }}`;
             const body = diff.trim() ? 
-              `### 🚀 Kubernetes Manifest Diff\n\`\`\`diff\n${diff}\n\`\`\`` :
-              `### 🚀 Kubernetes Manifest Diff\nNo manifest changes detected after render.`;
+              `### 🚀 Kubernetes Manifest Diff (Flux Rendered)\n\`\`\`diff\n${diff}\n\`\`\`` :
+              `### 🚀 Kubernetes Manifest Diff (Flux Rendered)\nNo manifest changes detected after render.`;
 
             const { data: comments } = await github.rest.issues.listComments({
               owner: context.repo.owner,
