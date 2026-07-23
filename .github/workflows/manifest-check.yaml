@@ -71,17 +71,25 @@ jobs:
       - name: Calculate Manifest Diff
         id: diff
         run: |
-          echo "DIFF_OUTPUT<<EOF" >> $GITHUB_OUTPUT
-          git diff --no-index /tmp/manifests/base-rendered.yaml /tmp/manifests/pr-rendered.yaml >> $GITHUB_OUTPUT || true
-          echo "EOF" >> $GITHUB_OUTPUT
+          git diff --no-index /tmp/manifests/base-rendered.yaml /tmp/manifests/pr-rendered.yaml > /tmp/manifests/diff.txt || true
 
       - name: Comment Diff on PR
         uses: actions/github-script@v7
         with:
           script: |
-            const diff = `${{ steps.diff.outputs.DIFF_OUTPUT }}`;
+            const fs = require('fs');
+            const diffFile = '/tmp/manifests/diff.txt';
+            let diff = fs.existsSync(diffFile) ? fs.readFileSync(diffFile, 'utf8') : '';
+            
+            const maxLength = 60000;
+            let isTruncated = false;
+            if (diff.length > maxLength) {
+              diff = diff.substring(0, maxLength);
+              isTruncated = true;
+            }
+
             const body = diff.trim() ? 
-              `### 🚀 Kubernetes Manifest Diff (Expanded Helm & Flux)\n\`\`\`diff\n${diff}\n\`\`\`` :
+              `### 🚀 Kubernetes Manifest Diff (Expanded Helm & Flux)\n\`\`\`diff\n${diff}\n\`\`\`${isTruncated ? '\n*(Diff truncated due to size limit)*' : ''}` :
               `### 🚀 Kubernetes Manifest Diff (Expanded Helm & Flux)\nNo manifest changes detected after render.`;
 
             const { data: comments } = await github.rest.issues.listComments({
