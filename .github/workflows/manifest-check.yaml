@@ -20,28 +20,31 @@ jobs:
       - name: Checkout PR branch
         uses: actions/checkout@v4
 
-      - name: Setup Flux CLI
-        uses: fluxcd/flux2/action@main
+      - name: Setup Helm
+        uses: azure/setup-helm@v4
 
-      - name: Setup Kubeconform
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install flux-local & Kubeconform
         run: |
+          pip install flux-local
+          
           KUBECONFORM_VERSION="v0.6.7"
           curl -sLO "https://github.com/yannh/kubeconform/releases/download/${KUBECONFORM_VERSION}/kubeconform-linux-amd64.tar.gz"
           tar xf kubeconform-linux-amd64.tar.gz
           sudo mv kubeconform /usr/local/bin/
           rm kubeconform-linux-amd64.tar.gz
 
-      - name: Render PR Manifests with Flux & Run Kubeconform Lint
+      - name: Build PR Manifests with flux-local & Run Kubeconform Lint
         id: render-pr
         run: |
           mkdir -p /tmp/manifests
           
-          # Render Flux Kustomizations
-          find clusters -name "kustomization.yaml" | sort | while read -r file; do
-            dir=$(dirname "$file")
-            echo "---"
-            flux build kustomization $(basename "$dir") --path "$dir" --kustomization-file "$file" --dry-run || true
-          done > /tmp/manifests/pr-rendered.yaml
+          # Render all manifests including expanded Helm charts using flux-local
+          flux-local build manifest --path clusters > /tmp/manifests/pr-rendered.yaml || true
           
           # Run schema validation using Kubeconform
           echo "=== Running Kubeconform Schema Validation ==="
@@ -52,15 +55,11 @@ jobs:
         with:
           ref: ${{ github.base_ref }}
 
-      - name: Render Base Manifests with Flux
+      - name: Build Base Manifests with flux-local
         id: render-base
         run: |
           mkdir -p /tmp/manifests
-          find clusters -name "kustomization.yaml" | sort | while read -r file; do
-            dir=$(dirname "$file")
-            echo "---"
-            flux build kustomization $(basename "$dir") --path "$dir" --kustomization-file "$file" --dry-run || true
-          done > /tmp/manifests/base-rendered.yaml
+          flux-local build manifest --path clusters > /tmp/manifests/base-rendered.yaml || true
 
       - name: Calculate Manifest Diff
         id: diff
@@ -75,8 +74,8 @@ jobs:
           script: |
             const diff = `${{ steps.diff.outputs.DIFF_OUTPUT }}`;
             const body = diff.trim() ? 
-              `### 🚀 Kubernetes Manifest Diff (Flux Rendered)\n\`\`\`diff\n${diff}\n\`\`\`` :
-              `### 🚀 Kubernetes Manifest Diff (Flux Rendered)\nNo manifest changes detected after render.`;
+              `### 🚀 Kubernetes Manifest Diff (Expanded Helm & Kustomize)\n\`\`\`diff\n${diff}\n\`\`\`` :
+              `### 🚀 Kubernetes Manifest Diff (Expanded Helm & Kustomize)\nNo manifest changes detected after render.`;
 
             const { data: comments } = await github.rest.issues.listComments({
               owner: context.repo.owner,

@@ -1,15 +1,37 @@
 apiVersion: kustomize.config.k8s.io/v1alpha1
-kind: Component
-namespace: vcluster
-resources:
-  - repository.yaml
-  - release.yaml
 configMapGenerator:
-  - name: vcluster
-    files:
-      - values.yaml
-  - name: vcluster-policy
-    files:
-      - values.yaml=policy-values.yaml
+- files:
+  - values.yaml
+  name: vcluster
+- files:
+  - values.yaml=policy-values.yaml
+  name: vcluster-policy
 configurations:
-  - kustomizeconfig.yaml
+- kustomizeconfig.yaml
+kind: Component
+namespace: ci
+patches:
+- patch: |
+    - op: add
+      path: /spec/values
+      value:
+        controlPlane:
+          service:
+            annotations:
+              tailscale.com/expose: "true"
+              tailscale.com/hostname: "vcluster-ci"
+        exportKubeConfig:
+          server: "https://vcluster.ci.svc.cluster.local:443"
+        sync:
+          fromHost:
+            secrets:
+              enabled: true
+              mappings:
+                byName:
+                  "ci/pipelines-as-code-secret": "tekton-pipelines/pipelines-as-code-secret"
+  target:
+    kind: HelmRelease
+    name: vcluster
+resources:
+- repository.yaml
+- release.yaml
