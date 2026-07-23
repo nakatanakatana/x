@@ -39,7 +39,7 @@ def render_all(output_file):
 
     clean_manifests = []
     for d in docs:
-        if not isinstance(d, dict):
+        if not isinstance(d, dict) or not d.get("kind"):
             continue
         kind = d.get("kind")
         if kind == "HelmRepository":
@@ -84,8 +84,9 @@ def render_all(output_file):
         else:
             clean_manifests.append(yaml.dump(hr))
 
+    valid_outputs = [m.strip() for m in clean_manifests if isinstance(m, str) and m.strip()]
     with open(output_file, "w", encoding="utf-8") as out:
-        out.write("\n---\n".join(clean_manifests))
+        out.write("\n---\n".join(valid_outputs))
 
 if __name__ == "__main__":
     out_path = sys.argv[1] if len(sys.argv) > 1 else "/tmp/manifests/rendered.yaml"
