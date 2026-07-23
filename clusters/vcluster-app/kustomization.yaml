@@ -4,3 +4,4 @@ resources:
   - nostr
   - nostr-nip05.yaml
   - obsidian-clippings-feed.yaml
+  - feed-reader

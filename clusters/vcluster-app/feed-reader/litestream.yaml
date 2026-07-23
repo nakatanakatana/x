@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: feed-reader-litestream
+  namespace: feed-reader
+data:
+  litestream.yml: |
+    dbs:
+      - path: /data/feed-reader.db
+        replica:
+          type: s3
+          endpoint: http://storage:8010
+          bucket: feed-reader
+          path: feed-reader.db
+          sync-interval: 10s
+          sign-payload: true
