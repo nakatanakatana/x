@@ -1,0 +1,154 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: feed-reader-data
+  namespace: feed-reader
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 20Gi
+  storageClassName: rook-ceph-block
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: feed-reader
+  namespace: feed-reader
+  labels:
+    app: feed-reader
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: feed-reader
+  template:
+    metadata:
+      labels:
+        app: feed-reader
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        fsGroup: 65532
+        runAsNonRoot: true
+        runAsGroup: 65532
+        runAsUser: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      initContainers:
+        - name: init-litestream
+          image: litestream/litestream:0.5.15@sha256:f45ca298a567bef6edd23d43429b5f80721473a9a9719e467f11d7888999403e
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+          args:
+            - restore
+            - -if-db-not-exists
+            - -if-replica-exists
+            - /data/feed-reader.db
+          env:
+            - name: LITESTREAM_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: feed-reader-storage
+                  key: access_key
+            - name: LITESTREAM_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: feed-reader-storage
+                  key: access_secret
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            - name: litestream-config
+              mountPath: /etc/litestream.yml
+              subPath: litestream.yml
+      containers:
+        - name: feed-reader
+          image: ghcr.io/nakatanakatana/feed-reader:0.23.2@sha256:b70d67863546d0d997a53e7c2738e33f28e7bf3972caf75c62c0f9dd88efcaad
+          imagePullPolicy: Always
+          env:
+            - name: CORS_ALLOWED_ORIGINS
+              value: https://nakatanakatana.cloudflareaccess.com
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            - name: tmp
+              mountPath: /tmp
+          ports:
+            - containerPort: 8080
+        - name: litestream
+          image: litestream/litestream:0.5.15@sha256:f45ca298a567bef6edd23d43429b5f80721473a9a9719e467f11d7888999403e
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+          args:
+            - replicate
+          env:
+            - name: LITESTREAM_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: feed-reader-storage
+                  key: access_key
+            - name: LITESTREAM_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: feed-reader-storage
+                  key: access_secret
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            - name: litestream-config
+              mountPath: /etc/litestream.yml
+              subPath: litestream.yml
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: feed-reader-data
+        - name: tmp
+          emptyDir: {}
+        - name: litestream-config
+          configMap:
+            name: feed-reader-litestream
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: feed-reader
+  namespace: feed-reader
+spec:
+  type: ClusterIP
+  selector:
+    app: feed-reader
+  ports:
+    - protocol: TCP
+      port: 8080
+      targetPort: 8080
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: feed-reader
+  namespace: feed-reader
+spec:
+  ingressClassName: cloudflare-tunnel
+  rules:
+    - host: feed.nakatanakatana.app
+      http:
+        paths:
+          - pathType: Prefix
+            path: "/"
+            backend:
+              service:
+                name: feed-reader
+                port:
+                  number: 8080
