@@ -73,6 +73,12 @@ spec:
         - name: feed-reader
           image: ghcr.io/nakatanakatana/feed-reader:0.23.2@sha256:b70d67863546d0d997a53e7c2738e33f28e7bf3972caf75c62c0f9dd88efcaad
           imagePullPolicy: Always
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
           env:
             - name: CORS_ALLOWED_ORIGINS
               value: https://nakatanakatana.cloudflareaccess.com
