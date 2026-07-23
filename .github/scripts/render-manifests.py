@@ -9,22 +9,27 @@ def render_all(output_file):
     helm_repos = {}
     helm_releases = []
 
-    # 1. Run flux build on all Kustomization files
-    for root, dirs, files in os.walk("clusters"):
-        for f in files:
-            if f.endswith(".yaml") or f.endswith(".yml"):
-                p = os.path.join(root, f)
-                try:
-                    with open(p, "r", encoding="utf-8") as fp:
-                        content = fp.read()
-                        if "kind: Kustomization" in content and "kustomize.toolkit.fluxcd.io" in content:
-                            dir_path = os.path.dirname(p)
-                            cmd = ["flux", "build", "kustomization", os.path.basename(dir_path), "--path", dir_path, "--dry-run"]
-                            res = subprocess.run(cmd, capture_output=True, text=True)
-                            if res.returncode == 0 and res.stdout.strip():
-                                manifests.append(res.stdout.strip())
-                except Exception:
-                    pass
+    # 1. Run flux build on all Kustomization files under clusters and components
+    for search_dir in ["clusters", "components"]:
+        if not os.path.exists(search_dir):
+            continue
+        for root, dirs, files in os.walk(search_dir):
+            for f in files:
+                if f.endswith(".yaml") or f.endswith(".yml"):
+                    p = os.path.join(root, f)
+                    try:
+                        with open(p, "r", encoding="utf-8") as fp:
+                            content = fp.read()
+                            if "kind: Kustomization" in content or "kind: HelmRelease" in content or "kind: HelmRepository" in content:
+                                dir_path = os.path.dirname(p)
+                                cmd = ["flux", "build", "kustomization", os.path.basename(dir_path), "--path", dir_path, "--dry-run"]
+                                res = subprocess.run(cmd, capture_output=True, text=True)
+                                if res.returncode == 0 and res.stdout.strip():
+                                    manifests.append(res.stdout.strip())
+                                else:
+                                    manifests.append(content)
+                    except Exception:
+                        pass
 
     full_yaml = "\n---\n".join(manifests)
     try:
