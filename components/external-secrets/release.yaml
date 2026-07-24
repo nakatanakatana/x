@@ -15,4 +15,8 @@ spec:
         kind: HelmRepository
         name: external-secrets
   releaseName: external-secrets
+  values:
+    concurrent: 1
+    extraArgs:
+      min-retry-interval: "5m"
 
