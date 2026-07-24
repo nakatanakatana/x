@@ -71,7 +71,7 @@ spec:
               subPath: litestream.yml
       containers:
         - name: feed-reader
-          image: ghcr.io/nakatanakatana/feed-reader:0.23.2@sha256:b70d67863546d0d997a53e7c2738e33f28e7bf3972caf75c62c0f9dd88efcaad
+          image: ghcr.io/nakatanakatana/feed-reader:0.23.3@sha256:8a38469bc1ca3bd5dd24ed098519ee8f2a39b89499539b6e7961fe5bd039b275
           imagePullPolicy: Always
           securityContext:
             allowPrivilegeEscalation: false
