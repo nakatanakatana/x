@@ -1,0 +1,20 @@
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: bifrost-secret
+  namespace: agent
+spec:
+  refreshInterval: 60m
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: 1password-sdk
+  target:
+    name: bifrost-secret
+    creationPolicy: Owner
+  data:
+    - secretKey: OPENAI_API_KEY
+      remoteRef:
+        key: bifrost/OPENAI_API_KEY
+    - secretKey: OPENAI_BASE_URL
+      remoteRef:
+        key: bifrost/OPENAI_BASE_URL
