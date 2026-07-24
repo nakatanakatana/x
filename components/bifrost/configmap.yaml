@@ -1,0 +1,25 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: bifrost-config
+  namespace: proxy
+data:
+  config.json: |
+    {
+      "$schema": "https://www.getbifrost.ai/schema",
+      "client": {
+        "enforce_auth_on_inference": false
+      },
+      "providers": {
+        "openai": {
+          "enabled": true,
+          "base_url": "env.OPENAI_BASE_URL",
+          "keys": [
+            {
+              "name": "primary",
+              "value": "env.OPENAI_API_KEY"
+            }
+          ]
+        }
+      }
+    }

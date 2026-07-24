@@ -1,0 +1,47 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bifrost
+  namespace: proxy
+  labels:
+    app: bifrost
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: bifrost
+  template:
+    metadata:
+      labels:
+        app: bifrost
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: network
+                    operator: NotIn
+                    values:
+                      - slow
+      containers:
+        - name: bifrost
+          image: ghcr.io/maximhq/bifrost:v1.6.5
+          ports:
+            - containerPort: 8080
+              name: http
+          env:
+            - name: BIFROST_LOG_LEVEL
+              value: "warn"
+            - name: BIFROST_CONFIG_PATH
+              value: "/etc/bifrost/config.json"
+          envFrom:
+            - secretRef:
+                name: bifrost-secret
+          volumeMounts:
+            - name: config-volume
+              mountPath: /etc/bifrost
+      volumes:
+        - name: config-volume
+          configMap:
+            name: bifrost-config

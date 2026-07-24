@@ -5,6 +5,7 @@ metadata:
   namespace: proxy
   annotations:
     tailscale.com/hostname: "llm-proxy"
+    tailscale.com/proxy-class: "avoid-slow-nodes"
 spec:
   ingressClassName: tailscale
   rules:
