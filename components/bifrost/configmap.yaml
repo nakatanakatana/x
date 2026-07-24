@@ -1,0 +1,30 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: bifrost-config
+  namespace: proxy
+data:
+  config.json: |
+    {
+      "$schema": "https://www.getbifrost.ai/schema",
+      "version": 1,
+      "source_of_truth": "config.json",
+      "client": {
+        "enforce_auth_on_inference": false
+      },
+      "providers": {
+        "openai": {
+          "enabled": true,
+          "network_config": {
+            "base_url": "https://token-plan.ap-southeast-1.maas.aliyuncs.com/compatible-mode"
+          },
+          "keys": [
+            {
+              "name": "primary",
+              "value": "env.QWEN_API_KEY",
+              "models": ["*"]
+            }
+          ]
+        }
+      }
+    }
