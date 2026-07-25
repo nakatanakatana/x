@@ -1,0 +1,36 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: flux
+  namespace: sandbox
+spec:
+  interval: 10m
+  timeout: 10m
+  kubeConfig:
+    secretRef:
+      name: vc-vcluster
+      key: config
+  targetNamespace: flux-system
+  storageNamespace: flux-system
+  releaseName: flux
+  chart:
+    spec:
+      chart: flux2
+      version: "2.19.0"
+      interval: 1h
+      sourceRef:
+        kind: HelmRepository
+        name: fluxcd-community
+  install:
+    createNamespace: true
+    remediation:
+      retries: 3
+  upgrade:
+    remediation:
+      retries: 3
+  values:
+    installCRDs: true
+    imageAutomationController:
+      create: false
+    imageReflectionController:
+      create: false

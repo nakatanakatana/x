@@ -1,0 +1,20 @@
+# NOTE: on first reconcile after this change, `cluster-resources` will prune
+# the old `vcluster-sandbox` Kustomization (previously defined here) before
+# `cluster-vcluster` (below) recreates it from `clusters/home/vcluster`.
+# The sandbox vCluster will briefly tear down and rebuild as a result; this
+# is an accepted one-time cost of the migration.
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: cluster-vcluster
+  namespace: flux-system
+spec:
+  interval: 10m
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  path: ./clusters/home/vcluster
+  dependsOn:
+    - name: cluster-resources
+  prune: true
+  timeout: 5m
