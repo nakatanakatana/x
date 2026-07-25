@@ -1,0 +1,16 @@
+name: ci
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Setup Flux Schema CLI
+        uses: fluxcd/flux-schema/actions/setup@v0.11.0
+      - name: Validate manifests
+        uses: fluxcd/flux-schema/actions/validate@v0.11.0

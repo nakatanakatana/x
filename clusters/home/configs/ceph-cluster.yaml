@@ -62,8 +62,6 @@ spec:
       k8s.grafana.com/metrics.container: mgr
       prometheus.io/port: "9283"
       prometheus.io/scrape: "true"
-  labels:
-  resources:
   removeOSDsIfOutAndSafeToRemove: false
   priorityClassNames:
     mon: system-node-critical
@@ -72,7 +70,6 @@ spec:
   storage:
     useAllNodes: false
     useAllDevices: false
-    config:
     nodes:
       - name: "n5"
         devices:
