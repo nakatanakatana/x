@@ -1,0 +1,96 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rclone-s3-gateway
+  namespace: pcloud-s3
+  labels:
+    app: rclone-s3-gateway
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: rclone-s3-gateway
+  template:
+    metadata:
+      labels:
+        app: rclone-s3-gateway
+    spec:
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 60
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1009
+        runAsGroup: 1009
+        fsGroup: 1009
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: rclone
+          image: rclone/rclone:1.74.4@sha256:c61954aaa32328a5486715dd063a81c7879f5195ad3505cd362deddd509dc4a1
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+          args:
+            - serve
+            - s3
+            - pcloud:buckets
+            - --addr=:8080
+            - --log-level=NOTICE
+            - --vfs-cache-mode=writes
+            - --cache-dir=/cache
+            - --dir-cache-time=1h
+            - --poll-interval=5m
+            - --vfs-cache-max-size=45Gi
+            - --vfs-cache-min-free-space=2Gi
+            - --vfs-cache-max-age=24h
+            - --vfs-cache-poll-interval=1m
+            - --vfs-write-back=5s
+            - --transfers=2
+            - --buffer-size=16Mi
+          env:
+            - name: RCLONE_CONFIG_PCLOUD_TYPE
+              value: pcloud
+            - name: RCLONE_CONFIG_PCLOUD_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: rclone-s3-credentials
+                  key: PCLOUD_TOKEN
+            - name: RCLONE_CONFIG_PCLOUD_HOSTNAME
+              value: api.pcloud.com
+            - name: RCLONE_AUTH_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: rclone-s3-credentials
+                  key: RCLONE_AUTH_KEY
+          ports:
+            - name: s3
+              containerPort: 8080
+              protocol: TCP
+          startupProbe:
+            tcpSocket:
+              port: s3
+            periodSeconds: 2
+            failureThreshold: 30
+          readinessProbe:
+            tcpSocket:
+              port: s3
+            periodSeconds: 10
+            failureThreshold: 3
+          livenessProbe:
+            tcpSocket:
+              port: s3
+            periodSeconds: 30
+            failureThreshold: 3
+          volumeMounts:
+            - name: cache
+              mountPath: /cache
+      volumes:
+        - name: cache
+          persistentVolumeClaim:
+            claimName: rclone-s3-cache
