@@ -50,3 +50,44 @@ if rg -n 'postgres-operator|opensource\.zalando\.com' \
   printf '%s\n' 'obsolete Postgres Operator reference remains' >&2
   exit 1
 fi
+
+rendered="$(mktemp)"
+trap 'rm -f "$rendered"' EXIT
+kustomize build "$repo_root/components/kubeblocks" >"$rendered"
+
+for expected in \
+  "name: kubeblocks" \
+  "chart: kubeblocks" \
+  'version: 1.0.0' \
+  "name: neon" \
+  "chart: neon" \
+  'version: 1.0.1' \
+  "dependsOn:" \
+  "name: kubeblocks" \
+  "kind: ComponentDefinition" \
+  "name: neon-pageserver" \
+  "name: neon-s3-credentials" \
+  "AWS_ACCESS_KEY_ID" \
+  "AWS_SECRET_ACCESS_KEY" \
+  "remote_storage" \
+  "bucket_name='neon-demo'" \
+  "bucket_region='us-east-1'" \
+  "endpoint='http://gateway.pcloud-s3.svc.cluster.local:8080'" \
+  "RCLONE_CONFIG_NEON_FORCE_PATH_STYLE" \
+  "rclone/rclone:1.74.4@sha256:c61954aaa32328a5486715dd063a81c7879f5195ad3505cd362deddd509dc4a1"
+do
+  if ! grep -Fq -- "$expected" "$rendered"; then
+    printf 'missing rendered KubeBlocks content: %s\n' "$expected" >&2
+    exit 1
+  fi
+done
+
+if grep -Eq 'image:[[:space:]]*[^[:space:]]*:latest[[:space:]]*$' "$rendered"; then
+  printf '%s\n' 'unpinned latest image remains in rendered KubeBlocks content' >&2
+  exit 1
+fi
+
+if grep -Fq -- "WipeOut" "$rendered"; then
+  printf '%s\n' 'destructive WipeOut policy remains in rendered KubeBlocks content' >&2
+  exit 1
+fi
