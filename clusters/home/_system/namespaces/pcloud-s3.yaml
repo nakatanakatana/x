@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: pcloud-s3
+  annotations:
+    kustomize.toolkit.fluxcd.io/prune: disabled
+  labels:
+    name: pcloud-s3
