@@ -4,7 +4,7 @@ metadata:
   name: nostr-config
   namespace: app
 spec:
-  refreshInterval: 60m
+  refreshInterval: 14h35m
   secretStoreRef:
     kind: ClusterSecretStore
     name: 1password-sdk
@@ -28,7 +28,7 @@ metadata:
   name: nostr-credentials
   namespace: app
 spec:
-  refreshInterval: 60m
+  refreshInterval: 15h6m
   secretStoreRef:
     kind: ClusterSecretStore
     name: 1password-sdk
@@ -64,7 +64,7 @@ metadata:
   name: nostr-storage
   namespace: app
 spec:
-  refreshInterval: 60m
+  refreshInterval: 15h37m
   secretStoreRef:
     kind: ClusterSecretStore
     name: 1password-sdk

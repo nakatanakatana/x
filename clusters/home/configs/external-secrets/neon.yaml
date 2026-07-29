@@ -4,7 +4,7 @@ metadata:
   name: neon-s3-credentials
   namespace: database
 spec:
-  refreshInterval: 60m
+  refreshInterval: 18h43m
   secretStoreRef:
     kind: ClusterSecretStore
     name: 1password-sdk

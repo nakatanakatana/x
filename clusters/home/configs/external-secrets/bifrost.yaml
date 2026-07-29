@@ -4,7 +4,7 @@ metadata:
   name: bifrost-secret
   namespace: agent
 spec:
-  refreshInterval: 60m
+  refreshInterval: 12h31m
   secretStoreRef:
     kind: ClusterSecretStore
     name: 1password-sdk

@@ -4,7 +4,7 @@ metadata:
   name: qnap-csi-plugin
   namespace: trident
 spec:
-  refreshInterval: 60m
+  refreshInterval: 16h39m
   secretStoreRef:
     kind: ClusterSecretStore
     name: 1password-sdk
@@ -21,4 +21,3 @@ spec:
     - secretKey: storageAddress
       remoteRef:
         key: qnap-csi-plugin/storageAddress
-

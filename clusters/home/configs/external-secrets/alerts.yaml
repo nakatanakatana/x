@@ -4,7 +4,7 @@ metadata:
   name: alerts-external-secret
   namespace: flux-system
 spec:
-  refreshInterval: 60m
+  refreshInterval: 12h
   secretStoreRef:
     kind: ClusterSecretStore
     name: 1password-sdk
