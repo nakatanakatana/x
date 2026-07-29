@@ -1,0 +1,73 @@
+apiVersion: apps.kubeblocks.io/v1
+kind: Cluster
+metadata:
+  name: neon-demo
+  namespace: database
+spec:
+  clusterDef: neon
+  topology: default
+  terminationPolicy: Delete
+  componentSpecs:
+    - name: neon-broker
+      replicas: 1
+      resources:
+        requests:
+          cpu: 500m
+          memory: 512Mi
+        limits:
+          cpu: "1"
+          memory: 2Gi
+    - name: neon-safekeeper
+      replicas: 3
+      resources:
+        requests:
+          cpu: 500m
+          memory: 512Mi
+        limits:
+          cpu: "1"
+          memory: 2Gi
+      volumeClaimTemplates:
+        - name: data
+          spec:
+            accessModes:
+              - ReadWriteOnce
+            storageClassName: rook-ceph-block
+            resources:
+              requests:
+                storage: 5Gi
+    - name: neon-pageserver
+      replicas: 1
+      resources:
+        requests:
+          cpu: 500m
+          memory: 512Mi
+        limits:
+          cpu: "1"
+          memory: 2Gi
+      volumeClaimTemplates:
+        - name: data
+          spec:
+            accessModes:
+              - ReadWriteOnce
+            storageClassName: rook-ceph-block
+            resources:
+              requests:
+                storage: 10Gi
+    - name: neon-compute
+      replicas: 1
+      resources:
+        requests:
+          cpu: 500m
+          memory: 512Mi
+        limits:
+          cpu: "1"
+          memory: 2Gi
+      volumeClaimTemplates:
+        - name: data
+          spec:
+            accessModes:
+              - ReadWriteOnce
+            storageClassName: rook-ceph-block
+            resources:
+              requests:
+                storage: 5Gi

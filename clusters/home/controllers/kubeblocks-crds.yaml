@@ -1,14 +1,14 @@
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
-  name: postgres-operator
+  name: kubeblocks-crds
   namespace: flux-system
 spec:
   interval: 10m
   sourceRef:
     kind: GitRepository
     name: flux-system
-  targetNamespace: postgres-operator
-  path: "components/postgres-operator"
+  path: "components/kubeblocks-crds"
   prune: true
-  timeout: 1m
+  wait: true
+  timeout: 10m
