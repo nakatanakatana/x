@@ -67,7 +67,7 @@ kustomize build "$repo_root/components/kubeblocks" >"$rendered"
 for expected in \
   "name: kubeblocks" \
   "chart: kubeblocks" \
-  'version: 1.0.0' \
+  'version: 1.0.2' \
   "name: neon" \
   "chart: neon" \
   'version: 1.0.1' \
@@ -271,7 +271,24 @@ assert_resource_contains "$neon_cluster" "topology: default"
 assert_resource_contains "$neon_cluster" "terminationPolicy: Delete"
 
 component_rendered="$(mktemp)"
-trap 'rm -f "$rendered" "$neon_rendered" "$neon_external_secret" "$neon_cluster" "$component_rendered"; rm -rf "$neon_render_dir"' EXIT
+neon_helm_release="$(mktemp)"
+neon_chart_render_dir="$(mktemp -d)"
+neon_chart_rendered="$neon_chart_render_dir/neon-rendered.yaml"
+neon_chart_post_rendered="$neon_chart_render_dir/neon-post-rendered.yaml"
+trap 'rm -f "$rendered" "$neon_rendered" "$neon_external_secret" "$neon_cluster" "$component_rendered" "$neon_helm_release"; rm -rf "$neon_render_dir" "$neon_chart_render_dir"' EXIT
+extract_resource "$rendered" HelmRelease neon "$neon_helm_release"
+
+cp "$repo_root/tests/fixtures/neon-component-versions-1.0.1.yaml" \
+  "$neon_chart_rendered"
+python3 "$repo_root/tests/kubeblocks_neon_postrender.py" write-kustomization \
+  "$neon_helm_release" \
+  "$neon_chart_rendered" \
+  "$neon_chart_render_dir/kustomization.yaml"
+kustomize build "$neon_chart_render_dir" >"$neon_chart_post_rendered"
+python3 "$repo_root/tests/kubeblocks_neon_postrender.py" validate \
+  "$neon_chart_post_rendered" \
+  "$repo_root/components/kubeblocks-crds/kubeblocks_crds.yaml"
+
 for component_spec in \
   'neon-pageserver:1:data:10Gi' \
   'neon-safekeeper:3:data:5Gi' \

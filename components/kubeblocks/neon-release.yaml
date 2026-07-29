@@ -39,6 +39,17 @@ spec:
           - target:
               group: apps.kubeblocks.io
               version: v1
+              kind: ComponentVersion
+              name: neon-.*
+            patch: |-
+              - op: add
+                path: /spec/releases/0/changes
+                value: ""
+              - op: remove
+                path: /spec/releases/0/changes
+          - target:
+              group: apps.kubeblocks.io
+              version: v1
               kind: ComponentDefinition
               name: neon-pageserver-.*
             patch: |-
