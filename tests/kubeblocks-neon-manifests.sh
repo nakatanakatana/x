@@ -59,7 +59,7 @@ for required_procedure in \
   'delete cluster/neon-demo' \
   'wait --for=delete cluster/neon-demo --timeout=10m' \
   'delete componentdefinition/neon-safekeeper-1.0.1' \
-  'reconcile helmrelease neon' \
+  $'flux reconcile helmrelease neon \\\n  --namespace=kb-system \\\n  --force \\\n  --with-source \\' \
   'get componentdefinition/neon-safekeeper-1.0.1' \
   'fsGroupChangePolicy' \
   'secret/neon-s3-credentials' \
@@ -68,6 +68,17 @@ for required_procedure in \
   '--timeout=20m'
 do
   assert_file_contains "$setup_doc" "$required_procedure"
+done
+
+for required_cleanup in \
+  'resume_cluster_resources_on_exit()' \
+  'local original_status=$?' \
+  'trap resume_cluster_resources_on_exit EXIT' \
+  'return "$original_status"' \
+  'cluster_resources_resumed=true' \
+  'trap - EXIT'
+do
+  assert_file_contains "$setup_doc" "$required_cleanup"
 done
 
 # File absence is the behavior under test here: these files were direct

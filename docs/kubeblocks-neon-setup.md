@@ -599,7 +599,35 @@ fi
 
 Flux が途中で Cluster を再作成しないように、`Kustomization/cluster-resources` を一時停止する。
 
+停止後にコマンドが失敗した場合は、EXIT trap が同じ Kustomization だけを再開する。
+
+cleanup が失敗しても元の終了状態を保持し、最初の失敗を隠さない。
+
 ```bash
+cluster_resources_resumed=false
+
+resume_cluster_resources() {
+  kubectl -n flux-system --request-timeout=15s \
+    patch kustomization/cluster-resources \
+    --type=merge --patch='{"spec":{"suspend":false}}'
+}
+
+resume_cluster_resources_on_exit() {
+  local original_status=$?
+
+  trap - EXIT
+  if [[ "$cluster_resources_resumed" != "true" ]]; then
+    if ! resume_cluster_resources; then
+      printf '%s\n' \
+        'Failed to resume Kustomization/cluster-resources during cleanup' >&2
+    fi
+  fi
+
+  return "$original_status"
+}
+
+trap resume_cluster_resources_on_exit EXIT
+
 kubectl -n flux-system --request-timeout=15s \
   patch kustomization/cluster-resources \
   --type=merge --patch='{"spec":{"suspend":true}}'
@@ -664,6 +692,7 @@ kubectl --request-timeout=5m \
 
 flux reconcile helmrelease neon \
   --namespace=kb-system \
+  --force \
   --with-source \
   --timeout=10m
 
@@ -699,9 +728,9 @@ kubectl -n pcloud-s3 --request-timeout=30s \
 最後に `Kustomization/cluster-resources` を再開し、Flux に `Cluster/neon-demo` を再作成させる。
 
 ```bash
-kubectl -n flux-system --request-timeout=15s \
-  patch kustomization/cluster-resources \
-  --type=merge --patch='{"spec":{"suspend":false}}'
+resume_cluster_resources
+cluster_resources_resumed=true
+trap - EXIT
 
 flux reconcile kustomization cluster-resources \
   --namespace=flux-system \
