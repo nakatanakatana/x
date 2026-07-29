@@ -91,3 +91,204 @@ if grep -Fq -- "WipeOut" "$rendered"; then
   printf '%s\n' 'destructive WipeOut policy remains in rendered KubeBlocks content' >&2
   exit 1
 fi
+
+neon_render_dir="$(mktemp -d)"
+neon_rendered="$(mktemp)"
+neon_external_secret="$(mktemp)"
+neon_cluster="$(mktemp)"
+trap 'rm -f "$rendered" "$neon_rendered" "$neon_external_secret" "$neon_cluster"; rm -rf "$neon_render_dir"' EXIT
+
+cp "$repo_root/clusters/home/configs/external-secrets/neon.yaml" \
+  "$neon_render_dir/neon.yaml"
+cp "$repo_root/clusters/home/resources/neon-demo.yaml" \
+  "$neon_render_dir/neon-demo.yaml"
+printf '%s\n' \
+  'apiVersion: kustomize.config.k8s.io/v1beta1' \
+  'kind: Kustomization' \
+  'resources:' \
+  '  - neon.yaml' \
+  '  - neon-demo.yaml' \
+  >"$neon_render_dir/kustomization.yaml"
+kustomize build "$neon_render_dir" >"$neon_rendered"
+
+extract_resource() {
+  local source="$1"
+  local kind="$2"
+  local name="$3"
+  local destination="$4"
+
+  if ! awk -v expected_kind="$kind" -v expected_name="$name" '
+    function reset_resource() {
+      document = ""
+      kind = ""
+      name = ""
+      in_metadata = 0
+    }
+    function emit_resource() {
+      if (kind == expected_kind && name == expected_name) {
+        printf "%s", document
+        matches++
+      }
+    }
+    BEGIN {
+      reset_resource()
+    }
+    /^---[[:space:]]*$/ {
+      emit_resource()
+      reset_resource()
+      next
+    }
+    {
+      document = document $0 ORS
+      if ($0 ~ /^kind: /) {
+        kind = substr($0, 7)
+      } else if ($0 == "metadata:") {
+        in_metadata = 1
+      } else if (in_metadata && $0 ~ /^  name: /) {
+        name = substr($0, 9)
+      } else if (in_metadata && $0 ~ /^[^[:space:]]/) {
+        in_metadata = 0
+      }
+    }
+    END {
+      emit_resource()
+      if (matches != 1) {
+        exit 1
+      }
+    }
+  ' "$source" >"$destination"; then
+    printf 'expected exactly one %s/%s resource in %s\n' "$kind" "$name" "$source" >&2
+    exit 1
+  fi
+}
+
+extract_component() {
+  local cluster="$1"
+  local component_name="$2"
+  local destination="$3"
+
+  if ! awk -v expected_name="$component_name" '
+    /^  componentSpecs:/ {
+      in_component_specs = 1
+      next
+    }
+    in_component_specs && /^  - name: / {
+      if (found) {
+        exit
+      }
+      current_name = substr($0, 11)
+      if (current_name == expected_name) {
+        found = 1
+      }
+    }
+    found {
+      print
+    }
+    END {
+      if (!found) {
+        exit 1
+      }
+    }
+  ' "$cluster" >"$destination"; then
+    printf 'expected component %s in Cluster resource\n' "$component_name" >&2
+    exit 1
+  fi
+}
+
+assert_resource_contains() {
+  local resource="$1"
+  local expected="$2"
+  if ! grep -Fq -- "$expected" "$resource"; then
+    printf 'missing expected content in %s: %s\n' "$resource" "$expected" >&2
+    exit 1
+  fi
+}
+
+assert_volume_claim_templates() {
+  local component_resource="$1"
+  local expected_capacity="$2"
+
+  if ! awk -v expected_capacity="$expected_capacity" '
+    /^    volumeClaimTemplates:/ {
+      in_templates = 1
+      next
+    }
+    in_templates && /^    - name: / {
+      if (templates > 0 && (!has_storage_class || !has_capacity)) {
+        exit 1
+      }
+      templates++
+      has_storage_class = 0
+      has_capacity = 0
+      next
+    }
+    in_templates && /^        storageClassName: rook-ceph-block$/ {
+      has_storage_class = 1
+    }
+    in_templates && "            storage: " expected_capacity == $0 {
+      has_capacity = 1
+    }
+    END {
+      if (templates == 0 || !has_storage_class || !has_capacity) {
+        exit 1
+      }
+    }
+  ' "$component_resource"; then
+    printf 'every volume claim template must use rook-ceph-block with %s\n' "$expected_capacity" >&2
+    exit 1
+  fi
+}
+
+extract_resource "$neon_rendered" ExternalSecret neon-s3-credentials "$neon_external_secret"
+extract_resource "$neon_rendered" Cluster neon-demo "$neon_cluster"
+
+assert_resource_contains "$neon_external_secret" "apiVersion: external-secrets.io/v1"
+assert_resource_contains "$neon_external_secret" "namespace: database"
+assert_resource_contains "$neon_external_secret" "kind: ClusterSecretStore"
+assert_resource_contains "$neon_external_secret" "name: 1password-sdk"
+assert_resource_contains "$neon_external_secret" "refreshInterval: 60m"
+assert_resource_contains "$neon_external_secret" "creationPolicy: Owner"
+assert_resource_contains "$neon_external_secret" $'target:\n    creationPolicy: Owner\n    name: neon-s3-credentials'
+assert_resource_contains "$neon_external_secret" "secretKey: AWS_ACCESS_KEY_ID"
+assert_resource_contains "$neon_external_secret" "key: pcloud-s3/S3_ACCESS_KEY_ID"
+assert_resource_contains "$neon_external_secret" "secretKey: AWS_SECRET_ACCESS_KEY"
+assert_resource_contains "$neon_external_secret" "key: pcloud-s3/S3_SECRET_ACCESS_KEY"
+
+assert_resource_contains "$neon_cluster" "apiVersion: apps.kubeblocks.io/v1"
+assert_resource_contains "$neon_cluster" "namespace: database"
+assert_resource_contains "$neon_cluster" "clusterDefinitionRef: neon"
+assert_resource_contains "$neon_cluster" "topology: default"
+assert_resource_contains "$neon_cluster" "terminationPolicy: Delete"
+
+component_rendered="$(mktemp)"
+trap 'rm -f "$rendered" "$neon_rendered" "$neon_external_secret" "$neon_cluster" "$component_rendered"; rm -rf "$neon_render_dir"' EXIT
+for component_spec in \
+  'neon-broker:1:data:5Gi' \
+  'neon-pageserver:1:neon-pageserver:10Gi' \
+  'neon-safekeeper:3:neon-safekeeper:5Gi' \
+  'neon-compute:1:data:5Gi'
+do
+  IFS=: read -r component replicas volume capacity <<<"$component_spec"
+  extract_component "$neon_cluster" "$component" "$component_rendered"
+  assert_resource_contains "$component_rendered" "replicas: $replicas"
+  assert_resource_contains "$component_rendered" "name: $volume"
+  assert_volume_claim_templates "$component_rendered" "$capacity"
+  assert_resource_contains "$component_rendered" "cpu: 500m"
+  assert_resource_contains "$component_rendered" "memory: 512Mi"
+  assert_resource_contains "$component_rendered" 'cpu: "1"'
+  assert_resource_contains "$component_rendered" "memory: 2Gi"
+done
+
+for forbidden in NodePort LoadBalancer WipeOut; do
+  if grep -Fq -- "$forbidden" "$neon_cluster"; then
+    printf 'forbidden Cluster configuration remains: %s\n' "$forbidden" >&2
+    exit 1
+  fi
+done
+
+if rg --pcre2 --glob '*.yaml' --glob '*.yml' -n \
+  '^[[:space:]]*(-[[:space:]]+)?(AWS_ACCESS_KEY_ID|AWS_SECRET_ACCESS_KEY|S3_ACCESS_KEY_ID|S3_SECRET_ACCESS_KEY):[[:space:]]*(?!["'"'"']?\{\{)[^#[:space:]][^#]*$' \
+  "$repo_root"; then
+  printf '%s\n' 'literal S3 credential value remains in YAML' >&2
+  exit 1
+fi
