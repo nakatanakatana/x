@@ -25,6 +25,17 @@ EXPECTED_PATCH = [
         "path": "/spec/releases/0/changes",
     },
 ]
+EXPECTED_SAFEKEEPER_PATCH = [
+    {
+        "op": "add",
+        "path": "/spec/runtime/securityContext",
+        "value": {"fsGroup": 996, "fsGroupChangePolicy": "OnRootMismatch"},
+    }
+]
+EXPECTED_SAFEKEEPER_SECURITY_CONTEXT = {
+    "fsGroup": 996,
+    "fsGroupChangePolicy": "OnRootMismatch",
+}
 
 
 def load_documents(path: Path) -> list[dict]:
@@ -53,6 +64,18 @@ def write_kustomization(
         raise AssertionError(
             "ComponentVersion patch must add empty changes and then remove changes"
         )
+    safekeeper_patches = [
+        patch
+        for patch in patches
+        if patch["target"].get("group") == "apps.kubeblocks.io"
+        and patch["target"].get("version") == "v1"
+        and patch["target"].get("kind") == "ComponentDefinition"
+        and patch["target"].get("name") == "neon-safekeeper-.*"
+    ]
+    if len(safekeeper_patches) != 1:
+        raise AssertionError("expected exactly one safekeeper ComponentDefinition patch")
+    if yaml.safe_load(safekeeper_patches[0]["patch"]) != EXPECTED_SAFEKEEPER_PATCH:
+        raise AssertionError("safekeeper patch must set the exact pod security context")
     kustomization = {
         "apiVersion": "kustomize.config.k8s.io/v1beta1",
         "kind": "Kustomization",
@@ -98,6 +121,34 @@ def validate_component_versions(rendered_path: Path, crd_path: Path) -> None:
                 )
 
 
+def validate_safekeeper_component_definition(rendered_path: Path, crd_path: Path) -> None:
+    component_definitions = [
+        document
+        for document in load_documents(rendered_path)
+        if document.get("apiVersion") == "apps.kubeblocks.io/v1"
+        and document.get("kind") == "ComponentDefinition"
+        and document.get("metadata", {}).get("name") == "neon-safekeeper-1.0.1"
+    ]
+    if len(component_definitions) != 1:
+        raise AssertionError("expected exactly one rendered safekeeper ComponentDefinition")
+    safekeeper = component_definitions[0]
+    if safekeeper["spec"]["runtime"].get("securityContext") != EXPECTED_SAFEKEEPER_SECURITY_CONTEXT:
+        raise AssertionError("safekeeper runtime must have the exact pod security context")
+
+    component_definition_crd = next(
+        document
+        for document in load_documents(crd_path)
+        if document.get("kind") == "CustomResourceDefinition"
+        and document["metadata"]["name"] == "componentdefinitions.apps.kubeblocks.io"
+    )
+    version = next(
+        version
+        for version in component_definition_crd["spec"]["versions"]
+        if version["name"] == "v1"
+    )
+    jsonschema.Draft7Validator(version["schema"]["openAPIV3Schema"]).validate(safekeeper)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -111,11 +162,17 @@ def main() -> None:
     validate_parser.add_argument("rendered", type=Path)
     validate_parser.add_argument("crd", type=Path)
 
+    safekeeper_validate_parser = subparsers.add_parser("validate-safekeeper")
+    safekeeper_validate_parser.add_argument("rendered", type=Path)
+    safekeeper_validate_parser.add_argument("crd", type=Path)
+
     args = parser.parse_args()
     if args.command == "write-kustomization":
         write_kustomization(args.helm_release, args.resource, args.destination)
-    else:
+    elif args.command == "validate":
         validate_component_versions(args.rendered, args.crd)
+    else:
+        validate_safekeeper_component_definition(args.rendered, args.crd)
 
 
 if __name__ == "__main__":

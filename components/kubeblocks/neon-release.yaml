@@ -51,6 +51,17 @@ spec:
               group: apps.kubeblocks.io
               version: v1
               kind: ComponentDefinition
+              name: neon-safekeeper-.*
+            patch: |-
+              - op: add
+                path: /spec/runtime/securityContext
+                value:
+                  fsGroup: 996
+                  fsGroupChangePolicy: OnRootMismatch
+          - target:
+              group: apps.kubeblocks.io
+              version: v1
+              kind: ComponentDefinition
               name: neon-pageserver-.*
             patch: |-
               - op: add

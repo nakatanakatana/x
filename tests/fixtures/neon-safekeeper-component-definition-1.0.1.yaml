@@ -1,0 +1,28 @@
+---
+# Source: official Neon chart 1.0.1 safekeeper ComponentDefinition (representative runtime fields).
+apiVersion: apps.kubeblocks.io/v1
+kind: ComponentDefinition
+metadata:
+  name: neon-safekeeper-1.0.1
+  labels:
+    helm.sh/chart: neon-1.0.1
+    app.kubernetes.io/name: neon
+    app.kubernetes.io/instance: neon
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+    kubeblocks.io/crd-api-version: apps.kubeblocks.io/v1
+spec:
+  provider: kubeblocks
+  serviceKind: neon-safekeeper
+  runtime:
+    containers:
+      - name: safekeeper
+        image: docker.io/apecloud/neon:pg14-1.0.0
+        command:
+          - safekeeper
+        volumeMounts:
+          - name: data
+            mountPath: /data
+    volumes:
+      - name: data
+        emptyDir: {}
