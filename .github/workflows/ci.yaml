@@ -14,6 +14,8 @@ jobs:
         run: go install sigs.k8s.io/kustomize/kustomize/v5@v5.8.1
       - name: Test pCloud S3 manifests
         run: tests/pcloud-s3-manifests.sh
+      - name: Test External Secrets rate limit policy
+        run: tests/external-secrets-rate-limit.sh
       - name: Setup Flux Schema CLI
         uses: fluxcd/flux-schema/actions/setup@v0.11.0
       - name: Validate manifests
