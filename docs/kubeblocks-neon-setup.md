@@ -550,6 +550,174 @@ read_smoke_value
 
 状態確認では ExternalSecret の時刻と条件だけを読み、Secret の値を表示しない。
 
+## safekeeper ComponentDefinition の一回限りの再作成
+
+`ComponentDefinition.spec.runtime` は immutable であるため、既存の `ComponentDefinition/neon-safekeeper-1.0.1` には post-render patch の security context を反映できない。
+
+この手順は、修正を merge した後に、現在の検証用 `Cluster/neon-demo` と既存の ComponentDefinition を一回だけ再作成するために使う。
+
+再作成では Kubernetes 上の Neon PVC を削除する。
+
+pCloud 上の `neon-demo` bucket と、手動で作成した `database` Namespace の `Secret/neon-s3-credentials` は削除しない。
+
+はじめに、保持対象が存在することと、Cluster の終了ポリシーを確認する。
+
+```bash
+set -euo pipefail
+
+kubectl -n database --request-timeout=15s \
+  get secret/neon-s3-credentials -o name
+
+gateway_pod="$(get_gateway_pod)"
+kubectl -n pcloud-s3 --request-timeout=30s \
+  exec "$gateway_pod" -c rclone -- \
+  rclone lsd pcloud:buckets |
+  awk '$NF == "neon-demo" {found=1} END {exit !found}'
+
+policy="$(
+  kubectl -n database --request-timeout=15s \
+    get cluster/neon-demo -o jsonpath='{.spec.terminationPolicy}'
+)"
+
+if [[ "$policy" != "Delete" ]]; then
+  printf 'Refusing recreation: expected terminationPolicy Delete, got %s\n' \
+    "$policy" >&2
+  exit 1
+fi
+
+mapfile -t neon_pvcs < <(
+  kubectl -n database --request-timeout=15s \
+    get pvc -l app.kubernetes.io/instance=neon-demo -o name
+)
+
+if (( ${#neon_pvcs[@]} != 5 )); then
+  printf 'Expected five neon-demo PVCs before recreation, found %s\n' \
+    "${#neon_pvcs[@]}" >&2
+  exit 1
+fi
+```
+
+Flux が途中で Cluster を再作成しないように、`Kustomization/cluster-resources` を一時停止する。
+
+```bash
+kubectl -n flux-system --request-timeout=15s \
+  patch kustomization/cluster-resources \
+  --type=merge --patch='{"spec":{"suspend":true}}'
+
+suspended="$(
+  kubectl -n flux-system --request-timeout=15s \
+    get kustomization/cluster-resources -o jsonpath='{.spec.suspend}'
+)"
+
+if [[ "$suspended" != "true" ]]; then
+  printf '%s\n' 'Kustomization/cluster-resources was not suspended' >&2
+  exit 1
+fi
+```
+
+続いて、名前を固定した検証用 Cluster を削除し、Cluster と保存済みの PVC がなくなるまで最大 10 分待つ。
+
+```bash
+kubectl -n database --request-timeout=30s \
+  delete cluster/neon-demo --wait=false
+kubectl -n database --request-timeout=10m \
+  wait --for=delete cluster/neon-demo --timeout=10m
+
+pvc_deadline=$((SECONDS + 600))
+remaining_pvcs=("${neon_pvcs[@]}")
+
+while (( SECONDS < pvc_deadline && ${#remaining_pvcs[@]} > 0 )); do
+  next_remaining_pvcs=()
+
+  for pvc in "${remaining_pvcs[@]}"; do
+    pvc_state="$(
+      kubectl -n database --request-timeout=15s \
+        get "$pvc" --ignore-not-found=true -o name
+    )"
+    if [[ -n "$pvc_state" ]]; then
+      next_remaining_pvcs+=("$pvc")
+    fi
+  done
+
+  remaining_pvcs=("${next_remaining_pvcs[@]}")
+  if (( ${#remaining_pvcs[@]} > 0 )); then
+    sleep 5
+  fi
+done
+
+if (( ${#remaining_pvcs[@]} != 0 )); then
+  printf 'Timed out waiting for PVC removal: %s\n' \
+    "${remaining_pvcs[*]}" >&2
+  exit 1
+fi
+```
+
+Cluster の削除後に、名前を固定した safekeeper ComponentDefinition を削除する。
+
+HelmRelease を期限付きで reconcile すると、post-render patch を含む ComponentDefinition が再作成される。
+
+```bash
+kubectl --request-timeout=30s \
+  delete componentdefinition/neon-safekeeper-1.0.1 --wait=false
+kubectl --request-timeout=5m \
+  wait --for=delete componentdefinition/neon-safekeeper-1.0.1 --timeout=5m
+
+flux reconcile helmrelease neon \
+  --namespace=kb-system \
+  --with-source \
+  --timeout=10m
+
+kubectl -n kb-system --request-timeout=10m \
+  wait helmrelease/neon --for=condition=Ready --timeout=10m
+
+safekeeper_security_context="$(
+  kubectl --request-timeout=15s \
+    get componentdefinition/neon-safekeeper-1.0.1 \
+    -o jsonpath='{.spec.runtime.securityContext.fsGroup}{" "}{.spec.runtime.securityContext.fsGroupChangePolicy}'
+)"
+
+if [[ "$safekeeper_security_context" != "996 OnRootMismatch" ]]; then
+  printf 'Unexpected safekeeper security context: %s\n' \
+    "$safekeeper_security_context" >&2
+  exit 1
+fi
+```
+
+ComponentDefinition の確認後、保持対象が残っていることを再確認する。
+
+```bash
+kubectl -n database --request-timeout=15s \
+  get secret/neon-s3-credentials -o name
+
+gateway_pod="$(get_gateway_pod)"
+kubectl -n pcloud-s3 --request-timeout=30s \
+  exec "$gateway_pod" -c rclone -- \
+  rclone lsd pcloud:buckets |
+  awk '$NF == "neon-demo" {found=1} END {exit !found}'
+```
+
+最後に `Kustomization/cluster-resources` を再開し、Flux に `Cluster/neon-demo` を再作成させる。
+
+```bash
+kubectl -n flux-system --request-timeout=15s \
+  patch kustomization/cluster-resources \
+  --type=merge --patch='{"spec":{"suspend":false}}'
+
+flux reconcile kustomization cluster-resources \
+  --namespace=flux-system \
+  --with-source \
+  --timeout=10m
+
+kubectl -n flux-system --request-timeout=10m \
+  wait kustomization/cluster-resources \
+  --for=condition=Ready --timeout=10m
+kubectl -n database --request-timeout=20m \
+  wait cluster/neon-demo \
+  --for=jsonpath='{.status.phase}'=Running --timeout=20m
+```
+
+この手順では bucket、`Secret/neon-s3-credentials`、chart version、CRD を変更しない。
+
 ## Cluster の削除と remote bucket の保持
 
 Flux が `clusters/home/resources/neon-demo.yaml` を管理している間に Cluster だけを削除すると、次回の reconcile で再作成される。

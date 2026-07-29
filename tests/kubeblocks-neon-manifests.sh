@@ -52,6 +52,24 @@ assert_file_absent "$repo_root/clusters/home/_system/namespaces/postgres-operato
 assert_file_absent "$repo_root/clusters/home/controllers/postgres-operator.yaml"
 assert_file_absent "$repo_root/components/postgres-operator"
 
+setup_doc="$repo_root/docs/kubeblocks-neon-setup.md"
+for required_procedure in \
+  'ComponentDefinition.spec.runtime` は immutable' \
+  'patch kustomization/cluster-resources' \
+  'delete cluster/neon-demo' \
+  'wait --for=delete cluster/neon-demo --timeout=10m' \
+  'delete componentdefinition/neon-safekeeper-1.0.1' \
+  'reconcile helmrelease neon' \
+  'get componentdefinition/neon-safekeeper-1.0.1' \
+  'fsGroupChangePolicy' \
+  'secret/neon-s3-credentials' \
+  'rclone lsd pcloud:buckets' \
+  'wait cluster/neon-demo' \
+  '--timeout=20m'
+do
+  assert_file_contains "$setup_doc" "$required_procedure"
+done
+
 # File absence is the behavior under test here: these files were direct
 # Flux entry points, so retaining any one of them keeps the old operator live.
 if rg -n 'postgres-operator|opensource\.zalando\.com' \
@@ -255,7 +273,7 @@ assert_resource_contains "$neon_external_secret" "apiVersion: external-secrets.i
 assert_resource_contains "$neon_external_secret" "namespace: database"
 assert_resource_contains "$neon_external_secret" "kind: ClusterSecretStore"
 assert_resource_contains "$neon_external_secret" "name: 1password-sdk"
-assert_resource_contains "$neon_external_secret" "refreshInterval: 60m"
+assert_resource_contains "$neon_external_secret" "refreshInterval: 18h43m"
 assert_resource_contains "$neon_external_secret" "creationPolicy: Owner"
 assert_resource_contains "$neon_external_secret" $'target:\n    creationPolicy: Owner\n    name: neon-s3-credentials'
 assert_resource_contains "$neon_external_secret" "secretKey: AWS_ACCESS_KEY_ID"
