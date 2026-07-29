@@ -70,16 +70,32 @@ kubectl -n database --request-timeout=15s \
 
 出力には `AWS_ACCESS_KEY_ID` と `AWS_SECRET_ACCESS_KEY` が含まれる。
 
-このコマンドは Secret のキー名だけを表示し、値を表示しない。
+gateway の `rclone-s3-credentials` も同じ方法で確認する。
+
+```bash
+kubectl -n pcloud-s3 --request-timeout=15s \
+  get secret/rclone-s3-credentials \
+  -o go-template='{{range $key, $_ := .data}}{{printf "%s\n" $key}}{{end}}' |
+  sort
+```
+
+出力には `PCLOUD_TOKEN`、`RCLONE_AUTH_KEY`、`S3_ACCESS_KEY_ID`、`S3_SECRET_ACCESS_KEY` が含まれる。
+
+これらのコマンドは Secret のキー名だけを表示し、値を表示しない。
 
 Neon chart は `cloud_admin` system account を定義するが、KubeBlocks が生成する接続用 Secret の完全名はマニフェストに固定されていない。
 
-そこで、現在の Secret の `metadata.name` から account 名に対応する Secret を一つだけ選ぶ。
+そこで、Cluster と component の label で候補を限定し、現在の `metadata.name` から account 名に対応する Secret を一つだけ選ぶ。
 
 ```bash
+cluster_name=neon-demo
+compute_component_name=neon-compute
+compute_resource_name="${cluster_name}-${compute_component_name}"
+account_selector="app.kubernetes.io/instance=${cluster_name},apps.kubeblocks.io/component-name=${compute_component_name}"
+
 mapfile -t account_secrets < <(
   kubectl -n database --request-timeout=15s \
-    get secrets \
+    get secrets -l "$account_selector" \
     -o go-template='{{range .items}}{{printf "%s\n" .metadata.name}}{{end}}' |
     awk '/-account-cloud-admin$/'
 )
@@ -92,6 +108,19 @@ fi
 
 credential_secret="${account_secrets[0]}"
 
+credential_owner_refs="$(
+  kubectl -n database --request-timeout=15s \
+    get secret/"$credential_secret" \
+    -o go-template='{{range .metadata.ownerReferences}}{{printf "%s/%s\n" .kind .name}}{{end}}'
+)"
+
+if [[ $'\n'"$credential_owner_refs"$'\n' != \
+  *$'\n'"Component/${compute_resource_name}"$'\n'* ]]; then
+  printf '%s\n' \
+    'The cloud_admin Secret is not owned by the neon-compute Component' >&2
+  exit 1
+fi
+
 kubectl -n database --request-timeout=15s \
   get secret/"$credential_secret" \
   -o go-template='{{range $key, $_ := .data}}{{printf "%s\n" $key}}{{end}}' |
@@ -100,7 +129,9 @@ kubectl -n database --request-timeout=15s \
 
 接続用 Secret の出力には `username` と `password` が含まれる。
 
-探索と確認で表示するのは Secret 名とキー名だけであり、値は表示しない。
+候補は `Cluster/neon-demo` と `neon-compute` component の label を持ち、`Component/neon-demo-neon-compute` が ownerReference に設定されている場合に限り採用する。
+
+探索と確認で扱うのは Secret の metadata とキー名だけであり、値は表示しない。
 
 ## cloud_admin 認証情報の対話的な取得
 
@@ -123,13 +154,17 @@ db_password="$(
 )"
 
 if [[ "$db_user" != "cloud_admin" || -z "$db_password" ]]; then
-  unset db_user db_password credential_secret account_secrets
+  unset db_user db_password credential_secret credential_owner_refs \
+    account_secrets account_selector cluster_name compute_component_name \
+    compute_resource_name
   printf '%s\n' 'The generated cloud_admin credentials are invalid' >&2
   exit 1
 fi
 
 printf '%s\n' 'The cloud_admin credentials were loaded without printing their values'
-unset db_user db_password credential_secret account_secrets
+unset db_user db_password credential_secret credential_owner_refs \
+  account_secrets account_selector cluster_name compute_component_name \
+  compute_resource_name
 ```
 
 認証情報を `echo`、`printf`、ログ出力へ渡さず、Secret 全体を `-o yaml`、`-o json`、`describe` で表示しない。
@@ -237,14 +272,14 @@ remote bucket にオブジェクトが現れるまで最大 10 分待つ。
 ```bash
 gateway_pod="$(get_gateway_pod)"
 object_deadline=$((SECONDS + 600))
-objects=""
+first_object=""
 
 while (( SECONDS < object_deadline )); do
-  if objects="$(
+  if first_object="$(
     kubectl -n pcloud-s3 --request-timeout=30s \
       exec "$gateway_pod" -c rclone -- \
-      rclone lsf pcloud:buckets/neon-demo --recursive
-  )" && [[ -n "$objects" ]]; then
+      sh -c 'rclone lsf pcloud:buckets/neon-demo --recursive | head -n 1'
+  )" && [[ -n "$first_object" ]]; then
     break
   fi
 
@@ -255,16 +290,18 @@ while (( SECONDS < object_deadline )); do
   sleep 5
 done
 
-if [[ -z "$objects" ]]; then
+if [[ -z "$first_object" ]]; then
   printf '%s\n' \
     'Timed out waiting for Neon objects in the neon-demo bucket' >&2
   exit 1
 fi
 
-printf '%s\n' "$objects"
+printf '%s\n' "$first_object"
 ```
 
-出力はオブジェクト名だけであり、pCloud token や S3 認証情報を含まない。
+再帰的な列挙は最初の一件で停止する。
+
+出力は一つのオブジェクト名だけであり、pCloud token や S3 認証情報を含まない。
 
 ## pageserver 再起動後の読み取り
 
@@ -516,9 +553,26 @@ if (( ${#neon_pvcs[@]} == 0 )); then
 fi
 ```
 
-次に、Git の desired state から `clusters/home/resources/neon-demo.yaml` を取り除き、その変更を Flux へ反映する。
+次に、運用者が Git の desired state から `clusters/home/resources/neon-demo.yaml` を取り除き、その変更を commit して push する。
 
-`Kustomization/cluster-resources` の reconcile によって `Cluster/neon-demo` が prune されてから、次の確認へ進む。
+```bash
+git rm clusters/home/resources/neon-demo.yaml
+git commit -m "chore: remove neon demo cluster"
+git push
+
+flux reconcile kustomization cluster-resources \
+  --namespace=flux-system \
+  --with-source \
+  --timeout=10m
+
+kubectl -n flux-system --request-timeout=5m \
+  wait kustomization/cluster-resources \
+  --for=condition=Ready --timeout=5m
+```
+
+commit と push は、Cluster を削除する権限を持つ運用者が内容を確認して実行する。
+
+期限付き reconcile と Ready 確認の両方が成功してから、削除確認へ進む。
 
 Cluster の削除と PVC の削除を、それぞれ最大 10 分待つ。
 
@@ -527,22 +581,25 @@ kubectl -n database --request-timeout=10m \
   wait --for=delete cluster/neon-demo --timeout=10m
 
 pvc_deadline=$((SECONDS + 600))
-remaining_pvcs="${#neon_pvcs[@]}"
+remaining_pvcs=("${neon_pvcs[@]}")
 
-while (( SECONDS < pvc_deadline )); do
-  if current_pvcs="$(
-    kubectl -n database --request-timeout=15s \
-      get pvc -l app.kubernetes.io/instance=neon-demo -o name
-  )"; then
-    if [[ -z "$current_pvcs" ]]; then
-      remaining_pvcs=0
-      break
+while (( SECONDS < pvc_deadline && ${#remaining_pvcs[@]} > 0 )); do
+  next_remaining_pvcs=()
+
+  for pvc in "${remaining_pvcs[@]}"; do
+    if pvc_state="$(
+      kubectl -n database --request-timeout=15s \
+        get "$pvc" --ignore-not-found=true -o name
+    )"; then
+      if [[ -n "$pvc_state" ]]; then
+        next_remaining_pvcs+=("$pvc")
+      fi
+    else
+      next_remaining_pvcs+=("$pvc")
     fi
+  done
 
-    remaining_pvcs="$(
-      awk 'NF {count++} END {print count + 0}' <<<"$current_pvcs"
-    )"
-  fi
+  remaining_pvcs=("${next_remaining_pvcs[@]}")
 
   if (( SECONDS >= pvc_deadline )); then
     break
@@ -551,9 +608,9 @@ while (( SECONDS < pvc_deadline )); do
   sleep 5
 done
 
-if (( remaining_pvcs != 0 )); then
-  printf 'Timed out waiting for %s neon-demo PVCs to be removed\n' \
-    "$remaining_pvcs" >&2
+if (( ${#remaining_pvcs[@]} != 0 )); then
+  printf 'Timed out waiting for PVC removal: %s\n' \
+    "${remaining_pvcs[*]}" >&2
   exit 1
 fi
 ```
