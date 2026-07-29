@@ -89,7 +89,7 @@ class KubeBlocksNeonContracts(unittest.TestCase):
     def test_core_release_disables_built_in_addon_management(self):
         release = load_yaml("components/kubeblocks/release.yaml")
 
-        self.assertEqual(release["spec"]["chart"]["spec"]["version"], "1.0.0")
+        self.assertEqual(release["spec"]["chart"]["spec"]["version"], "1.0.2")
         values = release["spec"].get("values", {})
         self.assertIs(values.get("addonController", {}).get("enabled"), False)
         self.assertEqual(values.get("autoInstalledAddons"), [])
