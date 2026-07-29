@@ -278,29 +278,8 @@ neon_chart_post_rendered="$neon_chart_render_dir/neon-post-rendered.yaml"
 trap 'rm -f "$rendered" "$neon_rendered" "$neon_external_secret" "$neon_cluster" "$component_rendered" "$neon_helm_release"; rm -rf "$neon_render_dir" "$neon_chart_render_dir"' EXIT
 extract_resource "$rendered" HelmRelease neon "$neon_helm_release"
 
-helm template neon neon \
-  --repo https://apecloud.github.io/helm-charts \
-  --version 1.0.1 \
-  --kubeconfig /dev/null \
-  >"$neon_chart_rendered"
-printf '%s\n' \
-  '---' \
-  'apiVersion: apps.kubeblocks.io/v1' \
-  'kind: ComponentVersion' \
-  'metadata:' \
-  '  name: neon-future' \
-  'spec:' \
-  '  compatibilityRules:' \
-  '    - compDefs:' \
-  '        - neon-future' \
-  '      releases:' \
-  '        - pg14-1.0.0' \
-  '  releases:' \
-  '    - name: pg14-1.0.0' \
-  '      serviceVersion: 1.0.0' \
-  '      images:' \
-  '        neon-future: example.invalid/neon-future:pg14-1.0.0' \
-  >>"$neon_chart_rendered"
+cp "$repo_root/tests/fixtures/neon-component-versions-1.0.1.yaml" \
+  "$neon_chart_rendered"
 python3 "$repo_root/tests/kubeblocks_neon_postrender.py" write-kustomization \
   "$neon_helm_release" \
   "$neon_chart_rendered" \

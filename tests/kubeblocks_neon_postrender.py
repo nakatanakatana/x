@@ -14,6 +14,17 @@ OFFICIAL_COMPONENT_VERSIONS = {
     "neon-safekeeper",
 }
 EXPECTED_COMPONENT_VERSIONS = OFFICIAL_COMPONENT_VERSIONS | {"neon-future"}
+EXPECTED_PATCH = [
+    {
+        "op": "add",
+        "path": "/spec/releases/0/changes",
+        "value": "",
+    },
+    {
+        "op": "remove",
+        "path": "/spec/releases/0/changes",
+    },
+]
 
 
 def load_documents(path: Path) -> list[dict]:
@@ -26,6 +37,22 @@ def write_kustomization(
 ) -> None:
     helm_release = load_documents(helm_release_path)[0]
     patches = helm_release["spec"]["postRenderers"][0]["kustomize"]["patches"]
+    component_version_patches = [
+        patch
+        for patch in patches
+        if patch["target"].get("group") == "apps.kubeblocks.io"
+        and patch["target"].get("version") == "v1"
+        and patch["target"].get("kind") == "ComponentVersion"
+    ]
+    if len(component_version_patches) != 1:
+        raise AssertionError("expected exactly one ComponentVersion post-render patch")
+    component_version_patch = component_version_patches[0]
+    if component_version_patch["target"].get("name") != "neon-.*":
+        raise AssertionError("ComponentVersion target name must be neon-.*")
+    if yaml.safe_load(component_version_patch["patch"]) != EXPECTED_PATCH:
+        raise AssertionError(
+            "ComponentVersion patch must add empty changes and then remove changes"
+        )
     kustomization = {
         "apiVersion": "kustomize.config.k8s.io/v1beta1",
         "kind": "Kustomization",
@@ -64,12 +91,11 @@ def validate_component_versions(rendered_path: Path, crd_path: Path) -> None:
 
     for name, component_version in component_versions.items():
         validator.validate(component_version)
-        if name in OFFICIAL_COMPONENT_VERSIONS:
-            for release in component_version["spec"]["releases"]:
-                if "changes" in release:
-                    raise AssertionError(
-                        f"{name} release {release['name']} still contains changes"
-                    )
+        for release in component_version["spec"]["releases"]:
+            if "changes" in release:
+                raise AssertionError(
+                    f"{name} release {release['name']} still contains changes"
+                )
 
 
 def main() -> None:
