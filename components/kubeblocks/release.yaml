@@ -14,3 +14,7 @@ spec:
         kind: HelmRepository
         name: kubeblocks
   releaseName: kubeblocks
+  values:
+    addonController:
+      enabled: false
+    autoInstalledAddons: []

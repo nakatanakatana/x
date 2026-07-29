@@ -12,6 +12,15 @@ assert_file_contains() {
   fi
 }
 
+assert_file_not_contains() {
+  local file="$1"
+  local forbidden="$2"
+  if grep -Fq -- "$forbidden" "$file"; then
+    printf 'forbidden content in %s: %s\n' "$file" "$forbidden" >&2
+    exit 1
+  fi
+}
+
 assert_file_absent() {
   local file="$1"
   if [[ -e "$file" ]]; then
@@ -256,16 +265,16 @@ assert_resource_contains "$neon_external_secret" "key: pcloud-s3/S3_SECRET_ACCES
 
 assert_resource_contains "$neon_cluster" "apiVersion: apps.kubeblocks.io/v1"
 assert_resource_contains "$neon_cluster" "namespace: database"
-assert_resource_contains "$neon_cluster" "clusterDefinitionRef: neon"
+assert_resource_contains "$neon_cluster" "clusterDef: neon"
+assert_file_not_contains "$neon_cluster" "clusterDefinitionRef:"
 assert_resource_contains "$neon_cluster" "topology: default"
 assert_resource_contains "$neon_cluster" "terminationPolicy: Delete"
 
 component_rendered="$(mktemp)"
 trap 'rm -f "$rendered" "$neon_rendered" "$neon_external_secret" "$neon_cluster" "$component_rendered"; rm -rf "$neon_render_dir"' EXIT
 for component_spec in \
-  'neon-broker:1:data:5Gi' \
-  'neon-pageserver:1:neon-pageserver:10Gi' \
-  'neon-safekeeper:3:neon-safekeeper:5Gi' \
+  'neon-pageserver:1:data:10Gi' \
+  'neon-safekeeper:3:data:5Gi' \
   'neon-compute:1:data:5Gi'
 do
   IFS=: read -r component replicas volume capacity <<<"$component_spec"
@@ -278,6 +287,14 @@ do
   assert_resource_contains "$component_rendered" 'cpu: "1"'
   assert_resource_contains "$component_rendered" "memory: 2Gi"
 done
+
+extract_component "$neon_cluster" "neon-broker" "$component_rendered"
+assert_resource_contains "$component_rendered" "replicas: 1"
+assert_resource_contains "$component_rendered" "cpu: 500m"
+assert_resource_contains "$component_rendered" "memory: 512Mi"
+assert_resource_contains "$component_rendered" 'cpu: "1"'
+assert_resource_contains "$component_rendered" "memory: 2Gi"
+assert_file_not_contains "$component_rendered" "volumeClaimTemplates:"
 
 for forbidden in NodePort LoadBalancer WipeOut; do
   if grep -Fq -- "$forbidden" "$neon_cluster"; then
@@ -292,3 +309,5 @@ if rg --pcre2 --glob '*.yaml' --glob '*.yml' -n \
   printf '%s\n' 'literal S3 credential value remains in YAML' >&2
   exit 1
 fi
+
+python3 "$repo_root/tests/kubeblocks_neon_contracts.py"

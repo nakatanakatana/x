@@ -18,11 +18,31 @@ remote bucket は `neon-demo`、リージョンは `us-east-1` であり、path-
 
 ## 導入状態の確認
 
-はじめに、二つの HelmRelease の Ready 条件を確認する。
+はじめに、CRD 用と本体用の子 Kustomization、およびそれらを監視する親 Kustomization の Ready 条件を確認する。
+
+`kubeblocks` は `kubeblocks-crds` に依存し、`cluster-controllers` は `kubeblocks` を health check の対象とする。
 
 ```bash
 set -euo pipefail
 
+for kustomization in kubeblocks-crds kubeblocks cluster-controllers; do
+  ready_status="$(
+    kubectl -n flux-system --request-timeout=15s \
+      get kustomization/"$kustomization" \
+      -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}'
+  )"
+
+  if [[ "$ready_status" != "True" ]]; then
+    printf 'Kustomization/%s is not Ready: %s\n' \
+      "$kustomization" "$ready_status" >&2
+    exit 1
+  fi
+done
+```
+
+続いて、二つの HelmRelease の Ready 条件を確認する。
+
+```bash
 for release in kubeblocks neon; do
   ready_status="$(
     kubectl -n kb-system --request-timeout=15s \
@@ -51,11 +71,17 @@ Cluster の phase が `Running`、`terminationPolicy` が `Delete` であるこ�
 
 ```bash
 kubectl -n database --request-timeout=15s get pods
-kubectl -n database --request-timeout=15s get pvc
+kubectl -n database --request-timeout=15s \
+  get pvc -l app.kubernetes.io/instance=neon-demo \
+  -o custom-columns='NAME:.metadata.name,COMPONENT:.metadata.labels.apps\.kubeblocks\.io/component-name,STORAGE:.spec.resources.requests.storage,CLASS:.spec.storageClassName'
 kubectl -n database --request-timeout=15s get services
 kubectl -n pcloud-s3 --request-timeout=15s \
   get endpointslice -l kubernetes.io/service-name=gateway
 ```
+
+`rook-ceph-block` の PVC は 5 個であり、pageserver 用が 10 GiB で 1 個、safekeeper 用が 5 GiB で 3 個、compute 用が 5 GiB で 1 個であることを確認する。
+
+broker 用の PVC が存在してはならない。
 
 `gateway` は `pcloud-s3` Namespace の `app=rclone-s3-gateway` Pod を選択する ClusterIP Service である。
 
@@ -547,8 +573,21 @@ mapfile -t neon_pvcs < <(
     get pvc -l app.kubernetes.io/instance=neon-demo -o name
 )
 
-if (( ${#neon_pvcs[@]} == 0 )); then
-  printf '%s\n' 'No neon-demo PVCs were found before teardown' >&2
+if (( ${#neon_pvcs[@]} != 5 )); then
+  printf 'Expected five neon-demo PVCs before teardown, found %s\n' \
+    "${#neon_pvcs[@]}" >&2
+  exit 1
+fi
+
+broker_pvcs="$(
+  kubectl -n database --request-timeout=15s \
+    get pvc \
+    -l 'app.kubernetes.io/instance=neon-demo,apps.kubeblocks.io/component-name=neon-broker' \
+    -o name
+)"
+
+if [[ -n "$broker_pvcs" ]]; then
+  printf 'Unexpected broker PVCs: %s\n' "$broker_pvcs" >&2
   exit 1
 fi
 ```

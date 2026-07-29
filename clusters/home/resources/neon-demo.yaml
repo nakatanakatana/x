@@ -4,7 +4,7 @@ metadata:
   name: neon-demo
   namespace: database
 spec:
-  clusterDefinitionRef: neon
+  clusterDef: neon
   topology: default
   terminationPolicy: Delete
   componentSpecs:
@@ -17,15 +17,6 @@ spec:
         limits:
           cpu: "1"
           memory: 2Gi
-      volumeClaimTemplates:
-        - name: data
-          spec:
-            accessModes:
-              - ReadWriteOnce
-            storageClassName: rook-ceph-block
-            resources:
-              requests:
-                storage: 5Gi
     - name: neon-safekeeper
       replicas: 3
       resources:
@@ -36,7 +27,7 @@ spec:
           cpu: "1"
           memory: 2Gi
       volumeClaimTemplates:
-        - name: neon-safekeeper
+        - name: data
           spec:
             accessModes:
               - ReadWriteOnce
@@ -54,7 +45,7 @@ spec:
           cpu: "1"
           memory: 2Gi
       volumeClaimTemplates:
-        - name: neon-pageserver
+        - name: data
           spec:
             accessModes:
               - ReadWriteOnce
