@@ -40,7 +40,7 @@ spec:
               group: apps.kubeblocks.io
               version: v1
               kind: ComponentVersion
-              name: neon-.*
+              name: ^neon-(broker|compute|pageserver|safekeeper)$
             patch: |-
               - op: remove
                 path: /spec/releases/0/changes

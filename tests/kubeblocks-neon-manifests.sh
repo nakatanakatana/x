@@ -171,41 +171,6 @@ extract_resource() {
   fi
 }
 
-assert_component_version_changes_removal_patch() {
-  local helm_release="$1"
-
-  if ! awk '
-    function matches_required_patch() {
-      return group == "apps.kubeblocks.io" && version == "v1" && kind == "ComponentVersion" && name == "neon-.*" && remove_changes
-    }
-    /^      - patch: \|-$/ {
-      if (matches_required_patch()) {
-        found = 1
-        exit
-      }
-      group = ""
-      version = ""
-      kind = ""
-      name = ""
-      saw_remove = 0
-      remove_changes = 0
-      next
-    }
-    /^          group: apps\.kubeblocks\.io$/ { group = "apps.kubeblocks.io"; next }
-    /^          version: v1$/ { version = "v1"; next }
-    /^          kind: ComponentVersion$/ { kind = "ComponentVersion"; next }
-    /^          name: neon-\.\*$/ { name = "neon-.*"; next }
-    /^          - op: remove$/ { saw_remove = 1; next }
-    saw_remove && /^            path: \/spec\/releases\/0\/changes$/ { remove_changes = 1; next }
-    END {
-      exit !(found || matches_required_patch())
-    }
-  ' "$helm_release"; then
-    printf '%s\n' 'missing ComponentVersion changes removal post-render patch' >&2
-    exit 1
-  fi
-}
-
 extract_component() {
   local cluster="$1"
   local component_name="$2"
@@ -307,9 +272,44 @@ assert_resource_contains "$neon_cluster" "terminationPolicy: Delete"
 
 component_rendered="$(mktemp)"
 neon_helm_release="$(mktemp)"
-trap 'rm -f "$rendered" "$neon_rendered" "$neon_external_secret" "$neon_cluster" "$component_rendered" "$neon_helm_release"; rm -rf "$neon_render_dir"' EXIT
+neon_chart_render_dir="$(mktemp -d)"
+neon_chart_rendered="$neon_chart_render_dir/neon-rendered.yaml"
+neon_chart_post_rendered="$neon_chart_render_dir/neon-post-rendered.yaml"
+trap 'rm -f "$rendered" "$neon_rendered" "$neon_external_secret" "$neon_cluster" "$component_rendered" "$neon_helm_release"; rm -rf "$neon_render_dir" "$neon_chart_render_dir"' EXIT
 extract_resource "$rendered" HelmRelease neon "$neon_helm_release"
-assert_component_version_changes_removal_patch "$neon_helm_release"
+
+helm template neon neon \
+  --repo https://apecloud.github.io/helm-charts \
+  --version 1.0.1 \
+  --kubeconfig /dev/null \
+  >"$neon_chart_rendered"
+printf '%s\n' \
+  '---' \
+  'apiVersion: apps.kubeblocks.io/v1' \
+  'kind: ComponentVersion' \
+  'metadata:' \
+  '  name: neon-future' \
+  'spec:' \
+  '  compatibilityRules:' \
+  '    - compDefs:' \
+  '        - neon-future' \
+  '      releases:' \
+  '        - pg14-1.0.0' \
+  '  releases:' \
+  '    - name: pg14-1.0.0' \
+  '      serviceVersion: 1.0.0' \
+  '      images:' \
+  '        neon-future: example.invalid/neon-future:pg14-1.0.0' \
+  >>"$neon_chart_rendered"
+python3 "$repo_root/tests/kubeblocks_neon_postrender.py" write-kustomization \
+  "$neon_helm_release" \
+  "$neon_chart_rendered" \
+  "$neon_chart_render_dir/kustomization.yaml"
+kustomize build "$neon_chart_render_dir" >"$neon_chart_post_rendered"
+python3 "$repo_root/tests/kubeblocks_neon_postrender.py" validate \
+  "$neon_chart_post_rendered" \
+  "$repo_root/components/kubeblocks-crds/kubeblocks_crds.yaml"
+
 for component_spec in \
   'neon-pageserver:1:data:10Gi' \
   'neon-safekeeper:3:data:5Gi' \
