@@ -59,9 +59,12 @@ for required_procedure in \
   'patch kustomization/cluster-resources' \
   'delete cluster/neon-demo' \
   'wait --for=delete cluster/neon-demo --timeout=10m' \
-  'delete componentdefinition/neon-safekeeper-1.0.1' \
+  'neon-pageserver-1.0.1' \
+  'neon-safekeeper-1.0.1' \
+  'neon-compute-1.0.1' \
+  'delete componentdefinition' \
   $'flux reconcile helmrelease neon \\\n  --namespace=kb-system \\\n  --force \\\n  --with-source \\' \
-  'get componentdefinition/neon-safekeeper-1.0.1' \
+  'get "componentdefinition/${component_definition}"' \
   'fsGroupChangePolicy' \
   'secret/neon-s3-credentials' \
   'rclone lsd pcloud:buckets' \
@@ -306,8 +309,8 @@ neon_helm_release="$(mktemp)"
 neon_chart_render_dir="$(mktemp -d)"
 neon_chart_rendered="$neon_chart_render_dir/neon-rendered.yaml"
 neon_chart_post_rendered="$neon_chart_render_dir/neon-post-rendered.yaml"
-neon_safekeeper_rendered="$neon_chart_render_dir/neon-safekeeper-rendered.yaml"
-neon_safekeeper_post_rendered="$neon_chart_render_dir/neon-safekeeper-post-rendered.yaml"
+neon_component_rendered="$neon_chart_render_dir/neon-component-rendered.yaml"
+neon_component_post_rendered="$neon_chart_render_dir/neon-component-post-rendered.yaml"
 trap 'rm -f "$rendered" "$neon_rendered" "$neon_external_secret" "$neon_cluster" "$component_rendered" "$neon_helm_release"; rm -rf "$neon_render_dir" "$neon_chart_render_dir"' EXIT
 extract_resource "$rendered" HelmRelease neon "$neon_helm_release"
 
@@ -322,16 +325,19 @@ python3 "$repo_root/tests/kubeblocks_neon_postrender.py" validate \
   "$neon_chart_post_rendered" \
   "$repo_root/components/kubeblocks-crds/kubeblocks_crds.yaml"
 
-cp "$repo_root/tests/fixtures/neon-safekeeper-component-definition-1.0.1.yaml" \
-  "$neon_safekeeper_rendered"
-python3 "$repo_root/tests/kubeblocks_neon_postrender.py" write-kustomization \
-  "$neon_helm_release" \
-  "$neon_safekeeper_rendered" \
-  "$neon_chart_render_dir/kustomization.yaml"
-kustomize build "$neon_chart_render_dir" >"$neon_safekeeper_post_rendered"
-python3 "$repo_root/tests/kubeblocks_neon_postrender.py" validate-safekeeper \
-  "$neon_safekeeper_post_rendered" \
-  "$repo_root/components/kubeblocks-crds/kubeblocks_crds.yaml"
+for component in neon-pageserver neon-safekeeper neon-compute; do
+  cp "$repo_root/tests/fixtures/${component}-component-definition-1.0.1.yaml" \
+    "$neon_component_rendered"
+  python3 "$repo_root/tests/kubeblocks_neon_postrender.py" write-kustomization \
+    "$neon_helm_release" \
+    "$neon_component_rendered" \
+    "$neon_chart_render_dir/kustomization.yaml"
+  kustomize build "$neon_chart_render_dir" >"$neon_component_post_rendered"
+  python3 "$repo_root/tests/kubeblocks_neon_postrender.py" validate-component \
+    "$neon_component_post_rendered" \
+    "$repo_root/components/kubeblocks-crds/kubeblocks_crds.yaml" \
+    "${component}-1.0.1"
+done
 
 for component_spec in \
   'neon-pageserver:1:data:10Gi' \

@@ -561,11 +561,20 @@ read_smoke_value
 
 Status checks read only ExternalSecret timestamps and conditions; they do not display Secret values.
 
-## One-time recreation of the safekeeper ComponentDefinition
+## One-time recreation of PVC-backed ComponentDefinitions
 
-Because `ComponentDefinition.spec.runtime` is immutable, the post-rendered security context cannot be applied to the existing `ComponentDefinition/neon-safekeeper-1.0.1`.
+The Neon image runs as UID 998 and GID 996.
 
-Use this procedure once after merging the fix to recreate the current validation `Cluster/neon-demo` and the existing ComponentDefinition.
+All PVC-backed ComponentDefinitions set `fsGroup: 996` with
+`fsGroupChangePolicy: OnRootMismatch` so the image can write to newly
+provisioned volumes.
+
+Because `ComponentDefinition.spec.runtime` is immutable, the post-rendered
+security context cannot be applied to existing ComponentDefinitions.
+
+Use this procedure once after merging a security-context fix to recreate the
+current validation `Cluster/neon-demo` and the affected pageserver and compute
+ComponentDefinitions.
 
 Recreation deletes the Neon PVCs in Kubernetes.
 
@@ -714,15 +723,27 @@ if (( ${#remaining_pvcs[@]} != 0 )); then
 fi
 ```
 
-After deleting the Cluster, delete the fixed-name safekeeper ComponentDefinition.
+After deleting the Cluster, delete the fixed-name pageserver and compute
+ComponentDefinitions.
 
-Reconcile the HelmRelease with a deadline to recreate the ComponentDefinition with the post-render patch.
+Reconcile the HelmRelease with a deadline to recreate the ComponentDefinitions
+with the post-render patches.
 
 ```bash
-kubectl --request-timeout=30s \
-  delete componentdefinition/neon-safekeeper-1.0.1 --wait=false
-kubectl --request-timeout=5m \
-  wait --for=delete componentdefinition/neon-safekeeper-1.0.1 --timeout=5m
+component_definitions=(
+  neon-pageserver-1.0.1
+  neon-compute-1.0.1
+)
+
+kubectl --request-timeout=30s delete componentdefinition \
+  "${component_definitions[@]}" --wait=false
+
+for component_definition in "${component_definitions[@]}"; do
+  kubectl --request-timeout=5m \
+    wait --for=delete \
+    "componentdefinition/${component_definition}" \
+    --timeout=5m
+done
 
 flux reconcile helmrelease neon \
   --namespace=kb-system \
@@ -733,17 +754,23 @@ flux reconcile helmrelease neon \
 kubectl -n kb-system --request-timeout=10m \
   wait helmrelease/neon --for=condition=Ready --timeout=10m
 
-safekeeper_security_context="$(
-  kubectl --request-timeout=15s \
-    get componentdefinition/neon-safekeeper-1.0.1 \
-    -o jsonpath='{.spec.runtime.securityContext.fsGroup}{" "}{.spec.runtime.securityContext.fsGroupChangePolicy}'
-)"
+for component_definition in \
+  neon-pageserver-1.0.1 \
+  neon-safekeeper-1.0.1 \
+  neon-compute-1.0.1
+do
+  security_context="$(
+    kubectl --request-timeout=15s \
+      get "componentdefinition/${component_definition}" \
+      -o jsonpath='{.spec.runtime.securityContext.fsGroup}{" "}{.spec.runtime.securityContext.fsGroupChangePolicy}'
+  )"
 
-if [[ "$safekeeper_security_context" != "996 OnRootMismatch" ]]; then
-  printf 'Unexpected safekeeper security context: %s\n' \
-    "$safekeeper_security_context" >&2
-  exit 1
-fi
+  if [[ "$security_context" != "996 OnRootMismatch" ]]; then
+    printf 'Unexpected security context for %s: %s\n' \
+      "$component_definition" "$security_context" >&2
+    exit 1
+  fi
+done
 ```
 
 After verifying the ComponentDefinition, confirm again that retained resources still exist.

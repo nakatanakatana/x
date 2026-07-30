@@ -65,6 +65,11 @@ spec:
               name: neon-pageserver-.*
             patch: |-
               - op: add
+                path: /spec/runtime/securityContext
+                value:
+                  fsGroup: 996
+                  fsGroupChangePolicy: OnRootMismatch
+              - op: add
                 path: /spec/runtime/containers/0/env/-
                 value:
                   name: AWS_ACCESS_KEY_ID
@@ -111,3 +116,14 @@ spec:
                           secretKeyRef:
                             name: neon-s3-credentials
                             key: AWS_SECRET_ACCESS_KEY
+          - target:
+              group: apps.kubeblocks.io
+              version: v1
+              kind: ComponentDefinition
+              name: neon-compute-.*
+            patch: |-
+              - op: add
+                path: /spec/runtime/securityContext
+                value:
+                  fsGroup: 996
+                  fsGroupChangePolicy: OnRootMismatch
