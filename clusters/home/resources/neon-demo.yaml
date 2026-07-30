@@ -58,6 +58,9 @@ spec:
                 storage: 10Gi
     - name: neon-compute
       replicas: 1
+      schedulingPolicy:
+        nodeSelector:
+          kubernetes.io/arch: amd64
       resources:
         requests:
           cpu: 500m
