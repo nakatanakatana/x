@@ -1,0 +1,121 @@
+---
+# Source: official Neon chart 1.0.1, templates/cmpv-compute.yaml
+apiVersion: apps.kubeblocks.io/v1
+kind: ComponentVersion
+metadata:
+  name: neon-compute
+  labels:
+    helm.sh/chart: neon-1.0.1
+    app.kubernetes.io/name: neon
+    app.kubernetes.io/instance: neon
+    app.kubernetes.io/version: pg14-1.0.0
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+    kubeblocks.io/crd-api-version: apps.kubeblocks.io/v1
+spec:
+  compatibilityRules:
+    - compDefs:
+        - ^neon-compute-
+      releases:
+        - pg14-1.0.0
+  releases:
+    - name: pg14-1.0.0
+      changes:
+      serviceVersion: 1.0.0
+      images:
+        neon-compute: docker.io/apecloud/neon:pg14-1.0.0
+---
+# Source: official Neon chart 1.0.1, templates/cmpv-pageserver.yaml
+apiVersion: apps.kubeblocks.io/v1
+kind: ComponentVersion
+metadata:
+  name: neon-pageserver
+  labels:
+    helm.sh/chart: neon-1.0.1
+    app.kubernetes.io/name: neon
+    app.kubernetes.io/instance: neon
+    app.kubernetes.io/version: pg14-1.0.0
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+    kubeblocks.io/crd-api-version: apps.kubeblocks.io/v1
+spec:
+  compatibilityRules:
+    - compDefs:
+        - ^neon-pageserver-
+      releases:
+        - pg14-1.0.0
+  releases:
+    - name: pg14-1.0.0
+      changes:
+      serviceVersion: 1.0.0
+      images:
+        neon-pageserver: docker.io/apecloud/neon:pg14-1.0.0
+---
+# Source: official Neon chart 1.0.1, templates/cmpv-safekeeper.yaml
+apiVersion: apps.kubeblocks.io/v1
+kind: ComponentVersion
+metadata:
+  name: neon-safekeeper
+  labels:
+    helm.sh/chart: neon-1.0.1
+    app.kubernetes.io/name: neon
+    app.kubernetes.io/instance: neon
+    app.kubernetes.io/version: pg14-1.0.0
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+    kubeblocks.io/crd-api-version: apps.kubeblocks.io/v1
+spec:
+  compatibilityRules:
+    - compDefs:
+        - ^neon-safekeeper-
+      releases:
+        - pg14-1.0.0
+  releases:
+    - name: pg14-1.0.0
+      changes:
+      serviceVersion: 1.0.0
+      images:
+        neon-safekeeper: docker.io/apecloud/neon:pg14-1.0.0
+---
+# Source: official Neon chart 1.0.1, templates/cmpv-storagebroker.yaml
+apiVersion: apps.kubeblocks.io/v1
+kind: ComponentVersion
+metadata:
+  name: neon-broker
+  labels:
+    helm.sh/chart: neon-1.0.1
+    app.kubernetes.io/name: neon
+    app.kubernetes.io/instance: neon
+    app.kubernetes.io/version: pg14-1.0.0
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+    kubeblocks.io/crd-api-version: apps.kubeblocks.io/v1
+spec:
+  compatibilityRules:
+    - compDefs:
+        - ^neon-broker-
+      releases:
+        - pg14-1.0.0
+  releases:
+    - name: pg14-1.0.0
+      changes:
+      serviceVersion: 1.0.0
+      images:
+        neon-storagebroker: docker.io/apecloud/neon:pg14-1.0.0
+---
+# A future chart resource without the optional changes field.
+apiVersion: apps.kubeblocks.io/v1
+kind: ComponentVersion
+metadata:
+  name: neon-future
+spec:
+  compatibilityRules:
+    - compDefs:
+        - neon-future
+      releases:
+        - pg14-1.0.0
+  releases:
+    - name: pg14-1.0.0
+      serviceVersion: 1.0.0
+      images:
+        neon-future: example.invalid/neon-future:pg14-1.0.0

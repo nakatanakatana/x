@@ -11,5 +11,10 @@ spec:
   path: ./clusters/home/controllers
   dependsOn:
     - name: cluster-configs
+  healthChecks:
+    - apiVersion: kustomize.toolkit.fluxcd.io/v1
+      kind: Kustomization
+      name: kubeblocks
+      namespace: flux-system
   prune: true
-  timeout: 1m
+  timeout: 15m

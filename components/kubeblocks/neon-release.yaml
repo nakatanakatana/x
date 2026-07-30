@@ -1,0 +1,129 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: neon
+  namespace: kb-system
+spec:
+  interval: 10m
+  timeout: 10m
+  dependsOn:
+    - name: kubeblocks
+  chart:
+    spec:
+      chart: neon
+      version: "1.0.1"
+      sourceRef:
+        kind: HelmRepository
+        name: kubeblocks
+  releaseName: neon
+  postRenderers:
+    - kustomize:
+        patches:
+          - target:
+              version: v1
+              kind: ConfigMap
+              name: neon-scripts-template
+            patch: |-
+              - op: replace
+                path: /data/pageserver_start.sh
+                value: |-
+                  #!/bin/bash
+
+                  set -ex
+
+                  # Handle termination gracefully
+                  trap : TERM INT
+
+                  # Start pageserver with the dynamically generated broker endpoint
+                  exec pageserver -D /data -c "id=1" -c "broker_endpoint='http://$NEON_STORAGEBROKER_POD_FQDN_LIST:$NEON_STORAGEBROKER_PORT'" -c "listen_pg_addr='0.0.0.0:$PAGEKEEPER_PG_PORT'" -c "listen_http_addr='0.0.0.0:$PAGEKEEPER_HTTP_PORT'" -c "pg_distrib_dir='/opt/neondatabase-neon/pg_install'" -c "remote_storage={bucket_name='neon-demo',bucket_region='us-east-1',prefix_in_bucket='pageserver',endpoint='http://gateway.pcloud-s3.svc.cluster.local:8080'}"
+          - target:
+              group: apps.kubeblocks.io
+              version: v1
+              kind: ComponentVersion
+              name: neon-.*
+            patch: |-
+              - op: add
+                path: /spec/releases/0/changes
+                value: ""
+              - op: remove
+                path: /spec/releases/0/changes
+          - target:
+              group: apps.kubeblocks.io
+              version: v1
+              kind: ComponentDefinition
+              name: neon-safekeeper-.*
+            patch: |-
+              - op: add
+                path: /spec/runtime/securityContext
+                value:
+                  fsGroup: 996
+                  fsGroupChangePolicy: OnRootMismatch
+          - target:
+              group: apps.kubeblocks.io
+              version: v1
+              kind: ComponentDefinition
+              name: neon-pageserver-.*
+            patch: |-
+              - op: add
+                path: /spec/runtime/securityContext
+                value:
+                  fsGroup: 996
+                  fsGroupChangePolicy: OnRootMismatch
+              - op: add
+                path: /spec/runtime/containers/0/env/-
+                value:
+                  name: AWS_ACCESS_KEY_ID
+                  valueFrom:
+                    secretKeyRef:
+                      name: neon-s3-credentials
+                      key: AWS_ACCESS_KEY_ID
+              - op: add
+                path: /spec/runtime/containers/0/env/-
+                value:
+                  name: AWS_SECRET_ACCESS_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: neon-s3-credentials
+                      key: AWS_SECRET_ACCESS_KEY
+              - op: add
+                path: /spec/runtime/initContainers
+                value:
+                  - name: create-neon-s3-bucket
+                    image: rclone/rclone:1.74.4@sha256:c61954aaa32328a5486715dd063a81c7879f5195ad3505cd362deddd509dc4a1
+                    command:
+                      - rclone
+                    args:
+                      - mkdir
+                      - neon:neon-demo
+                    env:
+                      - name: RCLONE_CONFIG_NEON_TYPE
+                        value: s3
+                      - name: RCLONE_CONFIG_NEON_PROVIDER
+                        value: Other
+                      - name: RCLONE_CONFIG_NEON_ENDPOINT
+                        value: http://gateway.pcloud-s3.svc.cluster.local:8080
+                      - name: RCLONE_CONFIG_NEON_REGION
+                        value: us-east-1
+                      - name: RCLONE_CONFIG_NEON_FORCE_PATH_STYLE
+                        value: "true"
+                      - name: RCLONE_CONFIG_NEON_ACCESS_KEY_ID
+                        valueFrom:
+                          secretKeyRef:
+                            name: neon-s3-credentials
+                            key: AWS_ACCESS_KEY_ID
+                      - name: RCLONE_CONFIG_NEON_SECRET_ACCESS_KEY
+                        valueFrom:
+                          secretKeyRef:
+                            name: neon-s3-credentials
+                            key: AWS_SECRET_ACCESS_KEY
+          - target:
+              group: apps.kubeblocks.io
+              version: v1
+              kind: ComponentDefinition
+              name: neon-compute-.*
+            patch: |-
+              - op: add
+                path: /spec/runtime/securityContext
+                value:
+                  fsGroup: 996
+                  fsGroupChangePolicy: OnRootMismatch
