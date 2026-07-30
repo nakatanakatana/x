@@ -4,7 +4,7 @@ metadata:
   name: feed-reader-storage
   namespace: app
 spec:
-  refreshInterval: 60m
+  refreshInterval: 13h33m
   secretStoreRef:
     kind: ClusterSecretStore
     name: 1password-sdk
@@ -18,4 +18,3 @@ spec:
     - secretKey: access_secret
       remoteRef:
         key: feed-reader-storage/access_secret
-

@@ -4,7 +4,7 @@ metadata:
   name: rclone-s3-credentials
   namespace: pcloud-s3
 spec:
-  refreshInterval: 60m
+  refreshInterval: 17h10m
   secretStoreRef:
     kind: ClusterSecretStore
     name: 1password-sdk
