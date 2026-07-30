@@ -55,6 +55,7 @@ assert_file_absent "$repo_root/components/postgres-operator"
 setup_doc="$repo_root/docs/kubeblocks-neon-setup.md"
 for required_procedure in \
   'ComponentDefinition.spec.runtime` は immutable' \
+  'patch kustomization/cluster-controllers' \
   'patch kustomization/cluster-resources' \
   'delete cluster/neon-demo' \
   'wait --for=delete cluster/neon-demo --timeout=10m' \
@@ -71,11 +72,11 @@ do
 done
 
 for required_cleanup in \
-  'resume_cluster_resources_on_exit()' \
+  'resume_cluster_reconciliation_on_exit()' \
   'local original_status=$?' \
-  'trap resume_cluster_resources_on_exit EXIT' \
+  'trap resume_cluster_reconciliation_on_exit EXIT' \
   'return "$original_status"' \
-  'cluster_resources_resumed=true' \
+  'cluster_reconciliation_resumed=true' \
   'trap - EXIT'
 do
   assert_file_contains "$setup_doc" "$required_cleanup"

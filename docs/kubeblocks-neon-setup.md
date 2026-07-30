@@ -597,48 +597,71 @@ if (( ${#neon_pvcs[@]} != 5 )); then
 fi
 ```
 
-Flux が途中で Cluster を再作成しないように、`Kustomization/cluster-resources` を一時停止する。
+Flux が途中で Cluster を再作成しないように、親の
+`Kustomization/cluster-controllers` を先に停止してから、子の
+`Kustomization/cluster-resources` を停止する。
 
-停止後にコマンドが失敗した場合は、EXIT trap が同じ Kustomization だけを再開する。
+親を停止しない場合、親の reconcile が子の `spec.suspend` を Git の値へ戻し、
+削除中に Cluster を再作成する可能性がある。
+
+停止後にコマンドが失敗した場合は、EXIT trap がこの2つの
+Kustomizationだけを再開する。
 
 cleanup が失敗しても元の終了状態を保持し、最初の失敗を隠さない。
 
 ```bash
-cluster_resources_resumed=false
+cluster_reconciliation_resumed=false
 
-resume_cluster_resources() {
+resume_cluster_reconciliation() {
+  local resume_failed=false
+
   kubectl -n flux-system --request-timeout=15s \
     patch kustomization/cluster-resources \
-    --type=merge --patch='{"spec":{"suspend":false}}'
+    --type=merge --patch='{"spec":{"suspend":false}}' \
+    || resume_failed=true
+  kubectl -n flux-system --request-timeout=15s \
+    patch kustomization/cluster-controllers \
+    --type=merge --patch='{"spec":{"suspend":false}}' \
+    || resume_failed=true
+
+  [[ "$resume_failed" == "false" ]]
 }
 
-resume_cluster_resources_on_exit() {
+resume_cluster_reconciliation_on_exit() {
   local original_status=$?
 
   trap - EXIT
-  if [[ "$cluster_resources_resumed" != "true" ]]; then
-    if ! resume_cluster_resources; then
+  if [[ "$cluster_reconciliation_resumed" != "true" ]]; then
+    if ! resume_cluster_reconciliation; then
       printf '%s\n' \
-        'Failed to resume Kustomization/cluster-resources during cleanup' >&2
+        'Failed to resume Neon cluster reconciliation during cleanup' >&2
     fi
   fi
 
   return "$original_status"
 }
 
-trap resume_cluster_resources_on_exit EXIT
+trap resume_cluster_reconciliation_on_exit EXIT
 
+kubectl -n flux-system --request-timeout=15s \
+  patch kustomization/cluster-controllers \
+  --type=merge --patch='{"spec":{"suspend":true}}'
 kubectl -n flux-system --request-timeout=15s \
   patch kustomization/cluster-resources \
   --type=merge --patch='{"spec":{"suspend":true}}'
 
-suspended="$(
+controllers_suspended="$(
+  kubectl -n flux-system --request-timeout=15s \
+    get kustomization/cluster-controllers -o jsonpath='{.spec.suspend}'
+)"
+resources_suspended="$(
   kubectl -n flux-system --request-timeout=15s \
     get kustomization/cluster-resources -o jsonpath='{.spec.suspend}'
 )"
 
-if [[ "$suspended" != "true" ]]; then
-  printf '%s\n' 'Kustomization/cluster-resources was not suspended' >&2
+if [[ "$controllers_suspended" != "true" \
+  || "$resources_suspended" != "true" ]]; then
+  printf '%s\n' 'Neon cluster reconciliation was not suspended' >&2
   exit 1
 fi
 ```
@@ -725,13 +748,19 @@ kubectl -n pcloud-s3 --request-timeout=30s \
   awk '$NF == "neon-demo" {found=1} END {exit !found}'
 ```
 
-最後に `Kustomization/cluster-resources` を再開し、Flux に `Cluster/neon-demo` を再作成させる。
+最後に子の `Kustomization/cluster-resources`、親の
+`Kustomization/cluster-controllers` の順で再開し、Flux に
+`Cluster/neon-demo` を再作成させる。
 
 ```bash
-resume_cluster_resources
-cluster_resources_resumed=true
+resume_cluster_reconciliation
+cluster_reconciliation_resumed=true
 trap - EXIT
 
+flux reconcile kustomization cluster-controllers \
+  --namespace=flux-system \
+  --with-source \
+  --timeout=10m
 flux reconcile kustomization cluster-resources \
   --namespace=flux-system \
   --with-source \

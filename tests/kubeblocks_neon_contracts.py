@@ -86,18 +86,19 @@ class KubeBlocksNeonContracts(unittest.TestCase):
 
         self.assertNotIn("volumeClaimTemplates", components["neon-broker"])
 
-    def test_broker_is_scheduled_on_amd64_nodes(self):
+    def test_architecture_sensitive_components_are_scheduled_on_amd64_nodes(self):
         cluster = load_yaml("clusters/home/resources/neon-demo.yaml")
-        broker = next(
-            component
+        components = {
+            component["name"]: component
             for component in cluster["spec"]["componentSpecs"]
-            if component["name"] == "neon-broker"
-        )
+        }
 
-        self.assertEqual(
-            broker["schedulingPolicy"]["nodeSelector"],
-            {"kubernetes.io/arch": "amd64"},
-        )
+        for name in ("neon-broker", "neon-compute"):
+            with self.subTest(component=name):
+                self.assertEqual(
+                    components[name]["schedulingPolicy"]["nodeSelector"],
+                    {"kubernetes.io/arch": "amd64"},
+                )
 
     def test_core_release_disables_built_in_addon_management(self):
         release = load_yaml("components/kubeblocks/release.yaml")
