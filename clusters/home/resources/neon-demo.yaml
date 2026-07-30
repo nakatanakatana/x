@@ -7,12 +7,12 @@ spec:
   clusterDef: neon
   topology: default
   terminationPolicy: Delete
+  schedulingPolicy:
+    nodeSelector:
+      kubernetes.io/arch: amd64
   componentSpecs:
     - name: neon-broker
       replicas: 1
-      schedulingPolicy:
-        nodeSelector:
-          kubernetes.io/arch: amd64
       resources:
         requests:
           cpu: 500m
@@ -58,9 +58,6 @@ spec:
                 storage: 10Gi
     - name: neon-compute
       replicas: 1
-      schedulingPolicy:
-        nodeSelector:
-          kubernetes.io/arch: amd64
       resources:
         requests:
           cpu: 500m

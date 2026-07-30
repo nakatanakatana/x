@@ -299,6 +299,7 @@ assert_resource_contains "$neon_cluster" "clusterDef: neon"
 assert_file_not_contains "$neon_cluster" "clusterDefinitionRef:"
 assert_resource_contains "$neon_cluster" "topology: default"
 assert_resource_contains "$neon_cluster" "terminationPolicy: Delete"
+assert_resource_contains "$neon_cluster" "kubernetes.io/arch: amd64"
 
 component_rendered="$(mktemp)"
 neon_helm_release="$(mktemp)"
@@ -355,8 +356,7 @@ assert_resource_contains "$component_rendered" "memory: 512Mi"
 assert_resource_contains "$component_rendered" 'cpu: "1"'
 assert_resource_contains "$component_rendered" "memory: 2Gi"
 assert_file_not_contains "$component_rendered" "volumeClaimTemplates:"
-assert_resource_contains "$component_rendered" "schedulingPolicy:"
-assert_resource_contains "$component_rendered" "kubernetes.io/arch: amd64"
+assert_file_not_contains "$component_rendered" "schedulingPolicy:"
 
 for forbidden in NodePort LoadBalancer WipeOut; do
   if grep -Fq -- "$forbidden" "$neon_cluster"; then
