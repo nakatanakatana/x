@@ -85,6 +85,17 @@ There must be no broker PVC.
 
 `gateway` is a ClusterIP Service selecting the `app=rclone-s3-gateway` Pod in the `pcloud-s3` namespace.
 
+The pinned Neon image contains architecture-sensitive executables. The
+validation Cluster therefore sets a cluster-wide
+`kubernetes.io/arch: amd64` node selector. All Neon Pods must be scheduled
+on AMD64 nodes.
+
+KubeBlocks does not propagate a scheduling-policy change to Components that
+are already in a failed state. After merging a cluster-wide placement change,
+recreate the validation Cluster using the bounded parent-and-child Flux
+suspension procedure in this guide. The recreation deletes the validation
+PVCs but retains the pCloud bucket and `Secret/neon-s3-credentials`.
+
 Verify the key names in `neon-s3-credentials`.
 
 ```bash
