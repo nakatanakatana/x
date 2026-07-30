@@ -54,7 +54,7 @@ assert_file_absent "$repo_root/components/postgres-operator"
 
 setup_doc="$repo_root/docs/kubeblocks-neon-setup.md"
 for required_procedure in \
-  'ComponentDefinition.spec.runtime` は immutable' \
+  '`ComponentDefinition.spec.runtime` is immutable' \
   'patch kustomization/cluster-controllers' \
   'patch kustomization/cluster-resources' \
   'delete cluster/neon-demo' \
