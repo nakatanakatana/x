@@ -52,6 +52,35 @@ assert_file_absent "$repo_root/clusters/home/_system/namespaces/postgres-operato
 assert_file_absent "$repo_root/clusters/home/controllers/postgres-operator.yaml"
 assert_file_absent "$repo_root/components/postgres-operator"
 
+setup_doc="$repo_root/docs/kubeblocks-neon-setup.md"
+for required_procedure in \
+  'ComponentDefinition.spec.runtime` は immutable' \
+  'patch kustomization/cluster-resources' \
+  'delete cluster/neon-demo' \
+  'wait --for=delete cluster/neon-demo --timeout=10m' \
+  'delete componentdefinition/neon-safekeeper-1.0.1' \
+  $'flux reconcile helmrelease neon \\\n  --namespace=kb-system \\\n  --force \\\n  --with-source \\' \
+  'get componentdefinition/neon-safekeeper-1.0.1' \
+  'fsGroupChangePolicy' \
+  'secret/neon-s3-credentials' \
+  'rclone lsd pcloud:buckets' \
+  'wait cluster/neon-demo' \
+  '--timeout=20m'
+do
+  assert_file_contains "$setup_doc" "$required_procedure"
+done
+
+for required_cleanup in \
+  'resume_cluster_resources_on_exit()' \
+  'local original_status=$?' \
+  'trap resume_cluster_resources_on_exit EXIT' \
+  'return "$original_status"' \
+  'cluster_resources_resumed=true' \
+  'trap - EXIT'
+do
+  assert_file_contains "$setup_doc" "$required_cleanup"
+done
+
 # File absence is the behavior under test here: these files were direct
 # Flux entry points, so retaining any one of them keeps the old operator live.
 if rg -n 'postgres-operator|opensource\.zalando\.com' \
@@ -255,7 +284,7 @@ assert_resource_contains "$neon_external_secret" "apiVersion: external-secrets.i
 assert_resource_contains "$neon_external_secret" "namespace: database"
 assert_resource_contains "$neon_external_secret" "kind: ClusterSecretStore"
 assert_resource_contains "$neon_external_secret" "name: 1password-sdk"
-assert_resource_contains "$neon_external_secret" "refreshInterval: 60m"
+assert_resource_contains "$neon_external_secret" "refreshInterval: 18h43m"
 assert_resource_contains "$neon_external_secret" "creationPolicy: Owner"
 assert_resource_contains "$neon_external_secret" $'target:\n    creationPolicy: Owner\n    name: neon-s3-credentials'
 assert_resource_contains "$neon_external_secret" "secretKey: AWS_ACCESS_KEY_ID"
@@ -275,6 +304,8 @@ neon_helm_release="$(mktemp)"
 neon_chart_render_dir="$(mktemp -d)"
 neon_chart_rendered="$neon_chart_render_dir/neon-rendered.yaml"
 neon_chart_post_rendered="$neon_chart_render_dir/neon-post-rendered.yaml"
+neon_safekeeper_rendered="$neon_chart_render_dir/neon-safekeeper-rendered.yaml"
+neon_safekeeper_post_rendered="$neon_chart_render_dir/neon-safekeeper-post-rendered.yaml"
 trap 'rm -f "$rendered" "$neon_rendered" "$neon_external_secret" "$neon_cluster" "$component_rendered" "$neon_helm_release"; rm -rf "$neon_render_dir" "$neon_chart_render_dir"' EXIT
 extract_resource "$rendered" HelmRelease neon "$neon_helm_release"
 
@@ -287,6 +318,17 @@ python3 "$repo_root/tests/kubeblocks_neon_postrender.py" write-kustomization \
 kustomize build "$neon_chart_render_dir" >"$neon_chart_post_rendered"
 python3 "$repo_root/tests/kubeblocks_neon_postrender.py" validate \
   "$neon_chart_post_rendered" \
+  "$repo_root/components/kubeblocks-crds/kubeblocks_crds.yaml"
+
+cp "$repo_root/tests/fixtures/neon-safekeeper-component-definition-1.0.1.yaml" \
+  "$neon_safekeeper_rendered"
+python3 "$repo_root/tests/kubeblocks_neon_postrender.py" write-kustomization \
+  "$neon_helm_release" \
+  "$neon_safekeeper_rendered" \
+  "$neon_chart_render_dir/kustomization.yaml"
+kustomize build "$neon_chart_render_dir" >"$neon_safekeeper_post_rendered"
+python3 "$repo_root/tests/kubeblocks_neon_postrender.py" validate-safekeeper \
+  "$neon_safekeeper_post_rendered" \
   "$repo_root/components/kubeblocks-crds/kubeblocks_crds.yaml"
 
 for component_spec in \
@@ -312,6 +354,8 @@ assert_resource_contains "$component_rendered" "memory: 512Mi"
 assert_resource_contains "$component_rendered" 'cpu: "1"'
 assert_resource_contains "$component_rendered" "memory: 2Gi"
 assert_file_not_contains "$component_rendered" "volumeClaimTemplates:"
+assert_resource_contains "$component_rendered" "schedulingPolicy:"
+assert_resource_contains "$component_rendered" "kubernetes.io/arch: amd64"
 
 for forbidden in NodePort LoadBalancer WipeOut; do
   if grep -Fq -- "$forbidden" "$neon_cluster"; then
