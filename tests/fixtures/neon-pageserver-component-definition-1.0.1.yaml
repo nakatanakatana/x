@@ -17,7 +17,7 @@ spec:
   runtime:
     containers:
       - name: pageserver
-        image: docker.io/apecloud/neon:pg14-1.0.0
+        image: docker.io/apecloud/neon:pg14-1.0.0@sha256:f026b563dfedbe62fc1d011f33aa62a510eb3128e51d08a8791f64800bc8c3fb
         command:
           - pageserver
         env: []
