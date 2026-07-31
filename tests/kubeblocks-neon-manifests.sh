@@ -210,23 +210,32 @@ extract_component() {
   local destination="$3"
 
   if ! awk -v expected_name="$component_name" '
+    function flush_component() {
+      if (current_name == expected_name) {
+        printf "%s", current_component
+        found = 1
+      }
+      current_component = ""
+      current_name = ""
+    }
     /^  componentSpecs:/ {
       in_component_specs = 1
       next
     }
-    in_component_specs && /^  - name: / {
-      if (found) {
-        exit
-      }
-      current_name = substr($0, 11)
-      if (current_name == expected_name) {
-        found = 1
-      }
+    in_component_specs && /^  - / {
+      flush_component()
+      current_component = $0 ORS
+      next
     }
-    found {
-      print
+    in_component_specs && current_component != "" {
+      current_component = current_component $0 ORS
+      if ($0 ~ /^    name: /) {
+        current_name = $0
+        sub(/^    name: /, "", current_name)
+      }
     }
     END {
+      flush_component()
       if (!found) {
         exit 1
       }

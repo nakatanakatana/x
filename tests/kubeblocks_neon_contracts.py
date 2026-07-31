@@ -39,6 +39,43 @@ class KubeBlocksNeonContracts(unittest.TestCase):
         self.assertEqual(cluster["spec"].get("clusterDef"), "neon")
         self.assertNotIn("clusterDefinitionRef", cluster["spec"])
 
+    def test_component_specs_match_kubeblocks_normalized_contract(self):
+        cluster = load_yaml("clusters/home/resources/neon-demo.yaml")
+
+        normalized_components = [
+            {
+                key: component.get(key)
+                for key in ("name", "componentDef", "serviceVersion")
+            }
+            for component in cluster["spec"]["componentSpecs"]
+        ]
+
+        self.assertEqual(
+            normalized_components,
+            [
+                {
+                    "name": "neon-pageserver",
+                    "componentDef": "neon-pageserver-1.0.1",
+                    "serviceVersion": "1.0.0",
+                },
+                {
+                    "name": "neon-safekeeper",
+                    "componentDef": "neon-safekeeper-1.0.1",
+                    "serviceVersion": "1.0.0",
+                },
+                {
+                    "name": "neon-broker",
+                    "componentDef": "neon-broker-1.0.1",
+                    "serviceVersion": "1.0.0",
+                },
+                {
+                    "name": "neon-compute",
+                    "componentDef": "neon-compute-1.0.1",
+                    "serviceVersion": "1.0.0",
+                },
+            ],
+        )
+
     def test_component_storage_matches_the_neon_1_0_1_mount_contract(self):
         cluster = load_yaml("clusters/home/resources/neon-demo.yaml")
         components = {
