@@ -12,6 +12,8 @@ jobs:
         uses: actions/checkout@v7
       - name: Install Kustomize
         run: go install sigs.k8s.io/kustomize/kustomize/v5@v5.8.1
+      - name: Test Litestream controller and debug manifests
+        run: bash tests/litestream-manifests.sh
       - name: Test pCloud S3 manifests
         run: tests/pcloud-s3-manifests.sh
       - name: Test External Secrets rate limit policy

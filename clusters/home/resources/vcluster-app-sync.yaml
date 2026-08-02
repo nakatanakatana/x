@@ -19,3 +19,5 @@ spec:
   dependsOn:
     - name: vcluster-app
       namespace: flux-system
+    - name: litestream-debug
+      namespace: flux-system

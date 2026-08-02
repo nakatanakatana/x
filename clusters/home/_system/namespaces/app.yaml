@@ -4,3 +4,4 @@ metadata:
   name: app
   labels:
     name: app
+    litestream.mytools.nakatanakatana.app/injection: enabled

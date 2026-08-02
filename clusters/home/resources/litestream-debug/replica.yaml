@@ -1,0 +1,21 @@
+apiVersion: litestream.mytools.nakatanakataka.app/v1alpha1
+kind: LitestreamReplica
+metadata:
+  name: feed-reader-db-debug-source
+  namespace: app
+spec:
+  replica:
+    type: s3
+    s3:
+      endpoint: http://storage-clusterip.tailscale.svc.cluster.local:8010
+      bucket: feed-reader
+      path: feed-reader.db
+      credentials:
+        accessKeyID:
+          secretKeyRef:
+            name: feed-reader-storage
+            key: access_key
+        secretAccessKey:
+          secretKeyRef:
+            name: feed-reader-storage
+            key: access_secret

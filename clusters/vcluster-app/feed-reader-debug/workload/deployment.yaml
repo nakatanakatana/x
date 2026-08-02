@@ -1,0 +1,51 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: feed-reader-db-debug
+  namespace: feed-reader
+  labels:
+    app.kubernetes.io/name: feed-reader-db-debug
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: feed-reader-db-debug
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: feed-reader-db-debug
+      annotations:
+        litestream.mytools.nakatanakatana.app/inject: feed-reader-db-debug
+        litestream.mytools.nakatanakatana.app/target-container: sqlite3
+        litestream.mytools.nakatanakatana.app/volume: data
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        fsGroup: 65532
+        fsGroupChangePolicy: OnRootMismatch
+        runAsGroup: 65532
+        runAsNonRoot: true
+        runAsUser: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: sqlite3
+          image: docker.io/keinos/sqlite3:3.50.4@sha256:7ea29f0c7e91a8c3f315e831459d07000f34e9e9b25fbc30be2e0481b3e0450f
+          imagePullPolicy: IfNotPresent
+          command:
+            - /bin/sh
+            - -c
+          args:
+            - 'trap : TERM INT; sleep infinity & wait'
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+          volumeMounts:
+            - name: data
+              mountPath: /data
+      volumes:
+        - name: data
+          emptyDir: {}

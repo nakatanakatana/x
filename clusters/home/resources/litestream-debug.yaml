@@ -1,0 +1,22 @@
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: litestream-debug
+  namespace: flux-system
+spec:
+  interval: 10m
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  path: "clusters/home/resources/litestream-debug"
+  targetNamespace: app
+  dependsOn:
+    - name: litestream-controller
+  prune: true
+  wait: true
+  healthChecks:
+    - apiVersion: litestream.mytools.nakatanakatana.app/v1alpha1
+      kind: Litestream
+      name: feed-reader-db-debug
+      namespace: app
+  timeout: 5m
