@@ -69,7 +69,7 @@ spec:
               subPath: litestream.yml
       containers:
         - name: nostr-relay
-          image: ghcr.io/nakatanakatana/nostr-relay:0.6.7@sha256:754cd7f6942685677d0e044c56555326b0ec92fe1324a27b20b55375caa703b8
+          image: ghcr.io/nakatanakatana/nostr-relay:0.7.0@sha256:f51225e1b13f92276dbe2b218682037c43934b39ed392ad9d8d356f0fc08ceea
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
