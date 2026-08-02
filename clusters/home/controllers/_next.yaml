@@ -12,4 +12,9 @@ spec:
   dependsOn:
     - name: cluster-controllers
   prune: true
-  timeout: 1m
+  healthChecks:
+    - apiVersion: litestream.mytools.nakatanakatana.app/v1alpha1
+      kind: Litestream
+      name: feed-reader-db-debug
+      namespace: app
+  timeout: 5m
