@@ -42,7 +42,7 @@ controlPlane:
     image:
       registry: ghcr.io
       repository: loft-sh/vcluster-oss
-      tag: 0.36.0@sha256:54b8fdbb60375ae577cf598567a1ec6bb5957f1d8604b6bab0debee1da2532ef
+      tag: 0.36.1@sha256:0b2646fedd571b65dd2c6e6aa8c0920b63f15e7d350686c85175fa2d099ef431
     env:
       - name: LOFT_LOG_LEVEL
         value: warn
