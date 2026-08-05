@@ -26,7 +26,7 @@ spec:
                       - slow
       containers:
         - name: bifrost
-          image: ghcr.io/maximhq/bifrost:v1.6.7@sha256:bf2208978308477a9f667dfc04cef3153197aeaca8618befefbecde3ed3378b7
+          image: ghcr.io/maximhq/bifrost:v1.6.8@sha256:14f704fcee64de509c139d14458871a4221f71f28a397f2b4d92bbe092d7a63c
           ports:
             - containerPort: 8080
               name: http
