@@ -28,7 +28,7 @@ metadata:
 spec:
   image:
     repository: litestream/litestream
-    tag: 0.5.15
+    tag: 0.5.16
     digest: sha256:f45ca298a567bef6edd23d43429b5f80721473a9a9719e467f11d7888999403e
     pullPolicy: IfNotPresent
   injection:
