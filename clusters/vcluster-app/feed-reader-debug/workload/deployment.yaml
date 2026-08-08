@@ -30,7 +30,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: sqlite3
-          image: docker.io/keinos/sqlite3:3.50.4@sha256:7ea29f0c7e91a8c3f315e831459d07000f34e9e9b25fbc30be2e0481b3e0450f
+          image: docker.io/keinos/sqlite3:3.53.4@sha256:6addaf450aea7e098e7d6f059d43501c317ec70494c1ace3cc94bfe1631cbfa5
           imagePullPolicy: IfNotPresent
           command:
             - /bin/sh
