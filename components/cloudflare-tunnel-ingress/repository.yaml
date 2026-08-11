@@ -1,8 +1,0 @@
-apiVersion: source.toolkit.fluxcd.io/v1
-kind: HelmRepository
-metadata:
-  name: cloudflare-tunnel-ingress
-  namespace: cloudflare-tunnel-ingress
-spec:
-  interval: 1h0m0s
-  url: https://helm.strrl.dev

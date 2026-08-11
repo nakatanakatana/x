@@ -86,7 +86,6 @@ awk '
 cat >"$expected" <<'EOF'
 alerts-external-secret=12h
 bifrost-secret=12h31m
-cloudflare-external-secret=13h2m
 cloudflare-gateway-token=19h14m
 feed-reader-storage=13h33m
 grafana-cloud-secret=14h4m
@@ -128,8 +127,8 @@ awk -F= '
     }
   }
   END {
-    if (NR != 15) {
-      print "expected 15 ExternalSecrets, found " NR > "/dev/stderr"
+    if (NR != 14) {
+      print "expected 14 ExternalSecrets, found " NR > "/dev/stderr"
       failed = 1
     }
     if (failed) {
