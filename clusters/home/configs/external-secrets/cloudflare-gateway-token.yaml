@@ -1,23 +1,20 @@
 apiVersion: external-secrets.io/v1
 kind: ExternalSecret
 metadata:
-  name: cloudflare-external-secret
-  namespace: cloudflare-tunnel-ingress
+  name: cloudflare-gateway-token
+  namespace: cloudflare-gateway
 spec:
-  refreshInterval: 13h2m
+  refreshInterval: 19h14m
   secretStoreRef:
     kind: ClusterSecretStore
     name: 1password-sdk
   target:
-    name: cloudflare-external-secret
+    name: cloudflare-gateway-token
     creationPolicy: Owner
   data:
-    - secretKey: account_id
+    - secretKey: ACCOUNT_ID
       remoteRef:
         key: cloudflare/account_id
-    - secretKey: api_token
+    - secretKey: TOKEN
       remoteRef:
         key: cloudflare/api_token
-    - secretKey: tunnel_name
-      remoteRef:
-        key: cloudflare/tunnel_name

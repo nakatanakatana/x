@@ -56,6 +56,16 @@
         "/(^|/)components/.*/kustomization\\.yaml$/"
       ],
       "matchStrings": [
+        "https://github\\.com/(?<depName>pl4nty/cloudflare-kubernetes-gateway)//config/default\\?ref=(?<currentValue>v?[^\\s\"']+)"
+      ],
+      "datasourceTemplate": "github-tags"
+    },
+    {
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/(^|/)components/.*/kustomization\\.yaml$/"
+      ],
+      "matchStrings": [
         "https://github\\.com/(?<depName>[^/]+/[^/]+)/releases/download/(?<currentValue>v?[^/]+)/[^\\s\"']+"
       ],
       "datasourceTemplate": "github-releases"
