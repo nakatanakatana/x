@@ -1,21 +1,23 @@
-apiVersion: networking.k8s.io/v1
-kind: Ingress
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
 metadata:
   name: tekton-pac-webhook
   namespace: tekton-pipelines
 spec:
-  ingressClassName: cloudflare-tunnel
+  parentRefs:
+    - name: cloudflare-ci
+      namespace: cloudflare-gateway
+      sectionName: http
+  hostnames:
+    - ci-webhook.nakatanakatana.app
   rules:
-    - host: ci-webhook.nakatanakatana.app
-      http:
-        paths:
-          - path: /
-            pathType: Prefix
-            backend:
-              service:
-                name: pipelines-as-code-controller
-                port:
-                  number: 8080
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: pipelines-as-code-controller
+          port: 8080
 ---
 apiVersion: networking.k8s.io/v1
 kind: Ingress
