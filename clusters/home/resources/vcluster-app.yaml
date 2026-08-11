@@ -38,6 +38,16 @@ spec:
                     to: feed-reader/storage
             sync:
               fromHost:
+                gateways:
+                  mappings:
+                    byName:
+                      "app/cloudflare-app": "cloudflare-gateway/cloudflare-app"
+                  allowedRoutes:
+                    overrides:
+                      - hostNamespace: app
+                        name: cloudflare-app
+                        virtualNamespacePolicy:
+                          from: All
                 secrets:
                   enabled: true
                   mappings:

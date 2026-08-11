@@ -140,21 +140,23 @@ spec:
       port: 8080
       targetPort: 8080
 ---
-apiVersion: networking.k8s.io/v1
-kind: Ingress
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
 metadata:
   name: feed-reader
   namespace: feed-reader
 spec:
-  ingressClassName: cloudflare-tunnel
+  parentRefs:
+    - name: cloudflare-app
+      namespace: cloudflare-gateway
+      sectionName: http
+  hostnames:
+    - feed.nakatanakatana.app
   rules:
-    - host: feed.nakatanakatana.app
-      http:
-        paths:
-          - pathType: Prefix
-            path: "/"
-            backend:
-              service:
-                name: feed-reader
-                port:
-                  number: 8080
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: feed-reader
+          port: 8080
