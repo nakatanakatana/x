@@ -241,42 +241,44 @@ spec:
                 port:
                   number: 8080
 ---
-apiVersion: networking.k8s.io/v1
-kind: Ingress
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
 metadata:
   name: nostr-bridge-cloudflare
   namespace: nostr
 spec:
-  ingressClassName: cloudflare-tunnel
+  parentRefs:
+    - name: cloudflare-app
+      namespace: cloudflare-gateway
+      sectionName: http
+  hostnames:
+    - nostr-bridge.nakatanakatana.app
   rules:
-    - host: nostr-bridge.nakatanakatana.app
-      http:
-        paths:
-          - path: /oauth/mastodon/callback
-            pathType: Prefix
-            backend:
-              service:
-                name: nostr-bridge
-                port:
-                  number: 8080
-          - path: /oauth/bluesky/callback
-            pathType: Prefix
-            backend:
-              service:
-                name: nostr-bridge
-                port:
-                  number: 8080
-          - path: /oauth/bluesky/client-metadata.json
-            pathType: Prefix
-            backend:
-              service:
-                name: nostr-bridge
-                port:
-                  number: 8080
-          - path: /oauth/bluesky/jwks
-            pathType: Prefix
-            backend:
-              service:
-                name: nostr-bridge
-                port:
-                  number: 8080
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /oauth/mastodon/callback
+      backendRefs:
+        - name: nostr-bridge
+          port: 8080
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /oauth/bluesky/callback
+      backendRefs:
+        - name: nostr-bridge
+          port: 8080
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /oauth/bluesky/client-metadata.json
+      backendRefs:
+        - name: nostr-bridge
+          port: 8080
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /oauth/bluesky/jwks
+      backendRefs:
+        - name: nostr-bridge
+          port: 8080
