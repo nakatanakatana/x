@@ -41,11 +41,11 @@ spec:
                 gateways:
                   mappings:
                     byName:
-                      "app/cloudflare": "cloudflare-gateway/cloudflare"
+                      "app/cloudflare-app": "cloudflare-gateway/cloudflare-app"
                   allowedRoutes:
                     overrides:
                       - hostNamespace: app
-                        name: cloudflare
+                        name: cloudflare-app
                         virtualNamespacePolicy:
                           from: All
                 secrets:

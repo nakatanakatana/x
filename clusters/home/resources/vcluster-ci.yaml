@@ -32,11 +32,11 @@ spec:
                 gateways:
                   mappings:
                     byName:
-                      "ci/cloudflare": "cloudflare-gateway/cloudflare"
+                      "ci/cloudflare-ci": "cloudflare-gateway/cloudflare-ci"
                   allowedRoutes:
                     overrides:
                       - hostNamespace: ci
-                        name: cloudflare
+                        name: cloudflare-ci
                         virtualNamespacePolicy:
                           from: All
                 secrets:

@@ -15,7 +15,7 @@ spec:
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
-  name: cloudflare
+  name: cloudflare-app
   namespace: app
 spec:
   gatewayClassName: cloudflare
@@ -37,7 +37,7 @@ spec:
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
-  name: cloudflare
+  name: cloudflare-ci
   namespace: ci
 spec:
   gatewayClassName: cloudflare
