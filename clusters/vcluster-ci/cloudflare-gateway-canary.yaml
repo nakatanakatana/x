@@ -1,0 +1,22 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: cloudflare-gateway-canary
+  namespace: tekton-pipelines
+spec:
+  parentRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      namespace: cloudflare-gateway
+      name: cloudflare
+      sectionName: http
+  hostnames:
+    - gateway-canary-ci.nakatanakatana.app
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: pipelines-as-code-controller
+          port: 8080
