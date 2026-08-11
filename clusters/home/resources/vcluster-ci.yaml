@@ -29,6 +29,19 @@ spec:
               server: "https://vcluster.ci.svc.cluster.local:443"
             sync:
               fromHost:
+                gatewayClasses:
+                  enabled: true
+                gateways:
+                  enabled: true
+                  mappings:
+                    byName:
+                      "ci/cloudflare-ci": "cloudflare-gateway/cloudflare-ci"
+                  allowedRoutes:
+                    overrides:
+                      - hostNamespace: ci
+                        name: cloudflare-ci
+                        virtualNamespacePolicy:
+                          from: All
                 secrets:
                   enabled: true
                   mappings:

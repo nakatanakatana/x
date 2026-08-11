@@ -1,0 +1,91 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: GatewayClass
+metadata:
+  name: cloudflare
+  labels:
+    cloudflare-gateway.nakatanakatana.app/import: "true"
+spec:
+  controllerName: github.com/pl4nty/cloudflare-kubernetes-gateway
+  parametersRef:
+    group: ""
+    kind: Secret
+    namespace: cloudflare-gateway
+    name: cloudflare-gateway-token
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: cloudflare-app
+  namespace: app
+spec:
+  gatewayClassName: cloudflare
+  infrastructure:
+    parametersRef:
+      group: ""
+      kind: ConfigMap
+      name: cloudflare-infrastructure
+  listeners:
+    - name: http
+      protocol: HTTP
+      port: 80
+      allowedRoutes:
+        namespaces:
+          from: Same
+        kinds:
+          - kind: HTTPRoute
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: cloudflare-ci
+  namespace: ci
+spec:
+  gatewayClassName: cloudflare
+  infrastructure:
+    parametersRef:
+      group: ""
+      kind: ConfigMap
+      name: cloudflare-infrastructure
+  listeners:
+    - name: http
+      protocol: HTTP
+      port: 80
+      allowedRoutes:
+        namespaces:
+          from: Same
+        kinds:
+          - kind: HTTPRoute
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cloudflare-infrastructure
+  namespace: app
+data:
+  replicas: "1"
+  affinity: |
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: network
+                operator: NotIn
+                values:
+                  - slow
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cloudflare-infrastructure
+  namespace: ci
+data:
+  replicas: "1"
+  affinity: |
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: network
+                operator: NotIn
+                values:
+                  - slow
