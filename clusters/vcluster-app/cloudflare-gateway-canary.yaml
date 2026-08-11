@@ -8,7 +8,7 @@ spec:
     - group: gateway.networking.k8s.io
       kind: Gateway
       namespace: cloudflare-gateway
-      name: cloudflare
+      name: cloudflare-app
       sectionName: http
   hostnames:
     - gateway-canary-app.nakatanakatana.app
