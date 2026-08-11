@@ -73,8 +73,20 @@ sync:
   toHost:
     ingresses:
       enabled: true
+    gatewayApi:
+      httpRoutes:
+        enabled: true
+      referenceGrants:
+        enabled: auto
   fromHost:
     ingressClasses:
+      enabled: true
+    gatewayClasses:
+      enabled: true
+      selector:
+        matchLabels:
+          cloudflare-gateway.nakatanakatana.app/import: "true"
+    gateways:
       enabled: true
     secrets:
       enabled: false
