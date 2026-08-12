@@ -38,7 +38,10 @@ spec:
                     to: feed-reader/storage
             sync:
               fromHost:
+                gatewayClasses:
+                  enabled: true
                 gateways:
+                  enabled: true
                   mappings:
                     byName:
                       "app/cloudflare-app": "cloudflare-gateway/cloudflare-app"

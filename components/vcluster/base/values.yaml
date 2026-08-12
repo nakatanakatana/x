@@ -82,12 +82,12 @@ sync:
     ingressClasses:
       enabled: true
     gatewayClasses:
-      enabled: true
+      enabled: false
       selector:
         matchLabels:
           cloudflare-gateway.nakatanakatana.app/import: "true"
     gateways:
-      enabled: true
+      enabled: false
     secrets:
       enabled: false
     configMaps:

@@ -29,7 +29,10 @@ spec:
               server: "https://vcluster.ci.svc.cluster.local:443"
             sync:
               fromHost:
+                gatewayClasses:
+                  enabled: true
                 gateways:
+                  enabled: true
                   mappings:
                     byName:
                       "ci/cloudflare-ci": "cloudflare-gateway/cloudflare-ci"
