@@ -10,6 +10,10 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
       - name: Install Kustomize
         run: go install sigs.k8s.io/kustomize/kustomize/v5@v5.8.1
       - name: Test Litestream controller and debug manifests
@@ -18,6 +22,18 @@ jobs:
         run: tests/pcloud-s3-manifests.sh
       - name: Test External Secrets rate limit policy
         run: tests/external-secrets-rate-limit.sh
+      - name: Setup Flux CLI
+        uses: fluxcd/flux2/action@v2.9.4
+        with:
+          version: '2.9.4'
+      - name: Test Flux resource ownership checker
+        run: go test ./...
+      - name: Prepare Flux build temp directory
+        run: mkdir -p .flux-tmp
+      - name: Check duplicate Flux resource ownership
+        env:
+          TMPDIR: ${{ github.workspace }}/.flux-tmp
+        run: go run ./tests repository --repo-root .
       - name: Setup Flux Schema CLI
         uses: fluxcd/flux-schema/actions/setup@v0.11.0
       - name: Validate manifests
