@@ -86,8 +86,6 @@ sync:
       selector:
         matchLabels:
           cloudflare-gateway.nakatanakatana.app/import: "true"
-    gateways:
-      enabled: false
     secrets:
       enabled: false
     configMaps:
