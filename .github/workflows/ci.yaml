@@ -16,18 +16,12 @@ jobs:
           go-version-file: go.mod
       - name: Install Kustomize
         run: go install sigs.k8s.io/kustomize/kustomize/v5@v5.8.1
-      - name: Test Litestream controller and debug manifests
-        run: bash tests/litestream-manifests.sh
-      - name: Test pCloud S3 manifests
-        run: tests/pcloud-s3-manifests.sh
-      - name: Test External Secrets rate limit policy
-        run: tests/external-secrets-rate-limit.sh
+      - name: Test manifest policies
+        run: go test ./...
       - name: Setup Flux CLI
         uses: fluxcd/flux2/action@v2.9.4
         with:
           version: '2.9.4'
-      - name: Test Flux resource ownership checker
-        run: go test ./...
       - name: Prepare Flux build temp directory
         run: mkdir -p .flux-tmp
       - name: Check duplicate Flux resource ownership

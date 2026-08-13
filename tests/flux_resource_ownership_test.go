@@ -183,13 +183,44 @@ func TestRepositoryContractDocumentation(t *testing.T) {
 		t.Fatal(err)
 	}
 	workflowText := string(workflow)
-	if !strings.Contains(workflowText, "fluxcd/flux2/action@v2.9.4") || !strings.Contains(workflowText, "mkdir -p .flux-tmp") || !strings.Contains(workflowText, "TMPDIR: ${{ github.workspace }}/.flux-tmp") || !strings.Contains(workflowText, "go run ./tests repository") {
-		t.Fatal("CI does not install Flux CLI and run the ownership checker")
+	if strings.Count(workflowText, "go test ./...") != 1 {
+		t.Fatalf("CI must have exactly one go test ./... entry point, found %d", strings.Count(workflowText, "go test ./..."))
+	}
+	for _, required := range []string{
+		"Install Kustomize",
+		"go install sigs.k8s.io/kustomize/kustomize/v5@",
+		"fluxcd/flux2/action@",
+		"mkdir -p .flux-tmp",
+		"TMPDIR: ${{ github.workspace }}/.flux-tmp",
+		"go run ./tests repository --repo-root .",
+		"flux-schema/actions/setup@",
+		"flux-schema/actions/validate@",
+	} {
+		if !strings.Contains(workflowText, required) {
+			t.Fatalf("CI does not contain %q", required)
+		}
+	}
+	manifestPolicyDocumentation, err := os.ReadFile(filepath.Join("..", "docs", "manifest-policy-testing.md"))
+	if err != nil {
+		t.Fatal(err)
 	}
 	documentationText := string(documentation)
 	for _, required := range []string{"kubectl get kustomizations", "kubectl get helmreleases", "status.inventory", "Helm hooks"} {
 		if !strings.Contains(documentationText, required) {
 			t.Fatalf("documentation does not contain %q", required)
+		}
+	}
+	manifestPolicyDocumentationText := string(manifestPolicyDocumentation)
+	for _, required := range []string{
+		"go test ./...",
+		"go run ./tests repository --repo-root .",
+		"Kustomize",
+		"no Kubernetes cluster",
+		"Flux Schema",
+		"network access",
+	} {
+		if !strings.Contains(manifestPolicyDocumentationText, required) {
+			t.Fatalf("manifest policy documentation does not contain %q", required)
 		}
 	}
 }

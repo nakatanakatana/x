@@ -1,0 +1,42 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: neon-scripts-template
+data:
+  pageserver_start.sh: generic
+---
+apiVersion: apps.kubeblocks.io/v1
+kind: ComponentVersion
+metadata:
+  name: neon-compute-test
+spec:
+  releases:
+    - images:
+        neon-compute: example.invalid/neon-compute:stable@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+---
+apiVersion: apps.kubeblocks.io/v1
+kind: ComponentVersion
+metadata:
+  name: neon-pageserver-test
+spec:
+  releases:
+    - images:
+        neon-pageserver: example.invalid/neon-pageserver:stable@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+---
+apiVersion: apps.kubeblocks.io/v1
+kind: ComponentVersion
+metadata:
+  name: neon-safekeeper-test
+spec:
+  releases:
+    - images:
+        neon-safekeeper: example.invalid/neon-safekeeper:stable@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+---
+apiVersion: apps.kubeblocks.io/v1
+kind: ComponentVersion
+metadata:
+  name: neon-broker-test
+spec:
+  releases:
+    - images:
+        neon-broker: example.invalid/neon-broker:stable@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
