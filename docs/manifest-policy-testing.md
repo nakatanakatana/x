@@ -49,3 +49,12 @@ unknown fields, and other configured resource schema constraints. The Go
 manifest policy suite owns repository-specific semantic checks and does not
 duplicate Flux Schema validation. The CI workflow runs the configured Flux
 Schema setup and validation action after the Go and ownership checks.
+
+## celld deployment contract
+
+The celld deployment is covered by the `TestCelldSemanticPolicies` suite and
+the embedded `tests/policies/celld.rego` module. The policy contract checks the
+Ceph RGW bucket resources, vcluster Service and Secret mappings, StatefulSet
+runtime and security settings, client/peer port separation, disruption budget,
+and Tailscale-only Ingress. The former shell-based celld manifest test is no
+longer required; run `go test ./...` for the policy entry point.

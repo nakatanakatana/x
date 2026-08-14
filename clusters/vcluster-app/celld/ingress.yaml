@@ -1,0 +1,23 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: celld
+  namespace: celld
+  annotations:
+    tailscale.com/hostname: "celld"
+    tailscale.com/proxy-class: "avoid-slow-nodes"
+spec:
+  ingressClassName: tailscale
+  tls:
+    - hosts:
+        - celld
+  rules:
+    - http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: celld
+                port:
+                  number: 8080

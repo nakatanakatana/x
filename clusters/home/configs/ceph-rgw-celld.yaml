@@ -1,0 +1,38 @@
+apiVersion: ceph.rook.io/v1
+kind: CephObjectStore
+metadata:
+  name: celld
+  namespace: rook-ceph
+spec:
+  preservePoolsOnDelete: true
+  metadataPool:
+    failureDomain: host
+    replicated:
+      size: 3
+  dataPool:
+    failureDomain: host
+    replicated:
+      size: 3
+  gateway:
+    port: 80
+    instances: 3
+---
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: celld-rgw
+provisioner: rook-ceph.ceph.rook.io/bucket
+parameters:
+  objectStoreName: celld
+  objectStoreNamespace: rook-ceph
+  region: us-east-1
+reclaimPolicy: Retain
+---
+apiVersion: objectbucket.io/v1alpha1
+kind: ObjectBucketClaim
+metadata:
+  name: celld-storage
+  namespace: app
+spec:
+  bucketName: celld
+  storageClassName: celld-rgw
