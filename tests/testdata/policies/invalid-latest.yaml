@@ -1,0 +1,17 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: latest-image
+  namespace: default
+spec:
+  selector:
+    matchLabels:
+      app: latest-image
+  template:
+    metadata:
+      labels:
+        app: latest-image
+    spec:
+      containers:
+        - name: app
+          image: nginx:latest

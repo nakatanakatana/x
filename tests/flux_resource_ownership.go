@@ -206,7 +206,7 @@ func clusterScope(manifestPath string, kustomization map[string]any) string {
 	return cluster
 }
 
-func renderKustomization(repoRoot, fluxBinary string, kustomization discoveredKustomization) ([]ResourceOwner, error) {
+func renderOwnershipKustomization(repoRoot, fluxBinary string, kustomization discoveredKustomization) ([]ResourceOwner, error) {
 	path := stringField(mapField(kustomization.Document, "spec"), "path")
 	if path == "" {
 		path = "."
@@ -339,7 +339,7 @@ func runRepository(args []string, stdout, stderr io.Writer) int {
 	}
 	var resources []ResourceOwner
 	for _, kustomization := range kustomizations {
-		owners, err := renderKustomization(absRoot, *fluxBinary, kustomization)
+		owners, err := renderOwnershipKustomization(absRoot, *fluxBinary, kustomization)
 		if err != nil {
 			fmt.Fprintf(stderr, "%v\n", err)
 			return 2

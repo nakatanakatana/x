@@ -13,11 +13,17 @@ The check also supports resources configured individually in a `Kustomization` a
 
 ## Pull-request check
 
-The GitHub Actions workflow installs the Flux CLI and runs:
+The GitHub Actions workflow runs the checks in this order:
 
 ```sh
+# semantic manifest policies
 go test ./...
+
+# Flux rendering and ownership
 go run ./tests repository --repo-root .
+
+# Flux Schema structural validation
+# (run by the configured flux-schema GitHub Action)
 ```
 
 The repository check exits with status 1 when duplicate ownership is found. It exits with status 2 when a Kustomization cannot be rendered, so an incomplete render does not silently pass the check.
@@ -47,3 +53,6 @@ Duplicate resource ownership detected:
   - HelmRelease apps/web [status.inventory]
   - Kustomization flux-system/platform [status.inventory]
 ```
+
+For the separate semantic manifest policy suite and local test prerequisites,
+see [Manifest policy testing](manifest-policy-testing.md).

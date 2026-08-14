@@ -1,0 +1,89 @@
+apiVersion: external-secrets.io/v1
+kind: ClusterSecretStore
+metadata:
+  name: 1password-sdk
+  namespace: external-secrets
+spec:
+  provider:
+    onepasswordSDK:
+      vault: k8s
+      cache:
+        ttl: 15m
+        maxSize: 50
+      auth:
+        serviceAccountSecretRef:
+          name: onepassword-service-account-token
+          namespace: external-secrets
+          key: token
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: too-fast-secret
+  namespace: default
+spec:
+  refreshInterval: 11h59m
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: 1password-sdk
+  target:
+    name: too-fast-secret
+    creationPolicy: Owner
+  data:
+    - secretKey: token
+      remoteRef:
+        key: example/too-fast-secret
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: malformed-secret
+  namespace: default
+spec:
+  refreshInterval: every-day
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: 1password-sdk
+  target:
+    name: malformed-secret
+    creationPolicy: Owner
+  data:
+    - secretKey: token
+      remoteRef:
+        key: example/malformed-secret
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: duplicate-one
+  namespace: default
+spec:
+  refreshInterval: 12h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: 1password-sdk
+  target:
+    name: duplicate-one
+    creationPolicy: Owner
+  data:
+    - secretKey: token
+      remoteRef:
+        key: example/duplicate-one
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: duplicate-two
+  namespace: default
+spec:
+  refreshInterval: 12h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: 1password-sdk
+  target:
+    name: duplicate-two
+    creationPolicy: Owner
+  data:
+    - secretKey: token
+      remoteRef:
+        key: example/duplicate-two
