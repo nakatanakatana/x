@@ -18,3 +18,5 @@ spec:
     addonController:
       enabled: false
     autoInstalledAddons: []
+    dataProtection:
+      enabled: false
