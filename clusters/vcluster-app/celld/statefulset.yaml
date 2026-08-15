@@ -1,0 +1,151 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: celld-internal
+  namespace: celld
+spec:
+  clusterIP: None
+  publishNotReadyAddresses: true
+  selector:
+    app: celld
+  ports:
+    - name: peer
+      port: 8081
+      targetPort: peer
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: celld
+  namespace: celld
+spec:
+  type: ClusterIP
+  selector:
+    app: celld
+  ports:
+    - name: client
+      port: 8080
+      targetPort: client
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: celld
+  namespace: celld
+spec:
+  serviceName: celld-internal
+  replicas: 3
+  selector:
+    matchLabels:
+      app: celld
+  template:
+    metadata:
+      labels:
+        app: celld
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        fsGroup: 65532
+        fsGroupChangePolicy: OnRootMismatch
+        runAsGroup: 65532
+        runAsNonRoot: true
+        runAsUser: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchLabels:
+                  app: celld
+              topologyKey: kubernetes.io/hostname
+      containers:
+        - name: celld
+          image: ghcr.io/denoland/celld@sha256:76225bc06f15d1de90901e32aae52cb81c800e19800e695dc2774625610c22d2
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+          args:
+            - --bucket
+            - s3://celld
+            - --endpoint
+            - http://rgw.celld.svc.cluster.local:80
+            - --region
+            - us-east-1
+            - --listen
+            - 0.0.0.0:8080
+            - --internal-listen
+            - 0.0.0.0:8081
+            - --advertise
+            - $(POD_NAME).celld-internal.celld.svc:8081
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: celld-storage
+                  key: AWS_ACCESS_KEY_ID
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: celld-storage
+                  key: AWS_SECRET_ACCESS_KEY
+            - name: CELLD_WATCH
+              value: /var/lib/celld/state
+            - name: CELLD_MAX_RSS_MB
+              value: "768"
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+          ports:
+            - name: client
+              containerPort: 8080
+            - name: peer
+              containerPort: 8081
+          readinessProbe:
+            httpGet:
+              path: /__celld/health
+              port: client
+          livenessProbe:
+            httpGet:
+              path: /__celld/health
+              port: client
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/celld
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        storageClassName: rook-ceph-block
+        resources:
+          requests:
+            storage: 10Gi
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: celld
+  namespace: celld
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: celld
