@@ -29,6 +29,6 @@ jobs:
           TMPDIR: ${{ github.workspace }}/.flux-tmp
         run: go run ./tests repository --repo-root .
       - name: Setup Flux Schema CLI
-        uses: fluxcd/flux-schema/actions/setup@v0.11.0
+        uses: fluxcd/flux-schema/actions/setup@v0.12.1
       - name: Validate manifests
-        uses: fluxcd/flux-schema/actions/validate@v0.11.0
+        uses: fluxcd/flux-schema/actions/validate@v0.12.1
