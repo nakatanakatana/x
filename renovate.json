@@ -71,17 +71,16 @@
       "datasourceTemplate": "github-releases"
     },
     {
-      "customType": "regex",
+      "customType": "jsonata",
+      "fileFormat": "yaml",
       "datasourceTemplate": "docker",
+      "versioningTemplate": "docker",
       "managerFilePatterns": [
         "/\\.ya?ml$/"
       ],
       "matchStrings": [
-        "image: *\n +repository: +(?<depName>[^ \n]+)\n +tag: +(?<currentValue>[^ \n]+)(?:\n +digest: +(?<currentDigest>sha256:[a-f0-9]+))?",
-        "image: *\n +repository: +(?<registry>[^/]+)/(?<depName>[^ \n]+)\n +tag: +(?<currentValue>[^ \n]+)(?:\n +digest: +(?<currentDigest>sha256:[a-f0-9]+))?",
-        "image: *\n +registry: +(?<registry>[^/]+)\n +repository: +(?<depName>[^ \n]+)\n +tag: +(?<currentValue>[^ \n]+)(?:\n +digest: +(?<currentDigest>sha256:[a-f0-9]+))?"
-      ],
-      "packageNameTemplate": "{{#if registry}}{{registry}}/{{/if}}{{depName}}"
+        "**.image[repository and tag].{\"depName\": ($exists(registry) ? registry & \"/\" : \"\") & repository, \"currentValue\": tag, \"currentDigest\": digest}"
+      ]
     }
   ]
 }
