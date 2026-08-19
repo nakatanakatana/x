@@ -78,7 +78,7 @@
       "datasourceTemplate": "docker",
       "versioningTemplate": "docker",
       "managerFilePatterns": [
-        "/\\.ya?ml$/"
+        "clusters/home/resources/litestream-debug.yaml"
       ],
       "matchStrings": [
         "**.image[repository and tag].{\"depName\": ($exists(registry) ? registry & \"/\" : \"\") & repository, \"currentValue\": tag, \"currentDigest\": digest}"
