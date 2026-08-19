@@ -69,7 +69,7 @@ spec:
               subPath: litestream.yml
       containers:
         - name: nostr-bridge
-          image: ghcr.io/nakatanakatana/nostr-bridge:0.8.0@sha256:fa9c90816ac18f6f20ae30eac05e3c4fb1d445b722ba90190aea775865ca69f1
+          image: ghcr.io/nakatanakatana/nostr-bridge:0.9.0@sha256:2d89cb5f341c41c12a503268b39df9fbe59e1b65fc1e025eae347045596c12f1
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
