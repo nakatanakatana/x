@@ -28,7 +28,9 @@
       "/\\.ya?ml$/"
     ],
     "ignorePaths": [
-      "**/flux-system/**"
+      "**/flux-system/**",
+      "tests/testdata/kubeblocks/component-definitions.yaml",
+      "tests/testdata/policies/invalid-latest.yaml"
     ]
   },
   "kustomize": {
