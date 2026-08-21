@@ -435,7 +435,7 @@ celld_statefulset_runtime_contract(document) if {
 	object.get(spec, "replicas", 0) == 3
 	object.get(spec, "serviceName", "") == "celld-internal"
 	container := celld_container(document)
-	regex.match("^ghcr\\.io/denoland/celld@sha256:[0-9a-f]{64}$", object.get(container, "image", ""))
+	regex.match("^ghcr\\.io/denoland/celld:[^@]+@sha256:[0-9a-f]{64}$", object.get(container, "image", ""))
 	object.get(container, "args", []) == [
 		"--bucket",
 		"s3://celld",
