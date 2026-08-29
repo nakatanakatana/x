@@ -61,7 +61,7 @@ spec:
               topologyKey: kubernetes.io/hostname
       containers:
         - name: celld
-          image: ghcr.io/denoland/celld:v0.3.0@sha256:f47d97c2980aa98aef1d9c42205a313442f48acb606c5987dbb9b32983a23aaf
+          image: ghcr.io/denoland/celld:0.4.0@sha256:f73157548ed8e54a4b50e9cecfcb0fb8e209fb4d35cf78b7c45815ce78a7929f
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
