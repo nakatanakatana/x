@@ -3,4 +3,5 @@ kind: Namespace
 metadata:
   name: vllm
   labels:
+    name: vllm
     toolkit.fluxcd.io/tenant: app-team

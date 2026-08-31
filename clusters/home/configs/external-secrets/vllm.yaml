@@ -4,7 +4,7 @@ metadata:
   name: vllm-secret
   namespace: vllm
 spec:
-  refreshInterval: 12h
+  refreshInterval: 19h45m
   secretStoreRef:
     kind: ClusterSecretStore
     name: 1password-sdk
