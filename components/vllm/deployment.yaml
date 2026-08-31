@@ -1,0 +1,92 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vllm
+  namespace: vllm
+  labels:
+    app.kubernetes.io/name: vllm
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: vllm
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: vllm
+    spec:
+      nodeSelector:
+        kubernetes.io/hostname: n5
+      tolerations:
+        - key: node-role.kubernetes.io/master
+          operator: Exists
+          effect: NoSchedule
+        - key: node-role.kubernetes.io/control-plane
+          operator: Exists
+          effect: NoSchedule
+      containers:
+        - name: vllm
+          image: docker.io/vllm/vllm-openai:latest
+          imagePullPolicy: IfNotPresent
+          command:
+            - python3
+            - -m
+            - vllm.entrypoints.openai.api_server
+          args:
+            - --model
+            - google/gemma-2-27b-it
+            - --host
+            - "0.0.0.0"
+            - --port
+            - "8000"
+            - --gpu-memory-utilization
+            - "0.9"
+            - --trust-remote-code
+          env:
+            - name: HUGGING_FACE_HUB_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: vllm-secret
+                  key: HUGGING_FACE_HUB_TOKEN
+                  optional: true
+          ports:
+            - name: http
+              containerPort: 8000
+          resources:
+            limits:
+              amd.com/gpu: 1
+              memory: 32Gi
+              cpu: "8"
+            requests:
+              amd.com/gpu: 1
+              memory: 16Gi
+              cpu: "4"
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 60
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 120
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 5
+          volumeMounts:
+            - name: cache
+              mountPath: /root/.cache/huggingface
+            - name: dshm
+              mountPath: /dev/shm
+      volumes:
+        - name: cache
+          persistentVolumeClaim:
+            claimName: vllm-model-cache
+        - name: dshm
+          emptyDir:
+            medium: Memory
+            sizeLimit: 8Gi
