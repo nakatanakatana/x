@@ -59,11 +59,11 @@ spec:
           containerPort: 8000
         resources:
           limits:
-            amd.com/gpu: 1
+            amd.com/gpu: "1"
             memory: 32Gi
             cpu: '8'
           requests:
-            amd.com/gpu: 1
+            amd.com/gpu: "1"
             memory: 16Gi
             cpu: '4'
         readinessProbe:
