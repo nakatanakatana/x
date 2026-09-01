@@ -1,0 +1,17 @@
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: vllm-secret
+  namespace: vllm
+spec:
+  refreshInterval: 19h45m
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: 1password-sdk
+  target:
+    name: vllm-secret
+    creationPolicy: Owner
+  data:
+    - secretKey: HUGGING_FACE_HUB_TOKEN
+      remoteRef:
+        key: huggingface/token
