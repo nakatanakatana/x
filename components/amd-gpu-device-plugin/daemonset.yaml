@@ -12,6 +12,7 @@ spec:
       labels:
         name: amd-gpu-device-plugin-ds
     spec:
+      priorityClassName: system-node-critical
       nodeSelector:
         kubernetes.io/hostname: n5
       tolerations:
@@ -23,10 +24,20 @@ spec:
         - key: node-role.kubernetes.io/control-plane
           operator: Exists
           effect: NoSchedule
+        - key: node.kubernetes.io/disk-pressure
+          operator: Exists
+          effect: NoSchedule
       containers:
         - name: amd-gpu-device-plugin
           image: docker.io/rocm/k8s-device-plugin:1.31.0.10
           imagePullPolicy: IfNotPresent
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 256Mi
           securityContext:
             privileged: true
           volumeMounts:

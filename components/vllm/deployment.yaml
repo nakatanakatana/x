@@ -7,6 +7,8 @@ metadata:
     app.kubernetes.io/name: vllm
 spec:
   replicas: 1
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app.kubernetes.io/name: vllm
@@ -22,6 +24,9 @@ spec:
         operator: Exists
         effect: NoSchedule
       - key: node-role.kubernetes.io/control-plane
+        operator: Exists
+        effect: NoSchedule
+      - key: node.kubernetes.io/disk-pressure
         operator: Exists
         effect: NoSchedule
       containers:
