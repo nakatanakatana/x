@@ -12,3 +12,22 @@ spec:
   path: components/vllm
   prune: true
   timeout: 5m
+  patches:
+    - target:
+        kind: Deployment
+        name: vllm
+      patch: |
+        - op: replace
+          path: /spec/template/spec/containers/0/args
+          value:
+            - --model
+            - google/gemma-4-26B-A4B-it-qat-q4_0-gguf
+            - --tokenizer
+            - google/gemma-2-27b-it
+            - --host
+            - "0.0.0.0"
+            - --port
+            - "8000"
+            - --gpu-memory-utilization
+            - "0.9"
+            - --trust-remote-code
