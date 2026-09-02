@@ -1,15 +1,15 @@
 apiVersion: external-secrets.io/v1
 kind: ExternalSecret
 metadata:
-  name: vllm-secret
-  namespace: vllm
+  name: llama-cpp-secret
+  namespace: llama-cpp
 spec:
-  refreshInterval: 19h45m
+  refreshInterval: 20h16m
   secretStoreRef:
     kind: ClusterSecretStore
     name: 1password-sdk
   target:
-    name: vllm-secret
+    name: llama-cpp-secret
     creationPolicy: Owner
   data:
     - secretKey: HUGGING_FACE_HUB_TOKEN
