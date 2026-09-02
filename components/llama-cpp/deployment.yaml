@@ -87,10 +87,8 @@ spec:
             - "8000"
             - -m
             - /models/gemma-4-26B_q4_0-it.gguf
-            - -ngl
-            - "99"
             - -c
-            - "8192"
+            - "131072"
             - --alias
             - "google/gemma-4-26B-A4B-it-qat-q4_0-gguf"
           ports:
