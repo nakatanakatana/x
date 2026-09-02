@@ -33,3 +33,8 @@ serviceMonitor:
   interval: 30s
   honorLabels: true
   honorTimestamps: true
+  metricRelabelings:
+    - action: keep
+      sourceLabels:
+        - __name__
+      regex: '^amd_gpu_(gfx_activity|umc_activity|used_vram|total_vram)$'
