@@ -21,7 +21,7 @@ monitor:
     nic: false
 image:
   repository: docker.io/rocm/device-metrics-exporter
-  tag: v1.5.0
+  tag: v1.5.1@sha256:cbef5772c435d648ebd6de705517c4978efdb4b5650952c6797cc2bf15af747a
   pullPolicy: IfNotPresent
 priorityClassName: system-node-critical
 service:
