@@ -49,16 +49,30 @@ spec:
                   "MODEL_MMPROJ_FILENAME",
                   "mmproj-gemma-4-12b-it-qat-q4_0.gguf",
               )
+              mtp_repo_id = os.environ.get(
+                  "MTP_MODEL_REPO",
+                  "unsloth/gemma-4-12B-it-qat-GGUF",
+              )
+              mtp_filename = os.environ.get(
+                  "MTP_MODEL_FILENAME",
+                  "MTP/mtp-gemma-4-12B-it-Q4_0.gguf",
+              )
               local_dir = os.environ.get("MODEL_LOCAL_DIR", "/models")
               token = os.environ.get("HUGGING_FACE_HUB_TOKEN")
-              for model_file in (filename, mmproj_filename):
+              model_files = (
+                  (repo_id, filename),
+                  (repo_id, mmproj_filename),
+                  (mtp_repo_id, mtp_filename),
+              )
+              for source_repo, model_file in model_files:
                   target_file = os.path.join(local_dir, model_file)
+                  os.makedirs(os.path.dirname(target_file), exist_ok=True)
                   if os.path.exists(target_file):
                       print(f"Model file already exists at {target_file}")
                   else:
-                      print(f"Downloading {model_file} from {repo_id}...")
+                      print(f"Downloading {model_file} from {source_repo}...")
                       huggingface_hub.hf_hub_download(
-                          repo_id=repo_id,
+                          repo_id=source_repo,
                           filename=model_file,
                           local_dir=local_dir,
                           token=token
@@ -72,6 +86,10 @@ spec:
               value: gemma-4-12b-it-qat-q4_0.gguf
             - name: MODEL_MMPROJ_FILENAME
               value: mmproj-gemma-4-12b-it-qat-q4_0.gguf
+            - name: MTP_MODEL_REPO
+              value: unsloth/gemma-4-12B-it-qat-GGUF
+            - name: MTP_MODEL_FILENAME
+              value: MTP/mtp-gemma-4-12B-it-Q4_0.gguf
             - name: MODEL_LOCAL_DIR
               value: /models
             - name: HUGGING_FACE_HUB_TOKEN
@@ -96,6 +114,16 @@ spec:
             - /models/gemma-4-12b-it-qat-q4_0.gguf
             - --mmproj
             - /models/mmproj-gemma-4-12b-it-qat-q4_0.gguf
+            - --model-draft
+            - /models/MTP/mtp-gemma-4-12B-it-Q4_0.gguf
+            - --spec-type
+            - draft-mtp
+            - --spec-draft-n-max
+            - "4"
+            - --spec-draft-ngl
+            - "99"
+            - --fit
+            - off
             - -ngl
             - "99"
             - -c
