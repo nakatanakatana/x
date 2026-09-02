@@ -43,28 +43,35 @@ spec:
               pip install -q huggingface_hub
               python3 -c '
               import os, huggingface_hub
-              repo_id = os.environ.get("MODEL_REPO", "google/gemma-4-26B-A4B-it-qat-q4_0-gguf")
-              filename = os.environ.get("MODEL_FILENAME", "gemma-4-26B_q4_0-it.gguf")
+              repo_id = os.environ.get("MODEL_REPO", "google/gemma-4-12B-it-qat-q4_0-gguf")
+              filename = os.environ.get("MODEL_FILENAME", "gemma-4-12b-it-qat-q4_0.gguf")
+              mmproj_filename = os.environ.get(
+                  "MODEL_MMPROJ_FILENAME",
+                  "mmproj-gemma-4-12b-it-qat-q4_0.gguf",
+              )
               local_dir = os.environ.get("MODEL_LOCAL_DIR", "/models")
               token = os.environ.get("HUGGING_FACE_HUB_TOKEN")
-              target_file = os.path.join(local_dir, filename)
-              if os.path.exists(target_file):
-                  print(f"Model already exists at {target_file}")
-              else:
-                  print(f"Downloading {filename} from {repo_id}...")
-                  huggingface_hub.hf_hub_download(
-                      repo_id=repo_id,
-                      filename=filename,
-                      local_dir=local_dir,
-                      token=token
-                  )
-                  print(f"Downloaded to {target_file}")
+              for model_file in (filename, mmproj_filename):
+                  target_file = os.path.join(local_dir, model_file)
+                  if os.path.exists(target_file):
+                      print(f"Model file already exists at {target_file}")
+                  else:
+                      print(f"Downloading {model_file} from {repo_id}...")
+                      huggingface_hub.hf_hub_download(
+                          repo_id=repo_id,
+                          filename=model_file,
+                          local_dir=local_dir,
+                          token=token
+                      )
+                      print(f"Downloaded to {target_file}")
               '
           env:
             - name: MODEL_REPO
-              value: google/gemma-4-26B-A4B-it-qat-q4_0-gguf
+              value: google/gemma-4-12B-it-qat-q4_0-gguf
             - name: MODEL_FILENAME
-              value: gemma-4-26B_q4_0-it.gguf
+              value: gemma-4-12b-it-qat-q4_0.gguf
+            - name: MODEL_MMPROJ_FILENAME
+              value: mmproj-gemma-4-12b-it-qat-q4_0.gguf
             - name: MODEL_LOCAL_DIR
               value: /models
             - name: HUGGING_FACE_HUB_TOKEN
@@ -86,11 +93,40 @@ spec:
             - --port
             - "8000"
             - -m
-            - /models/gemma-4-26B_q4_0-it.gguf
+            - /models/gemma-4-12b-it-qat-q4_0.gguf
+            - --mmproj
+            - /models/mmproj-gemma-4-12b-it-qat-q4_0.gguf
+            - -ngl
+            - "99"
             - -c
-            - "131072"
+            - "65536"
+            - -b
+            - "1024"
+            - -ub
+            - "512"
+            - -np
+            - "1"
+            - -fa
+            - on
+            - -ctk
+            - q8_0
+            - -ctv
+            - q8_0
+            - --jinja
+            - -t
+            - "8"
+            - -tb
+            - "8"
+            - --temp
+            - "1.0"
+            - --top-p
+            - "0.95"
+            - --top-k
+            - "64"
+            - --min-p
+            - "0.0"
             - --alias
-            - "google/gemma-4-26B-A4B-it-qat-q4_0-gguf"
+            - "google/gemma-4-12B-it-qat-q4_0-gguf"
           ports:
             - name: http
               containerPort: 8000
