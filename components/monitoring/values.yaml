@@ -497,6 +497,8 @@ annotationAutodiscovery:
   collector: alloy-metrics
 prometheusOperatorObjects:
   enabled: true
+  serviceMonitors:
+    enabled: true
   collector: alloy-metrics
 integrations:
   alloy:
