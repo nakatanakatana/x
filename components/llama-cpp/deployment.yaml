@@ -17,9 +17,12 @@ spec:
       labels:
         app.kubernetes.io/name: llama-cpp
     spec:
+      priorityClassName: system-node-critical
       nodeSelector:
         kubernetes.io/hostname: n5
       tolerations:
+        - key: CriticalAddonsOnly
+          operator: Exists
         - key: node-role.kubernetes.io/master
           operator: Exists
           effect: NoSchedule
