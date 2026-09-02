@@ -10,7 +10,7 @@ spec:
     spec:
       interval: 10m
       chart: device-metrics-exporter-charts
-      version: 'v1.5.0'
+      version: 'v1.5.1'
       sourceRef:
         kind: HelmRepository
         name: amd-device-metrics-exporter
