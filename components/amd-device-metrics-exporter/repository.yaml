@@ -1,0 +1,8 @@
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: amd-device-metrics-exporter
+  namespace: kube-amd-gpu
+spec:
+  interval: 1h0m0s
+  url: https://rocm.github.io/device-metrics-exporter
