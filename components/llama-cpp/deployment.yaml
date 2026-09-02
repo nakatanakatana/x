@@ -31,12 +31,14 @@ spec:
           effect: NoSchedule
       initContainers:
         - name: prepare-model
-          image: docker.io/rocm/vllm:latest
+          image: python:3.12-slim
           imagePullPolicy: IfNotPresent
           command:
-            - python3
+            - sh
             - -c
             - |
+              pip install -q huggingface_hub
+              python3 -c '
               import os, huggingface_hub
               repo_id = os.environ.get("MODEL_REPO", "google/gemma-4-26B-A4B-it-qat-q4_0-gguf")
               filename = os.environ.get("MODEL_FILENAME", "gemma-4-26B_q4_0-it.gguf")
@@ -54,6 +56,7 @@ spec:
                       token=token
                   )
                   print(f"Downloaded to {target_file}")
+              '
           env:
             - name: MODEL_REPO
               value: google/gemma-4-26B-A4B-it-qat-q4_0-gguf
