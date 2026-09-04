@@ -1,7 +1,7 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
-  - https://github.com/nakatanakatana/mytools//config/litestream-controller/default?ref=v0.9.0
+  - https://github.com/nakatanakatana/mytools//config/litestream-controller/default?ref=v0.10.0
 images:
   - name: ghcr.io/nakatanakatana/litestream-controller
     newTag: 0.9.0@sha256:3ec4b3fe9749a112dd73eddc59813d4443debc0ae9e2f87758bf65ba06baa3ed
