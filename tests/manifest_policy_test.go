@@ -978,6 +978,9 @@ func TestLitestreamSemanticPolicies(t *testing.T) {
 
 	controllerResources := mustRenderPolicyResources(t, "components/litestream-controller")
 	hostConfigResources := mustLoadPolicyResources(t, repoPath("clusters", "home", "resources", "litestream-debug.yaml"))
+	productionHostConfigResources := mustLoadPolicyResources(t,
+		repoPath("clusters", "home", "resources", "litestream.yaml"),
+	)
 	debugWorkloadResources := mustRenderPolicyResources(t, "clusters/vcluster-app/feed-reader-debug/workload")
 	vclusterResources := mustRenderPolicyResources(t, "clusters/vcluster-app")
 	namespaceResources := mustLoadCanonicalPolicyResources(t, "clusters/home/_system/namespaces/app.yaml")
@@ -989,6 +992,7 @@ func TestLitestreamSemanticPolicies(t *testing.T) {
 		Resources: appendPolicyResources(
 			controllerResources,
 			hostConfigResources,
+			productionHostConfigResources,
 			debugWorkloadResources,
 			vclusterResources,
 			namespaceResources,
@@ -997,6 +1001,67 @@ func TestLitestreamSemanticPolicies(t *testing.T) {
 	}
 
 	assertPolicyPasses(t, evaluator, baseInput)
+
+	productionLitestreamContracts := []struct {
+		workload     string
+		deployment   string
+		litestream   string
+		replica      string
+		container    string
+		database     string
+		databasePath string
+		bucket       string
+		remotePath   string
+		secret       string
+		accessKey    string
+		secretKey    string
+	}{
+		{
+			workload: "feed-reader", deployment: "feed-reader",
+			litestream: "feed-reader-db", replica: "feed-reader-db-replica",
+			container: "feed-reader", database: "feed-reader",
+			databasePath: "/data/feed-reader.db", bucket: "feed-reader",
+			remotePath: "feed-reader.db", secret: "feed-reader-storage",
+			accessKey: "access_key", secretKey: "access_secret",
+		},
+		{
+			workload: "nostr-relay", deployment: "nostr-relay",
+			litestream: "nostr-relay-db", replica: "nostr-relay-db-replica",
+			container: "nostr-relay", database: "nostr-relay",
+			databasePath: "/var/lib/nostr-relay/relay.db", bucket: "nostr",
+			remotePath: "relay/relay.db", secret: "nostr-storage",
+			accessKey: "access-key-id", secretKey: "secret-access-key",
+		},
+		{
+			workload: "nostr-bridge", deployment: "nostr-bridge",
+			litestream: "nostr-bridge-db", replica: "nostr-bridge-db-replica",
+			container: "nostr-bridge", database: "nostr-bridge",
+			databasePath: "/var/lib/nostr-bridge/bridge.db", bucket: "nostr",
+			remotePath: "bridge/bridge.db", secret: "nostr-storage",
+			accessKey: "access-key-id", secretKey: "secret-access-key",
+		},
+	}
+
+	for _, tc := range productionLitestreamContracts {
+		t.Run("requires production "+tc.litestream+" resources and injection", func(t *testing.T) {
+			litestream := matchingResources(productionHostConfigResources, "Litestream", "app", tc.litestream)
+			if len(litestream) != 1 {
+				t.Fatalf("expected exactly one Litestream/%s", tc.litestream)
+			}
+			replica := matchingResources(productionHostConfigResources, "LitestreamReplica", "app", tc.replica)
+			if len(replica) != 1 {
+				t.Fatalf("expected exactly one LitestreamReplica/%s", tc.replica)
+			}
+			deployment := matchingResources(vclusterResources, "Deployment", tc.workload, tc.deployment)
+			if len(deployment) != 1 {
+				t.Fatalf("expected exactly one Deployment/%s in namespace %s", tc.deployment, tc.workload)
+			}
+			assertPolicyPasses(t, evaluator, PolicyInput{
+				Resources: baseInput.Resources,
+				Context:   policyContext("litestream"),
+			})
+		})
+	}
 
 	t.Run("rejects an empty full Litestream contract", func(t *testing.T) {
 		assertPolicyFails(t, evaluator, PolicyInput{
@@ -1122,6 +1187,38 @@ func TestLitestreamSemanticPolicies(t *testing.T) {
 			}, tc.resource)
 		})
 	}
+
+	t.Run("rejects a missing production Litestream", func(t *testing.T) {
+		mutated := removeResourceByKindName(
+			baseInput.Resources, "Litestream", "app", "feed-reader-db",
+		)
+		assertPolicyFails(t, evaluator, PolicyInput{
+			Resources: mutated,
+			Context:   policyContextWithCommonPoliciesDisabled("litestream"),
+		}, "litestream-production-must-include-resources")
+	})
+
+	t.Run("rejects direct Litestream execution in a production workload", func(t *testing.T) {
+		mutated := replaceResource(
+			baseInput.Resources, "Deployment", "feed-reader", "feed-reader",
+			func(resource PolicyResource) PolicyResource {
+				document := cloneMap(resource.Document)
+				podSpec := document["spec"].(map[string]any)["template"].(map[string]any)["spec"].(map[string]any)
+				containers := cloneSlice(podSpec["containers"].([]any))
+				containers = append(containers, map[string]any{
+					"name":  "litestream",
+					"image": "litestream/litestream:0.5.17@sha256:4b02b9859a6b6b4087d8b8944e15f7e984bd7957cba322bbeee38b0e27b9656a",
+				})
+				podSpec["containers"] = containers
+				resource.Document = document
+				return resource
+			},
+		)
+		assertPolicyFails(t, evaluator, PolicyInput{
+			Resources: mutated,
+			Context:   policyContextWithCommonPoliciesDisabled("litestream"),
+		}, "litestream-vcluster-must-not-contain-direct-litestream")
+	})
 
 	t.Run("rejects a LitestreamReplica with replication enabled", func(t *testing.T) {
 		mutated := replaceResource(baseInput.Resources, "LitestreamReplica", "app", "feed-reader-db-debug-source", func(resource PolicyResource) PolicyResource {

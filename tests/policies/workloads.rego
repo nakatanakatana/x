@@ -472,6 +472,117 @@ violations contains violation if {
 	}
 }
 
+litestream_production_specs := [
+	{"kind": "Litestream", "name": "feed-reader-db", "replica": "feed-reader-db-replica", "database": "feed-reader", "path": "/data/feed-reader.db", "bucket": "feed-reader", "remotePath": "feed-reader.db", "secret": "feed-reader-storage", "accessKey": "access_key", "secretKey": "access_secret", "container": "feed-reader", "namespace": "feed-reader"},
+	{"kind": "LitestreamReplica", "name": "feed-reader-db-replica", "replica": "feed-reader-db-replica", "database": "feed-reader", "path": "/data/feed-reader.db", "bucket": "feed-reader", "remotePath": "feed-reader.db", "secret": "feed-reader-storage", "accessKey": "access_key", "secretKey": "access_secret", "container": "feed-reader", "namespace": "feed-reader"},
+	{"kind": "Litestream", "name": "nostr-relay-db", "replica": "nostr-relay-db-replica", "database": "nostr-relay", "path": "/var/lib/nostr-relay/relay.db", "bucket": "nostr", "remotePath": "relay/relay.db", "secret": "nostr-storage", "accessKey": "access-key-id", "secretKey": "secret-access-key", "container": "nostr-relay", "namespace": "nostr"},
+	{"kind": "LitestreamReplica", "name": "nostr-relay-db-replica", "replica": "nostr-relay-db-replica", "database": "nostr-relay", "path": "/var/lib/nostr-relay/relay.db", "bucket": "nostr", "remotePath": "relay/relay.db", "secret": "nostr-storage", "accessKey": "access-key-id", "secretKey": "secret-access-key", "container": "nostr-relay", "namespace": "nostr"},
+	{"kind": "Litestream", "name": "nostr-bridge-db", "replica": "nostr-bridge-db-replica", "database": "nostr-bridge", "path": "/var/lib/nostr-bridge/bridge.db", "bucket": "nostr", "remotePath": "bridge/bridge.db", "secret": "nostr-storage", "accessKey": "access-key-id", "secretKey": "secret-access-key", "container": "nostr-bridge", "namespace": "nostr"},
+	{"kind": "LitestreamReplica", "name": "nostr-bridge-db-replica", "replica": "nostr-bridge-db-replica", "database": "nostr-bridge", "path": "/var/lib/nostr-bridge/bridge.db", "bucket": "nostr", "remotePath": "bridge/bridge.db", "secret": "nostr-storage", "accessKey": "access-key-id", "secretKey": "secret-access-key", "container": "nostr-bridge", "namespace": "nostr"},
+]
+
+litestream_production_workloads := [
+	{"namespace": "feed-reader", "name": "feed-reader", "litestream": "feed-reader-db", "container": "feed-reader"},
+	{"namespace": "nostr", "name": "nostr-relay", "litestream": "nostr-relay-db", "container": "nostr-relay"},
+	{"namespace": "nostr", "name": "nostr-bridge", "litestream": "nostr-bridge-db", "container": "nostr-bridge"},
+]
+
+violations contains violation if {
+	litestream_contract_scope
+	expected := litestream_production_specs[_]
+	not litestream_host_resource_exists(expected.kind, "app", expected.name)
+
+	violation := {
+		"policy": "litestream-production-must-include-resources",
+		"resource": sprintf("litestream.mytools.nakatanakatana.app/%s/app/%s", [expected.kind, expected.name]),
+		"path": "metadata.name",
+		"message": sprintf("production Litestream configuration must include %s", [expected.name]),
+	}
+}
+
+violations contains violation if {
+	resource := input.resources[_]
+	litestream_host_source(resource)
+	object.get(resource.document, "kind", "") == "LitestreamReplica"
+	expected := litestream_production_specs[_]
+	expected.kind == "LitestreamReplica"
+	resource_name(resource.document) == expected.name
+	not litestream_production_replica_contract(resource.document, expected)
+
+	violation := {
+		"policy": "litestream-production-must-match-storage-contract",
+		"resource": resource_ref(resource.document),
+		"path": "spec.replica.s3",
+		"message": sprintf("LitestreamReplica %s must match storage contract", [expected.name]),
+	}
+}
+
+violations contains violation if {
+	resource := input.resources[_]
+	litestream_host_source(resource)
+	object.get(resource.document, "kind", "") == "Litestream"
+	expected := litestream_production_specs[_]
+	expected.kind == "Litestream"
+	resource_name(resource.document) == expected.name
+	not litestream_production_litestream_contract(resource.document, expected)
+
+	violation := {
+		"policy": "litestream-production-must-match-storage-contract",
+		"resource": resource_ref(resource.document),
+		"path": "spec",
+		"message": sprintf("Litestream %s must match storage contract", [expected.name]),
+	}
+}
+
+violations contains violation if {
+	resource := input.resources[_]
+	litestream_vcluster_source(resource)
+	object.get(resource.document, "kind", "") == "Deployment"
+	expected := litestream_production_workloads[_]
+	resource_name(resource.document) == expected.name
+	resource_namespace(resource.document) == expected.namespace
+	not litestream_production_workload_contract(resource.document, expected)
+
+	violation := {
+		"policy": "litestream-production-workload-must-use-injection",
+		"resource": resource_ref(resource.document),
+		"path": "spec.template.metadata.annotations",
+		"message": sprintf("production workload %s/%s must configure Litestream injection annotations", [expected.namespace, expected.name]),
+	}
+}
+
+violations contains violation if {
+	resource := input.resources[_]
+	litestream_vcluster_source(resource)
+	litestream_direct_execution(resource.document)
+
+	violation := {
+		"policy": "litestream-vcluster-must-not-contain-direct-litestream",
+		"resource": resource_ref(resource.document),
+		"path": "spec.template.spec",
+		"message": "workloads in vcluster must not contain direct Litestream containers",
+	}
+}
+
+violations contains violation if {
+	resource := input.resources[_]
+	litestream_vcluster_source(resource)
+	object.get(resource.document, "kind", "") == "ConfigMap"
+	resource_name(resource.document) in {
+		"feed-reader-litestream",
+		"nostr-relay-litestream",
+		"nostr-bridge-litestream",
+	}
+	object.get(object.get(resource.document, "data", {}), "litestream.yml", null) != null
+
+	violation := {
+		"policy": "litestream-vcluster-must-not-contain-direct-litestream",
+		"resource": resource_ref(resource.document),
+		"path": "data.litestream.yml",
+		"message": sprintf("vcluster must not contain legacy Litestream configuration ConfigMap %s", [resource_name(resource.document)]),
+	}
+}
+
 violations contains violation if {
 	litestream_contract_scope
 	not litestream_controller_resource_exists("Deployment", "litestream-controller-system", "litestream-controller-manager")
@@ -839,6 +950,78 @@ litestream_replica_storage_contract(document) if {
 	object.get(access_secret_ref, "key", "") == "access_secret"
 }
 
+litestream_production_replica_contract(document, expected) if {
+	resource_namespace(document) == "app"
+	spec := object.get(document, "spec", {})
+	replica := object.get(spec, "replica", {})
+	s3 := object.get(replica, "s3", {})
+	credentials := object.get(s3, "credentials", {})
+	access_key_ref := object.get(object.get(credentials, "accessKeyID", {}), "secretKeyRef", {})
+	access_secret_ref := object.get(object.get(credentials, "secretAccessKey", {}), "secretKeyRef", {})
+
+	object.get(replica, "type", "") == "s3"
+	object.get(s3, "endpoint", "") == "http://storage:8010"
+	object.get(s3, "bucket", "") == expected.bucket
+	object.get(s3, "path", "") == expected.remotePath
+	object.get(access_key_ref, "name", "") == expected.secret
+	object.get(access_key_ref, "key", "") == expected.accessKey
+	object.get(access_secret_ref, "name", "") == expected.secret
+	object.get(access_secret_ref, "key", "") == expected.secretKey
+}
+
+litestream_production_litestream_contract(document, expected) if {
+	resource_namespace(document) == "app"
+	spec := object.get(document, "spec", {})
+	image := object.get(spec, "image", {})
+	object.get(image, "repository", "") == "litestream/litestream"
+	object.get(image, "tag", "") == "0.5.17"
+	object.get(image, "digest", "") == "sha256:4b02b9859a6b6b4087d8b8944e15f7e984bd7957cba322bbeee38b0e27b9656a"
+
+	injection := object.get(spec, "injection", {})
+	object.get(injection, "targetContainer", "") == expected.container
+	object.get(injection, "volume", "") == "data"
+	security := object.get(injection, "podSecurityContext", {})
+	object.get(security, "fsGroup", null) == 65532
+	object.get(security, "fsGroupChangePolicy", "") == "OnRootMismatch"
+
+	databases := object.get(spec, "databases", [])
+	count(databases) == 1
+	db := databases[0]
+	object.get(db, "name", "") == expected.database
+	object.get(db, "path", "") == expected.path
+
+	restore := object.get(db, "restore", {})
+	object.get(object.get(restore, "replicaRef", {}), "name", "") == expected.replica
+	object.get(restore, "ifDatabaseExists", "") == "skip"
+	object.get(restore, "ifReplicaMissing", "") == "fail"
+	object.get(restore, "integrityCheck", "") == "quick"
+
+	replicate := object.get(db, "replicate", {})
+	object.get(object.get(replicate, "replicaRef", {}), "name", "") == expected.replica
+	object.get(replicate, "syncInterval", "") == "10s"
+}
+
+litestream_production_workload_contract(document, expected) if {
+	annotations := litestream_annotations(document)
+	object.get(annotations, "litestream.mytools.nakatanakatana.app/inject", "") == expected.litestream
+	object.get(annotations, "litestream.mytools.nakatanakatana.app/target-container", "") == expected.container
+	object.get(annotations, "litestream.mytools.nakatanakatana.app/volume", "") == "data"
+}
+
+litestream_direct_execution(document) if {
+	pod_spec := object.get(object.get(object.get(document, "spec", {}), "template", {}), "spec", {})
+	container := object.get(pod_spec, "initContainers", [])[_]
+	image := object.get(container, "image", "")
+	regex.match("^litestream/litestream(:|@)", image)
+}
+
+litestream_direct_execution(document) if {
+	pod_spec := object.get(object.get(object.get(document, "spec", {}), "template", {}), "spec", {})
+	container := object.get(pod_spec, "containers", [])[_]
+	image := object.get(container, "image", "")
+	regex.match("^litestream/litestream(:|@)", image)
+}
+
 pcloud_scope(_) if {
 	object.get(input.context, "policyScope", "") == "pcloud-s3"
 }
@@ -866,6 +1049,10 @@ litestream_controller_has_crd(expected_name) if {
 
 litestream_host_source(resource) if {
 	regex.match("(^|[:/])clusters/home/resources/litestream-debug\\.yaml$", resource.source)
+}
+
+litestream_host_source(resource) if {
+	regex.match("(^|[:/])clusters/home/resources/litestream\\.yaml$", resource.source)
 }
 
 litestream_debug_workload_resource(resource) if {
