@@ -27,6 +27,10 @@ spec:
       app: feed-reader
   template:
     metadata:
+      annotations:
+        litestream.mytools.nakatanakatana.app/inject: feed-reader-db
+        litestream.mytools.nakatanakatana.app/target-container: feed-reader
+        litestream.mytools.nakatanakatana.app/volume: data
       labels:
         app: feed-reader
     spec:
@@ -38,37 +42,6 @@ spec:
         runAsUser: 65532
         seccompProfile:
           type: RuntimeDefault
-      initContainers:
-        - name: init-litestream
-          image: litestream/litestream:0.5.17@sha256:4b02b9859a6b6b4087d8b8944e15f7e984bd7957cba322bbeee38b0e27b9656a
-          securityContext:
-            allowPrivilegeEscalation: false
-            capabilities:
-              drop:
-                - ALL
-            readOnlyRootFilesystem: true
-          args:
-            - restore
-            - -if-db-not-exists
-            - -if-replica-exists
-            - /data/feed-reader.db
-          env:
-            - name: LITESTREAM_ACCESS_KEY_ID
-              valueFrom:
-                secretKeyRef:
-                  name: feed-reader-storage
-                  key: access_key
-            - name: LITESTREAM_SECRET_ACCESS_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: feed-reader-storage
-                  key: access_secret
-          volumeMounts:
-            - name: data
-              mountPath: /data
-            - name: litestream-config
-              mountPath: /etc/litestream.yml
-              subPath: litestream.yml
       containers:
         - name: feed-reader
           image: ghcr.io/nakatanakatana/feed-reader:0.24.0@sha256:eceff6344d619c5362b4e75e8712a2bbb1caa6ba3a78eb2c75eb0c2ab5274c39
@@ -89,42 +62,12 @@ spec:
               mountPath: /tmp
           ports:
             - containerPort: 8080
-        - name: litestream
-          image: litestream/litestream:0.5.17@sha256:4b02b9859a6b6b4087d8b8944e15f7e984bd7957cba322bbeee38b0e27b9656a
-          securityContext:
-            allowPrivilegeEscalation: false
-            capabilities:
-              drop:
-                - ALL
-            readOnlyRootFilesystem: true
-          args:
-            - replicate
-          env:
-            - name: LITESTREAM_ACCESS_KEY_ID
-              valueFrom:
-                secretKeyRef:
-                  name: feed-reader-storage
-                  key: access_key
-            - name: LITESTREAM_SECRET_ACCESS_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: feed-reader-storage
-                  key: access_secret
-          volumeMounts:
-            - name: data
-              mountPath: /data
-            - name: litestream-config
-              mountPath: /etc/litestream.yml
-              subPath: litestream.yml
       volumes:
         - name: data
           persistentVolumeClaim:
             claimName: feed-reader-data
         - name: tmp
           emptyDir: {}
-        - name: litestream-config
-          configMap:
-            name: feed-reader-litestream
 ---
 apiVersion: v1
 kind: Service
