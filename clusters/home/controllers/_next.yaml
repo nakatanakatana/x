@@ -17,4 +17,16 @@ spec:
       kind: Litestream
       name: feed-reader-db-debug
       namespace: app
+    - apiVersion: litestream.mytools.nakatanakatana.app/v1alpha1
+      kind: Litestream
+      name: feed-reader-db
+      namespace: app
+    - apiVersion: litestream.mytools.nakatanakatana.app/v1alpha1
+      kind: Litestream
+      name: nostr-relay-db
+      namespace: app
+    - apiVersion: litestream.mytools.nakatanakatana.app/v1alpha1
+      kind: Litestream
+      name: nostr-bridge-db
+      namespace: app
   timeout: 5m

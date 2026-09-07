@@ -25,6 +25,10 @@ spec:
       app: nostr-relay
   template:
     metadata:
+      annotations:
+        litestream.mytools.nakatanakatana.app/inject: nostr-relay-db
+        litestream.mytools.nakatanakatana.app/target-container: nostr-relay
+        litestream.mytools.nakatanakatana.app/volume: data
       labels:
         app: nostr-relay
     spec:
@@ -36,37 +40,6 @@ spec:
         runAsUser: 65532
         seccompProfile:
           type: RuntimeDefault
-      initContainers:
-        - name: init-litestream
-          image: litestream/litestream:0.5.17@sha256:4b02b9859a6b6b4087d8b8944e15f7e984bd7957cba322bbeee38b0e27b9656a
-          securityContext:
-            allowPrivilegeEscalation: false
-            capabilities:
-              drop:
-                - ALL
-            readOnlyRootFilesystem: true
-          args:
-            - restore
-            - -if-db-not-exists
-            - -if-replica-exists
-            - /var/lib/nostr-relay/relay.db
-          env:
-            - name: LITESTREAM_ACCESS_KEY_ID
-              valueFrom:
-                secretKeyRef:
-                  name: nostr-storage
-                  key: access-key-id
-            - name: LITESTREAM_SECRET_ACCESS_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: nostr-storage
-                  key: secret-access-key
-          volumeMounts:
-            - name: data
-              mountPath: /var/lib/nostr-relay
-            - name: litestream-config
-              mountPath: /etc/litestream.yml
-              subPath: litestream.yml
       containers:
         - name: nostr-relay
           image: ghcr.io/nakatanakatana/nostr-relay:0.10.2@sha256:076cf11346149823786e18afaaa51276b12b95005404145efc1de382a7df9ef6
@@ -115,42 +88,12 @@ spec:
               mountPath: /var/lib/nostr-relay
             - name: tmp
               mountPath: /tmp
-        - name: litestream
-          image: litestream/litestream:0.5.17@sha256:4b02b9859a6b6b4087d8b8944e15f7e984bd7957cba322bbeee38b0e27b9656a
-          securityContext:
-            allowPrivilegeEscalation: false
-            capabilities:
-              drop:
-                - ALL
-            readOnlyRootFilesystem: true
-          args:
-            - replicate
-          env:
-            - name: LITESTREAM_ACCESS_KEY_ID
-              valueFrom:
-                secretKeyRef:
-                  name: nostr-storage
-                  key: access-key-id
-            - name: LITESTREAM_SECRET_ACCESS_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: nostr-storage
-                  key: secret-access-key
-          volumeMounts:
-            - name: data
-              mountPath: /var/lib/nostr-relay
-            - name: litestream-config
-              mountPath: /etc/litestream.yml
-              subPath: litestream.yml
       volumes:
         - name: data
           persistentVolumeClaim:
             claimName: nostr-relay-data
         - name: tmp
           emptyDir: {}
-        - name: litestream-config
-          configMap:
-            name: nostr-relay-litestream
 ---
 apiVersion: v1
 kind: Service

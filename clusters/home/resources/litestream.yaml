@@ -1,0 +1,158 @@
+apiVersion: litestream.mytools.nakatanakatana.app/v1alpha1
+kind: LitestreamReplica
+metadata:
+  name: feed-reader-db-replica
+  namespace: app
+spec:
+  replica:
+    type: s3
+    s3:
+      endpoint: http://storage:8010
+      bucket: feed-reader
+      path: feed-reader.db
+      credentials:
+        accessKeyID:
+          secretKeyRef:
+            name: feed-reader-storage
+            key: access_key
+        secretAccessKey:
+          secretKeyRef:
+            name: feed-reader-storage
+            key: access_secret
+---
+apiVersion: litestream.mytools.nakatanakatana.app/v1alpha1
+kind: LitestreamReplica
+metadata:
+  name: nostr-relay-db-replica
+  namespace: app
+spec:
+  replica:
+    type: s3
+    s3:
+      endpoint: http://storage:8010
+      bucket: nostr
+      path: relay/relay.db
+      credentials:
+        accessKeyID:
+          secretKeyRef:
+            name: nostr-storage
+            key: access-key-id
+        secretAccessKey:
+          secretKeyRef:
+            name: nostr-storage
+            key: secret-access-key
+---
+apiVersion: litestream.mytools.nakatanakatana.app/v1alpha1
+kind: LitestreamReplica
+metadata:
+  name: nostr-bridge-db-replica
+  namespace: app
+spec:
+  replica:
+    type: s3
+    s3:
+      endpoint: http://storage:8010
+      bucket: nostr
+      path: bridge/bridge.db
+      credentials:
+        accessKeyID:
+          secretKeyRef:
+            name: nostr-storage
+            key: access-key-id
+        secretAccessKey:
+          secretKeyRef:
+            name: nostr-storage
+            key: secret-access-key
+---
+apiVersion: litestream.mytools.nakatanakatana.app/v1alpha1
+kind: Litestream
+metadata:
+  name: feed-reader-db
+  namespace: app
+spec:
+  image:
+    repository: litestream/litestream
+    tag: 0.5.17
+    digest: sha256:4b02b9859a6b6b4087d8b8944e15f7e984bd7957cba322bbeee38b0e27b9656a
+    pullPolicy: IfNotPresent
+  injection:
+    targetContainer: feed-reader
+    volume: data
+    podSecurityContext:
+      fsGroup: 65532
+      fsGroupChangePolicy: OnRootMismatch
+  databases:
+    - name: feed-reader
+      path: /data/feed-reader.db
+      restore:
+        replicaRef:
+          name: feed-reader-db-replica
+        ifDatabaseExists: skip
+        ifReplicaMissing: fail
+        integrityCheck: quick
+      replicate:
+        replicaRef:
+          name: feed-reader-db-replica
+        syncInterval: 10s
+---
+apiVersion: litestream.mytools.nakatanakatana.app/v1alpha1
+kind: Litestream
+metadata:
+  name: nostr-relay-db
+  namespace: app
+spec:
+  image:
+    repository: litestream/litestream
+    tag: 0.5.17
+    digest: sha256:4b02b9859a6b6b4087d8b8944e15f7e984bd7957cba322bbeee38b0e27b9656a
+    pullPolicy: IfNotPresent
+  injection:
+    targetContainer: nostr-relay
+    volume: data
+    podSecurityContext:
+      fsGroup: 65532
+      fsGroupChangePolicy: OnRootMismatch
+  databases:
+    - name: nostr-relay
+      path: /var/lib/nostr-relay/relay.db
+      restore:
+        replicaRef:
+          name: nostr-relay-db-replica
+        ifDatabaseExists: skip
+        ifReplicaMissing: fail
+        integrityCheck: quick
+      replicate:
+        replicaRef:
+          name: nostr-relay-db-replica
+        syncInterval: 10s
+---
+apiVersion: litestream.mytools.nakatanakatana.app/v1alpha1
+kind: Litestream
+metadata:
+  name: nostr-bridge-db
+  namespace: app
+spec:
+  image:
+    repository: litestream/litestream
+    tag: 0.5.17
+    digest: sha256:4b02b9859a6b6b4087d8b8944e15f7e984bd7957cba322bbeee38b0e27b9656a
+    pullPolicy: IfNotPresent
+  injection:
+    targetContainer: nostr-bridge
+    volume: data
+    podSecurityContext:
+      fsGroup: 65532
+      fsGroupChangePolicy: OnRootMismatch
+  databases:
+    - name: nostr-bridge
+      path: /var/lib/nostr-bridge/bridge.db
+      restore:
+        replicaRef:
+          name: nostr-bridge-db-replica
+        ifDatabaseExists: skip
+        ifReplicaMissing: fail
+        integrityCheck: quick
+      replicate:
+        replicaRef:
+          name: nostr-bridge-db-replica
+        syncInterval: 10s

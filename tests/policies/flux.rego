@@ -93,16 +93,24 @@ violations contains violation if {
 	}
 }
 
+litestream_health_check_names := {
+	"feed-reader-db-debug",
+	"feed-reader-db",
+	"nostr-relay-db",
+	"nostr-bridge-db",
+}
+
 violations contains violation if {
 	resource := input.resources[_]
 	flux_kustomization(resource, "clusters/home/controllers/_next.yaml", "cluster-resources")
-	not flux_health_check(resource.document, "litestream.mytools.nakatanakatana.app/v1alpha1", "Litestream", "feed-reader-db-debug", "app")
+	name := litestream_health_check_names[_]
+	not flux_health_check(resource.document, "litestream.mytools.nakatanakatana.app/v1alpha1", "Litestream", name, "app")
 
 	violation := {
 		"policy": "flux-cluster-resources-must-health-check-litestream",
 		"resource": flux_resource_ref(resource.document),
 		"path": "spec.healthChecks",
-		"message": "cluster-resources must health-check Litestream/feed-reader-db-debug in app",
+		"message": sprintf("cluster-resources must health-check Litestream/%s in app", [name]),
 	}
 }
 

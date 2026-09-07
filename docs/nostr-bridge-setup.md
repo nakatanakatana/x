@@ -202,7 +202,7 @@ unset secret_dir
 ## Prepare the S3-compatible storage
 
 Create a `nostr` bucket in the existing S3-compatible storage.
-The relay and bridge Litestream processes use separate prefixes in the same bucket, so changing the bucket name requires updating both Litestream configurations.
+The relay and bridge use separate prefixes in the same bucket. Their host-cluster LitestreamReplica resources are defined in `clusters/home/resources/litestream.yaml`; update the matching `nostr-relay-db-replica` or `nostr-bridge-db-replica` resource when changing the bucket or prefix.
 
 Grant the `nostr-storage` access key permission to read, write, and list objects in the `nostr` bucket.
 Bucket creation commands vary by S3-compatible product; use the corresponding administration CLI or console.
