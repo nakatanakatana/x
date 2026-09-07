@@ -1025,7 +1025,7 @@ func TestLitestreamSemanticPolicies(t *testing.T) {
 			accessKey: "access_key", secretKey: "access_secret",
 		},
 		{
-			workload: "nostr-relay", deployment: "nostr-relay",
+			workload: "nostr", deployment: "nostr-relay",
 			litestream: "nostr-relay-db", replica: "nostr-relay-db-replica",
 			container: "nostr-relay", database: "nostr-relay",
 			databasePath: "/var/lib/nostr-relay/relay.db", bucket: "nostr",
@@ -1033,7 +1033,7 @@ func TestLitestreamSemanticPolicies(t *testing.T) {
 			accessKey: "access-key-id", secretKey: "secret-access-key",
 		},
 		{
-			workload: "nostr-bridge", deployment: "nostr-bridge",
+			workload: "nostr", deployment: "nostr-bridge",
 			litestream: "nostr-bridge-db", replica: "nostr-bridge-db-replica",
 			container: "nostr-bridge", database: "nostr-bridge",
 			databasePath: "/var/lib/nostr-bridge/bridge.db", bucket: "nostr",
