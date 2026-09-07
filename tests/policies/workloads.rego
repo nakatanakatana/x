@@ -472,6 +472,7 @@ violations contains violation if {
 	}
 }
 
+# `namespace` identifies the workload namespace; host Litestream resources live in "app".
 litestream_production_specs := [
 	{"kind": "Litestream", "name": "feed-reader-db", "replica": "feed-reader-db-replica", "database": "feed-reader", "path": "/data/feed-reader.db", "bucket": "feed-reader", "remotePath": "feed-reader.db", "secret": "feed-reader-storage", "accessKey": "access_key", "secretKey": "access_secret", "container": "feed-reader", "namespace": "feed-reader"},
 	{"kind": "LitestreamReplica", "name": "feed-reader-db-replica", "replica": "feed-reader-db-replica", "database": "feed-reader", "path": "/data/feed-reader.db", "bucket": "feed-reader", "remotePath": "feed-reader.db", "secret": "feed-reader-storage", "accessKey": "access_key", "secretKey": "access_secret", "container": "feed-reader", "namespace": "feed-reader"},
