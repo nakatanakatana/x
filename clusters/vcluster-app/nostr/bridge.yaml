@@ -25,6 +25,10 @@ spec:
       app: nostr-bridge
   template:
     metadata:
+      annotations:
+        litestream.mytools.nakatanakatana.app/inject: nostr-bridge-db
+        litestream.mytools.nakatanakatana.app/target-container: nostr-bridge
+        litestream.mytools.nakatanakatana.app/volume: data
       labels:
         app: nostr-bridge
     spec:
@@ -36,37 +40,6 @@ spec:
         runAsUser: 65532
         seccompProfile:
           type: RuntimeDefault
-      initContainers:
-        - name: init-litestream
-          image: litestream/litestream:0.5.17@sha256:4b02b9859a6b6b4087d8b8944e15f7e984bd7957cba322bbeee38b0e27b9656a
-          securityContext:
-            allowPrivilegeEscalation: false
-            capabilities:
-              drop:
-                - ALL
-            readOnlyRootFilesystem: true
-          args:
-            - restore
-            - -if-db-not-exists
-            - -if-replica-exists
-            - /var/lib/nostr-bridge/bridge.db
-          env:
-            - name: LITESTREAM_ACCESS_KEY_ID
-              valueFrom:
-                secretKeyRef:
-                  name: nostr-storage
-                  key: access-key-id
-            - name: LITESTREAM_SECRET_ACCESS_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: nostr-storage
-                  key: secret-access-key
-          volumeMounts:
-            - name: data
-              mountPath: /var/lib/nostr-bridge
-            - name: litestream-config
-              mountPath: /etc/litestream.yml
-              subPath: litestream.yml
       containers:
         - name: nostr-bridge
           image: ghcr.io/nakatanakatana/nostr-bridge:0.10.2@sha256:8a4a975e57ff5edcc25620e34113bd3ee09f8e967bc6050f66a88f4b3d0c802e
@@ -168,42 +141,12 @@ spec:
               mountPath: /var/lib/nostr-bridge
             - name: tmp
               mountPath: /tmp
-        - name: litestream
-          image: litestream/litestream:0.5.17@sha256:4b02b9859a6b6b4087d8b8944e15f7e984bd7957cba322bbeee38b0e27b9656a
-          securityContext:
-            allowPrivilegeEscalation: false
-            capabilities:
-              drop:
-                - ALL
-            readOnlyRootFilesystem: true
-          args:
-            - replicate
-          env:
-            - name: LITESTREAM_ACCESS_KEY_ID
-              valueFrom:
-                secretKeyRef:
-                  name: nostr-storage
-                  key: access-key-id
-            - name: LITESTREAM_SECRET_ACCESS_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: nostr-storage
-                  key: secret-access-key
-          volumeMounts:
-            - name: data
-              mountPath: /var/lib/nostr-bridge
-            - name: litestream-config
-              mountPath: /etc/litestream.yml
-              subPath: litestream.yml
       volumes:
         - name: data
           persistentVolumeClaim:
             claimName: nostr-bridge-data
         - name: tmp
           emptyDir: {}
-        - name: litestream-config
-          configMap:
-            name: nostr-bridge-litestream
 ---
 apiVersion: v1
 kind: Service
