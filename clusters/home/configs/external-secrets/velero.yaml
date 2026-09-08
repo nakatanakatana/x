@@ -1,0 +1,47 @@
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: velero-s3-credentials
+  namespace: velero
+spec:
+  refreshInterval: 17h23m
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: 1password-sdk
+  target:
+    name: velero-s3-credentials
+    creationPolicy: Owner
+    template:
+      data:
+        cloud: |
+          [default]
+          aws_access_key_id={{ .S3_ACCESS_KEY_ID }}
+          aws_secret_access_key={{ .S3_SECRET_ACCESS_KEY }}
+  data:
+    - secretKey: S3_ACCESS_KEY_ID
+      remoteRef:
+        key: pcloud-s3/S3_ACCESS_KEY_ID
+    - secretKey: S3_SECRET_ACCESS_KEY
+      remoteRef:
+        key: pcloud-s3/S3_SECRET_ACCESS_KEY
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: velero-repo-credentials
+  namespace: velero
+spec:
+  refreshInterval: 17h37m
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: 1password-sdk
+  target:
+    name: velero-repo-credentials
+    creationPolicy: Owner
+    template:
+      data:
+        repository-password: "{{ .VELERO_REPOSITORY_PASSWORD }}"
+  data:
+    - secretKey: VELERO_REPOSITORY_PASSWORD
+      remoteRef:
+        key: pcloud-s3/VELERO_REPOSITORY_PASSWORD

@@ -13,5 +13,14 @@ spec:
     - name: flux-system
     - name: external-secrets
     - name: cert-manager
+  healthChecks:
+    - apiVersion: external-secrets.io/v1
+      kind: ExternalSecret
+      name: velero-s3-credentials
+      namespace: velero
+    - apiVersion: external-secrets.io/v1
+      kind: ExternalSecret
+      name: velero-repo-credentials
+      namespace: velero
   prune: true
   timeout: 1m

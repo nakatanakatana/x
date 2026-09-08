@@ -1,0 +1,51 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: velero
+  namespace: velero
+spec:
+  interval: 10m
+  timeout: 10m
+  chart:
+    spec:
+      chart: velero
+      version: "12.1.0"
+      sourceRef:
+        kind: HelmRepository
+        name: velero
+  releaseName: velero
+  values:
+    image:
+      repository: velero/velero
+      tag: v1.18.1
+    credentials:
+      existingSecret: velero-s3-credentials
+    deployNodeAgent: true
+    nodeAgent:
+      disableHostPath: true
+    configuration:
+      features: EnableCSI
+      defaultBackupStorageLocation: pcloud
+      defaultBackupTTL: 168h0m0s
+      backupStorageLocation:
+        - name: pcloud
+          provider: aws
+          bucket: velero-backups
+          prefix: kubernetes
+          config:
+            region: us-east-1
+            s3ForcePathStyle: "true"
+            s3Url: http://gateway.pcloud-s3.svc.cluster.local:8080
+            checksumAlgorithm: ""
+          credential:
+            name: velero-s3-credentials
+            key: cloud
+    snapshotsEnabled: false
+    defaultVolumesToFsBackup: false
+    initContainers:
+      - name: velero-plugin-for-aws
+        image: velero/velero-plugin-for-aws:v1.14.2
+        volumeMounts:
+          - mountPath: /target
+            name: plugins
+    upgradeCRDs: true

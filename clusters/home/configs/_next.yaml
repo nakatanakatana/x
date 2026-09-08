@@ -17,5 +17,9 @@ spec:
       kind: Kustomization
       name: kubeblocks
       namespace: flux-system
+    - apiVersion: helm.toolkit.fluxcd.io/v2
+      kind: HelmRelease
+      name: velero
+      namespace: velero
   prune: true
   timeout: 15m
