@@ -3,6 +3,8 @@ kind: PersistentVolumeClaim
 metadata:
   name: nostr-relay-data
   namespace: nostr
+  labels:
+    backup.pcloud.io/enabled: "true"
 spec:
   accessModes:
     - ReadWriteOnce

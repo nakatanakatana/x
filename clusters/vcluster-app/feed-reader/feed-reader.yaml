@@ -3,6 +3,8 @@ kind: PersistentVolumeClaim
 metadata:
   name: feed-reader-data
   namespace: feed-reader
+  labels:
+    backup.pcloud.io/enabled: "true"
 spec:
   accessModes:
     - ReadWriteOnce

@@ -1,0 +1,21 @@
+apiVersion: velero.io/v1
+kind: Schedule
+metadata:
+  name: pvc-daily
+  namespace: velero
+spec:
+  schedule: "0 18 * * *"
+  template:
+    includedNamespaces:
+      - "*"
+    includedResources:
+      - persistentvolumeclaims
+    labelSelector:
+      matchLabels:
+        backup.pcloud.io/enabled: "true"
+    snapshotVolumes: true
+    snapshotMoveData: true
+    defaultVolumesToFsBackup: false
+    storageLocation: pcloud
+    ttl: 168h0m0s
+    itemOperationTimeout: 6h0m0s
