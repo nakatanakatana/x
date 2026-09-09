@@ -222,16 +222,29 @@ scripts/velero-restore-pvc.sh smoke-manual-20260909030000 feed-reader feed-reade
 
 ### 6.3 リストア後の確認と切り替え
 
-1. **PVC のバインド確認**:
+1. **Restore と DataDownload (データダウンロード) の進行状況確認**:
+   リストアの進捗状況および CSI Snapshot Data Movement によるオブジェクトストレージからのデータ転送 (DataDownload) を確認します:
+   ```bash
+   # Restore リソースのステータス確認
+   kubectl -n velero get restore <restore-name> -o wide
+   kubectl -n velero describe restore <restore-name>
+
+   # DataDownload リソースの確認 (CSI スナップショットデータ移動の進捗)
+   kubectl -n velero get datadownloads.velero.io -l velero.io/restore-name=<restore-name>
+   kubectl -n velero get datadownloads.velero.io
+   ```
+   DataDownload の `PHASE` が `Completed` になり、Restore が `Completed` に達することを確認します。
+
+2. **PVC のバインド確認**:
    ```bash
    kubectl -n feed-reader get pvc feed-reader-data-restored -w
    ```
    ステータスが `Bound` になることを確認します。
 
-2. **データの整合性確認**:
+3. **データの整合性確認**:
    一時的な検証用 Pod を作成してマウントするか、デバッグ用ワークロードからアクセスしてデータが正常に復元されていることを確認します。
 
-3. **ワークロードの切り替え**:
+4. **ワークロードの切り替え**:
    ワークロードを新しい PVC に切り替える場合は、Git リポジトリ内の該当 Deployment / StatefulSet マニフェストで `claimName` を更新し、PR を通じて Flux で反映します。
    > [!NOTE]
    > 新しい PVC でのアプリケーション稼働が確認できるまで、元の PVC は削除せず保持してください。
@@ -252,7 +265,7 @@ Velero のリストア仕様上、以下の点に注意してください:
 
 - スクリプト実行時に `velero` 名前空間内に作成される Resource Modifier ConfigMap (`restore-mod-...`) は、リストア実行中に Velero コントローラーによって参照されます。
 - リストアが終端状態 (`Completed`, `Failed`, `PartiallyFailed`) に達する前にこの ConfigMap を削除してはいけません。
-- リストア完了後、スクリプトが出力した削除コマンドを実行して手動で削除してください:
+- リストア完了後（または Restore 作成が失敗した際）、スクリプトが出力した削除コマンドを実行して手動で削除してください:
   ```bash
   kubectl -n velero delete configmap <configmap-name>
   ```

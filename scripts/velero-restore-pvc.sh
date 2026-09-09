@@ -84,7 +84,7 @@ fi
 
 # 5. Generate unique DNS-safe names for ConfigMap and Restore
 # Form: prefix-YYYYMMDDHHMMSS-randomhex (all lowercase alphanumeric/hyphen, well within 63 chars)
-RANDOM_SUFFIX=$(LC_ALL=C tr -dc 'a-z0-9' </dev/urandom | head -c 6)
+RANDOM_SUFFIX=$(LC_ALL=C tr -dc 'a-z0-9' </dev/urandom | head -c 6 || true)
 TIMESTAMP=$(date -u +%Y%m%d%H%M%S)
 
 CONFIGMAP_NAME="restore-mod-${TIMESTAMP}-${RANDOM_SUFFIX}"
@@ -143,7 +143,12 @@ spec:
     name: "${CONFIGMAP_NAME}"
 EOF
 
-kubectl --request-timeout="${REQUEST_TIMEOUT}" apply -f "${TMP_DIR}/restore.yaml"
+if ! kubectl --request-timeout="${REQUEST_TIMEOUT}" apply -f "${TMP_DIR}/restore.yaml"; then
+  echo "Error: Failed to create Restore resource '${RESTORE_NAME}' in namespace '${VELERO_NAMESPACE}'." >&2
+  echo "The resource modifier ConfigMap '${CONFIGMAP_NAME}' was already created and must be cleaned up manually:" >&2
+  echo "   kubectl -n ${VELERO_NAMESPACE} delete configmap ${CONFIGMAP_NAME}" >&2
+  exit 1
+fi
 
 # 9. Output results and operational instructions
 cat <<EOF
@@ -162,9 +167,9 @@ Target PVC:                  ${SOURCE_NAMESPACE}/${TARGET_PVC}
    kubectl -n ${VELERO_NAMESPACE} get restore ${RESTORE_NAME} -o wide
    kubectl -n ${VELERO_NAMESPACE} describe restore ${RESTORE_NAME}
 
-2. Monitor Velero DataUpload progress:
-   kubectl -n ${VELERO_NAMESPACE} get datauploads.velero.io -l velero.io/restore-name=${RESTORE_NAME}
-   kubectl -n ${VELERO_NAMESPACE} get datauploads.velero.io
+2. Monitor Velero DataDownload progress:
+   kubectl -n ${VELERO_NAMESPACE} get datadownloads.velero.io -l velero.io/restore-name=${RESTORE_NAME}
+   kubectl -n ${VELERO_NAMESPACE} get datadownloads.velero.io
 
 3. Monitor the restored target PVC until it becomes Bound:
    kubectl -n ${SOURCE_NAMESPACE} get pvc ${TARGET_PVC} -w
