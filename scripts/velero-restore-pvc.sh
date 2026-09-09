@@ -4,11 +4,14 @@ set -euo pipefail
 usage() {
   cat <<'EOF' >&2
 Usage: velero-restore-pvc.sh <backup-name> <source-namespace> <source-pvc> <target-pvc>
+       velero-restore-pvc.sh --restore-id <restore-id> <backup-name> <source-namespace> <source-pvc> <target-pvc>
 
 Restores a single PersistentVolumeClaim from a Velero backup into a new PVC
 within the source namespace using a Velero resource modifier ConfigMap.
 
 Arguments:
+  --restore-id      Use this label value instead of reading it from the source PVC.
+                    Use during disaster recovery when the source PVC is absent.
   backup-name       Name of the Velero Backup (must be Completed or PartiallyFailed)
   source-namespace  Namespace of the original PVC
   source-pvc        Name of the original PVC in the backup
@@ -22,8 +25,14 @@ EOF
   exit 1
 }
 
-# 1. Argument count check
+# 1. Optional restore selector and argument count check
 # Must exit non-zero immediately without contacting the cluster when argument count is wrong.
+RESTORE_ID_OVERRIDE=""
+if [[ $# -eq 6 && "$1" == "--restore-id" ]]; then
+  RESTORE_ID_OVERRIDE="$2"
+  shift 2
+fi
+
 if [[ $# -ne 4 ]]; then
   usage
 fi
@@ -55,6 +64,12 @@ for arg_var in BACKUP_NAME SOURCE_NAMESPACE SOURCE_PVC TARGET_PVC; do
   fi
 done
 
+if [[ -n "${RESTORE_ID_OVERRIDE}" ]] && ! is_dns_label "${RESTORE_ID_OVERRIDE}"; then
+  echo "Error: Argument 'restore-id' ('${RESTORE_ID_OVERRIDE}') is not a valid Kubernetes DNS label." >&2
+  echo "It must consist of lowercase alphanumeric characters or '-', start and end with an alphanumeric character, and be 1 to 63 characters long." >&2
+  exit 1
+fi
+
 VELERO_NAMESPACE="velero"
 REQUEST_TIMEOUT="30s"
 
@@ -74,7 +89,27 @@ if [[ -n "${TARGET_PVC_RESOURCE}" ]]; then
   exit 1
 fi
 
-# 4. Verify Velero Backup exists and check .status.phase
+# 4. Verify a unique restore selector label.
+# The Restore labelSelector prevents Velero from restoring every PVC in the
+# source namespace when the namespace is empty during disaster recovery.
+if [[ -n "${RESTORE_ID_OVERRIDE}" ]]; then
+  SOURCE_RESTORE_ID="${RESTORE_ID_OVERRIDE}"
+else
+  if ! SOURCE_RESTORE_ID=$(kubectl --request-timeout="${REQUEST_TIMEOUT}" -n "${SOURCE_NAMESPACE}" get pvc "${SOURCE_PVC}" -o 'go-template={{ with index .metadata.labels "backup.pcloud.io/restore-id" }}{{ . }}{{ end }}'); then
+    echo "Error: Could not read source PVC '${SOURCE_NAMESPACE}/${SOURCE_PVC}'." >&2
+    echo "Refusing to proceed without a source PVC restore selector." >&2
+    echo "If the source PVC was deleted during disaster recovery, rerun with --restore-id." >&2
+    exit 1
+  fi
+
+  if [[ -z "${SOURCE_RESTORE_ID}" ]]; then
+    echo "Error: Source PVC '${SOURCE_NAMESPACE}/${SOURCE_PVC}' is missing the 'backup.pcloud.io/restore-id' label." >&2
+    echo "Restore requires a backup created after the per-PVC restore label was deployed." >&2
+    exit 1
+  fi
+fi
+
+# 5. Verify Velero Backup exists and check .status.phase
 # Read only .status.phase; stop for empty or any phase other than Completed or PartiallyFailed.
 # Never prints Secret data.
 BACKUP_PHASE=$(kubectl --request-timeout="${REQUEST_TIMEOUT}" -n "${VELERO_NAMESPACE}" get backup "${BACKUP_NAME}" -o jsonpath='{.status.phase}' 2>/dev/null || true)
@@ -90,9 +125,9 @@ if [[ "${BACKUP_PHASE}" != "Completed" && "${BACKUP_PHASE}" != "PartiallyFailed"
   exit 1
 fi
 
-# 5. Generate unique DNS-safe names for ConfigMap and Restore
+# 6. Generate unique DNS-safe names for ConfigMap and Restore
 # Form: prefix-YYYYMMDDHHMMSS-randomhex (all lowercase alphanumeric/hyphen, well within 63 chars)
-RANDOM_SUFFIX=$(LC_ALL=C tr -dc 'a-z0-9' </dev/urandom | head -c 6 || true)
+RANDOM_SUFFIX=$(od -An -N3 -tx1 /dev/urandom | tr -d ' \n')
 TIMESTAMP=$(date -u +%Y%m%d%H%M%S)
 
 CONFIGMAP_NAME="restore-mod-${TIMESTAMP}-${RANDOM_SUFFIX}"
@@ -103,11 +138,11 @@ if ! is_dns_label "${CONFIGMAP_NAME}" || ! is_dns_label "${RESTORE_NAME}"; then
   exit 1
 fi
 
-# 6. Create temporary directory and ensure cleanup on exit
+# 7. Create temporary directory and ensure cleanup on exit
 TMP_DIR=$(mktemp -d)
 trap 'rm -rf "${TMP_DIR}"' EXIT
 
-# 7. Create resource-modifier ConfigMap in namespace velero
+# 8. Create resource-modifier ConfigMap in namespace velero
 cat <<EOF > "${TMP_DIR}/resource-modifier-cm.yaml"
 apiVersion: v1
 kind: ConfigMap
@@ -131,7 +166,7 @@ EOF
 
 kubectl --request-timeout="${REQUEST_TIMEOUT}" apply -f "${TMP_DIR}/resource-modifier-cm.yaml"
 
-# 8. Create Restore resource in namespace velero
+# 9. Create Restore resource in namespace velero
 cat <<EOF > "${TMP_DIR}/restore.yaml"
 apiVersion: velero.io/v1
 kind: Restore
@@ -144,6 +179,9 @@ spec:
   - "${SOURCE_NAMESPACE}"
   includedResources:
   - persistentvolumeclaims
+  labelSelector:
+    matchLabels:
+      backup.pcloud.io/restore-id: "${SOURCE_RESTORE_ID}"
   restorePVs: true
   existingResourcePolicy: none
   resourceModifier:
@@ -153,12 +191,16 @@ EOF
 
 if ! kubectl --request-timeout="${REQUEST_TIMEOUT}" apply -f "${TMP_DIR}/restore.yaml"; then
   echo "Error: Failed to create Restore resource '${RESTORE_NAME}' in namespace '${VELERO_NAMESPACE}'." >&2
-  echo "The resource modifier ConfigMap '${CONFIGMAP_NAME}' was already created and must be cleaned up manually:" >&2
-  echo "   kubectl -n ${VELERO_NAMESPACE} delete configmap ${CONFIGMAP_NAME}" >&2
+  if kubectl --request-timeout="${REQUEST_TIMEOUT}" -n "${VELERO_NAMESPACE}" delete configmap "${CONFIGMAP_NAME}" --ignore-not-found >/dev/null 2>&1; then
+    echo "The resource modifier ConfigMap '${CONFIGMAP_NAME}' was cleaned up." >&2
+  else
+    echo "The resource modifier ConfigMap '${CONFIGMAP_NAME}' could not be cleaned up automatically:" >&2
+    echo "   kubectl -n ${VELERO_NAMESPACE} delete configmap ${CONFIGMAP_NAME}" >&2
+  fi
   exit 1
 fi
 
-# 9. Output results and operational instructions
+# 10. Output results and operational instructions
 cat <<EOF
 
 ================================================================================

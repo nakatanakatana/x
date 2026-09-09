@@ -39,6 +39,8 @@ spec:
   dependsOn:
     - name: external-snapshotter-crd
     - name: rook-ceph-operator
-  prune: true
+  # kube-system is shared; avoid deleting resources that are not rendered by
+  # this upstream kustomization when the source changes.
+  prune: false
   wait: true
   timeout: 5m

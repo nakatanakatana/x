@@ -5,6 +5,7 @@ metadata:
   namespace: nostr
   labels:
     backup.pcloud.io/enabled: "true"
+    backup.pcloud.io/restore-id: nostr-nostr-relay-data
 spec:
   accessModes:
     - ReadWriteOnce

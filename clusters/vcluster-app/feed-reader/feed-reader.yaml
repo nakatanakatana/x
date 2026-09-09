@@ -5,6 +5,7 @@ metadata:
   namespace: feed-reader
   labels:
     backup.pcloud.io/enabled: "true"
+    backup.pcloud.io/restore-id: feed-reader-feed-reader-data
 spec:
   accessModes:
     - ReadWriteOnce
