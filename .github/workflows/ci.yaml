@@ -18,6 +18,8 @@ jobs:
         run: go install sigs.k8s.io/kustomize/kustomize/v5@v5.8.1
       - name: Test manifest policies
         run: go test ./...
+      - name: Test Velero restore scripts
+        run: bash tests/velero_restore_scripts_test.sh
       - name: Setup Flux CLI
         uses: fluxcd/flux2/action@v2.9.5
         with:
