@@ -59,8 +59,16 @@ VELERO_NAMESPACE="velero"
 REQUEST_TIMEOUT="30s"
 
 # 3. Check if target PVC already exists in source namespace
-# Never overwrite, delete, or patch an existing PVC.
-if kubectl --request-timeout="${REQUEST_TIMEOUT}" -n "${SOURCE_NAMESPACE}" get pvc "${TARGET_PVC}" >/dev/null 2>&1; then
+# Never overwrite, delete, or patch an existing PVC. --ignore-not-found makes
+# only a confirmed NotFound result continue; API/authentication errors stop the
+# script instead of being treated as an absent PVC.
+if ! TARGET_PVC_RESOURCE=$(kubectl --request-timeout="${REQUEST_TIMEOUT}" -n "${SOURCE_NAMESPACE}" get pvc "${TARGET_PVC}" --ignore-not-found -o name); then
+  echo "Error: Could not verify whether target PVC '${TARGET_PVC}' exists in namespace '${SOURCE_NAMESPACE}'." >&2
+  echo "Refusing to proceed while the cluster state cannot be verified." >&2
+  exit 1
+fi
+
+if [[ -n "${TARGET_PVC_RESOURCE}" ]]; then
   echo "Error: Target PVC '${TARGET_PVC}' already exists in namespace '${SOURCE_NAMESPACE}'." >&2
   echo "Refusing to proceed to avoid modifying or overwriting an existing PVC." >&2
   exit 1
