@@ -152,6 +152,9 @@ func discoverKustomizations(repoRoot string) ([]discoveredKustomization, error) 
 			if !isFluxKustomization(document) {
 				continue
 			}
+			if isExternalSourceWithoutLocalArtifact(repoRoot, document) {
+				continue
+			}
 			metadata := mapField(document, "metadata")
 			name := stringField(metadata, "name")
 			if name == "" {
@@ -181,6 +184,26 @@ func discoverKustomizations(repoRoot string) ([]discoveredKustomization, error) 
 		return result[i].ManifestPath < result[j].ManifestPath
 	})
 	return result, nil
+}
+
+// isExternalSourceWithoutLocalArtifact identifies Flux Kustomizations whose
+// source is a separately fetched GitRepository and whose source path is not
+// part of this repository. The ownership checker cannot render those
+// artifacts, so it leaves them to Flux's live reconciliation instead of
+// treating their absence from the checkout as a repository error.
+func isExternalSourceWithoutLocalArtifact(repoRoot string, document map[string]any) bool {
+	spec := mapField(document, "spec")
+	sourceRef := mapField(spec, "sourceRef")
+	if stringField(sourceRef, "kind") != "GitRepository" || stringField(sourceRef, "name") == "" || stringField(sourceRef, "name") == "flux-system" {
+		return false
+	}
+
+	path := strings.TrimPrefix(stringField(spec, "path"), "./")
+	if path == "" {
+		return false
+	}
+	_, err := os.Stat(filepath.Join(repoRoot, filepath.FromSlash(path)))
+	return errors.Is(err, os.ErrNotExist)
 }
 
 func clusterScope(manifestPath string, kustomization map[string]any) string {

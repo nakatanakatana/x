@@ -101,6 +101,29 @@ resources: []
 	}
 }
 
+func TestDiscoverKustomizationsSkipsExternalSourceWithoutLocalArtifact(t *testing.T) {
+	root := t.TempDir()
+	writeTestFile(t, root, "clusters/home/external-snapshotter.yaml", `apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: external-snapshotter-crd
+  namespace: flux-system
+spec:
+  path: ./client/config/crd
+  sourceRef:
+    kind: GitRepository
+    name: external-snapshotter
+`)
+
+	got, err := discoverKustomizations(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 0 {
+		t.Fatalf("discovered external Kustomizations = %#v, want none", got)
+	}
+}
+
 func TestClusterScopeLocalAndRemote(t *testing.T) {
 	local := discoveredKustomization{
 		ManifestPath: "clusters/home/flux-system/gotk-sync.yaml",
