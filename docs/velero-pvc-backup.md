@@ -15,6 +15,7 @@
   - `BackupStorageLocation`: `pcloud` (バケット: `velero-backups`)
   - エンドポイント: `http://gateway.pcloud-s3.svc.cluster.local:8080` (namespace `pcloud-s3` 内の Service `gateway`)
   - パススタイルアクセス (`s3ForcePathStyle: "true"`)、チェックサム計算無効 (`checksumAlgorithm: ""`)
+- **vCluster PVC 同期**: `vcluster-app` の仮想 PVC をホストクラスタの PVC として同期し、ホストクラスタにインストールした Velero でバックアップします。
 - **スケジュール**:
   - `Schedule`: `pvc-daily` (namespace: `velero`)
   - 実行頻度: 毎日 18:00 UTC (日本時間 03:00 JST)
@@ -23,6 +24,19 @@
 ### 1.2 対象 PVC と除外方針
 
 本バックアップシステムは、ラベル `backup.pcloud.io/enabled: "true"` が付与された PVC のみを明示的に対象とします。
+
+`clusters/vcluster-app` のPVCマニフェストは vCluster API に適用されます。
+vCluster のPVC同期により同じラベルがホスト側の同期PVCにも引き継がれるため、ホストクラスタのVeleroはホスト側PVCだけを対象にします。
+仮想PVCとホスト側PVCは別のKubernetesオブジェクトですが、通常は同じ実データ用ボリュームを参照します。
+
+バックアップ前には、ホストクラスタのコンテキストで同期PVCとラベルを確認してください:
+
+```bash
+kubectl get pvc -A -l backup.pcloud.io/enabled=true \
+  -o custom-columns='NAMESPACE:.metadata.namespace,NAME:.metadata.name,STATUS:.status.phase,STORAGE:.spec.resources.requests.storage,PV:.spec.volumeName'
+```
+
+このコマンドで対象PVCが確認できない場合は、Veleroのスモークバックアップを実行せず、vClusterの同期状態を先に確認します。
 
 - **バックアップ対象 (初回ロールアウト)**:
   アプリケーションの永続状態を保持する以下の PVC を対象とします。
@@ -140,6 +154,9 @@ kubectl -n velero get schedule pvc-daily
 ```bash
 SMOKE_NAME="smoke-manual-$(date -u +%Y%m%d%H%M%S)"
 
+# ホストクラスタ側に同期された、ラベル付きPVCを確認する
+kubectl get pvc -A -l backup.pcloud.io/enabled=true
+
 # velero CLI を利用する場合
 velero backup create "${SMOKE_NAME}" --from-schedule pvc-daily
 
@@ -208,9 +225,17 @@ EOF
 scripts/velero-restore-pvc.sh <backup-name> <source-namespace> <source-pvc> <target-pvc>
 ```
 
-実行例 (`feed-reader` のデータを `feed-reader-data-restored` として復元する場合):
+`source-namespace` と `source-pvc` には、vCluster内の仮想PVC名ではなく、バックアップに含まれたホスト側同期PVCのnamespaceと名前を指定します。
+対象値は、バックアップ前にホストクラスタで次のコマンドを実行して確認できます:
+
 ```bash
-scripts/velero-restore-pvc.sh smoke-manual-20260909030000 feed-reader feed-reader-data feed-reader-data-restored
+kubectl get pvc -A -l backup.pcloud.io/enabled=true \
+  -o custom-columns='NAMESPACE:.metadata.namespace,NAME:.metadata.name'
+```
+
+実行例 (`<host-namespace>/<host-pvc-name>` のデータを新しいPVCとして復元する場合):
+```bash
+scripts/velero-restore-pvc.sh smoke-manual-20260909030000 <host-namespace> <host-pvc-name> restored-data
 ```
 
 ### 6.2 スクリプトの安全機構
@@ -235,16 +260,20 @@ scripts/velero-restore-pvc.sh smoke-manual-20260909030000 feed-reader feed-reade
    ```
    DataDownload の `PHASE` が `Completed` になり、Restore が `Completed` に達することを確認します。
 
-2. **PVC のバインド確認**:
+2. **ホスト側復元PVCのバインド確認**:
    ```bash
-   kubectl -n feed-reader get pvc feed-reader-data-restored -w
+   kubectl -n <host-namespace> get pvc restored-data -w
    ```
    ステータスが `Bound` になることを確認します。
 
-3. **データの整合性確認**:
+3. **vCluster内の仮想PVCとの再接続確認**:
+   復元先をvClusterのワークロードで利用する場合は、ホスト側復元PVCが作成された後に、vCluster内のPVCが復元済みボリュームへ再バインドされることを確認します。
+   vCluster内のPVC名・namespaceとホスト側PVCの名前・namespaceは同期実装により変換される場合があるため、ホスト側の名前を推測せず、実際のPVCとアノテーションを確認してください。
+
+4. **データの整合性確認**:
    一時的な検証用 Pod を作成してマウントするか、デバッグ用ワークロードからアクセスしてデータが正常に復元されていることを確認します。
 
-4. **ワークロードの切り替え**:
+5. **ワークロードの切り替え**:
    ワークロードを新しい PVC に切り替える場合は、Git リポジトリ内の該当 Deployment / StatefulSet マニフェストで `claimName` を更新し、PR を通じて Flux で反映します。
    > [!NOTE]
    > 新しい PVC でのアプリケーション稼働が確認できるまで、元の PVC は削除せず保持してください。

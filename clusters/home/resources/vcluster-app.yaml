@@ -39,6 +39,9 @@ spec:
                   - from: rook-ceph/rook-ceph-rgw-celld
                     to: celld/rgw
             sync:
+              toHost:
+                persistentVolumeClaims:
+                  enabled: true
               fromHost:
                 gatewayClasses:
                   enabled: true
