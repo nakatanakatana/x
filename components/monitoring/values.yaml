@@ -79,6 +79,12 @@ clusterMetrics:
       useDefaultAllowList: false
       includeMetrics:
         - gotk_resource_info
+        - kube_cronjob_spec_suspend
+        - kube_cronjob_status_last_schedule_time
+        - kube_cronjob_status_last_successful_time
+        - kube_job_status_failed
+        - kube_job_status_succeeded
+        - kube_job_status_start_time
   cadvisor:
     enabled: true
     metricsTuning:

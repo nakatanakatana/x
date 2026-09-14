@@ -2,9 +2,13 @@ package main
 
 import (
 	"context"
+	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"gopkg.in/yaml.v3"
 )
 
 func TestPolicyFixtures(t *testing.T) {
@@ -1767,6 +1771,858 @@ func TestPCloudS3SemanticPolicies(t *testing.T) {
 	})
 }
 
+func TestObjectStorageBackup(t *testing.T) {
+	manifestPath := repoPath("clusters", "home", "resources", "object-storage-backup.yaml")
+	resources := mustLoadPolicyResources(t, manifestPath)
+
+	cronJobs := matchingResources(resources, "CronJob", "app", "object-storage-backup")
+	if len(cronJobs) != 1 {
+		t.Fatalf("CronJob/app/object-storage-backup count = %d, want 1", len(cronJobs))
+	}
+	configMaps := matchingResources(resources, "ConfigMap", "app", "object-storage-backup-script")
+	if len(configMaps) != 1 {
+		t.Fatalf("ConfigMap/app/object-storage-backup-script count = %d, want 1", len(configMaps))
+	}
+
+	script, ok := configMaps[0].Document["data"].(map[string]any)["backup.sh"].(string)
+	if !ok {
+		t.Fatal("ConfigMap/app/object-storage-backup-script data.backup.sh must be a string")
+	}
+	for _, required := range []string{
+		"celld:celld",
+		"feedreader:feed-reader",
+		"nostr:nostr",
+		"pcloud:s3-backups/celld",
+		"pcloud:s3-backups/feed-reader",
+		"pcloud:s3-backups/nostr",
+		"rclone mkdir --dry-run pcloud:s3-backups",
+		"rclone mkdir pcloud:s3-backups",
+		"rclone sync --checksum --delete-after --delete-excluded --max-delete 1000 --max-delete-size 10GiB --files-from-raw \"${listing}\"",
+		`if ! rclone check "${source}" "${destination}" --checksum --files-from-raw "${listing}" --one-way; then`,
+		"failed_sources=0",
+		`backup celld:celld pcloud:s3-backups/celld /tmp/celld-files || failed_sources=1`,
+		`backup feedreader:feed-reader pcloud:s3-backups/feed-reader /tmp/feed-reader-files || failed_sources=1`,
+		`backup nostr:nostr pcloud:s3-backups/nostr /tmp/nostr-files || failed_sources=1`,
+		`if [ "${failed_sources}" -ne 0 ]; then`,
+		"sleep 10",
+		"return 0",
+	} {
+		if !strings.Contains(script, required) {
+			t.Fatalf("backup script does not contain %q", required)
+		}
+	}
+	for _, forbidden := range []string{"cleanup", "trash_clear", "--ignore-errors"} {
+		if strings.Contains(script, forbidden) {
+			t.Fatalf("backup script must not contain %q", forbidden)
+		}
+	}
+	backupLines := make([]string, 0, 3)
+	syncLines := make([]string, 0, 2)
+	for _, line := range strings.Split(script, "\n") {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "backup ") {
+			backupLines = append(backupLines, trimmed)
+		}
+		if strings.Contains(trimmed, "rclone sync ") {
+			syncLines = append(syncLines, trimmed)
+		}
+	}
+	wantBackupLines := []string{
+		"backup celld:celld pcloud:s3-backups/celld /tmp/celld-files || failed_sources=1",
+		"backup feedreader:feed-reader pcloud:s3-backups/feed-reader /tmp/feed-reader-files || failed_sources=1",
+		"backup nostr:nostr pcloud:s3-backups/nostr /tmp/nostr-files || failed_sources=1",
+	}
+	if strings.Join(backupLines, "\n") != strings.Join(wantBackupLines, "\n") {
+		t.Fatalf("backup targets = %q, want %q", backupLines, wantBackupLines)
+	}
+	if len(syncLines) != 2 {
+		t.Fatalf("rclone sync invocation count = %d, want 2", len(syncLines))
+	}
+	for _, line := range syncLines {
+		for _, required := range []string{"--delete-after", "--delete-excluded", "--max-delete 1000", "--max-delete-size 10GiB", "--files-from-raw \"${listing}\""} {
+			if !strings.Contains(line, required) {
+				t.Fatalf("rclone sync invocation %q does not contain %q", line, required)
+			}
+		}
+	}
+
+	cronJob := cronJobs[0].Document
+	spec := cronJob["spec"].(map[string]any)
+	for name, want := range map[string]any{
+		"schedule": "0 * * * *",
+		"suspend":  true,
+		"timeZone": "Asia/Tokyo",
+	} {
+		if spec[name] != want {
+			t.Fatalf("spec.%s = %v, want %v", name, spec[name], want)
+		}
+	}
+	if spec["concurrencyPolicy"] != "Forbid" {
+		t.Fatalf("spec.concurrencyPolicy = %v, want Forbid", spec["concurrencyPolicy"])
+	}
+	jobTemplate := spec["jobTemplate"].(map[string]any)
+	jobMetadata, ok := jobTemplate["metadata"].(map[string]any)
+	if !ok {
+		t.Fatal("spec.jobTemplate.metadata must be an object")
+	}
+	jobLabels, ok := jobMetadata["labels"].(map[string]any)
+	if !ok {
+		t.Fatal("spec.jobTemplate.metadata.labels must be an object")
+	}
+	if jobLabels["app.kubernetes.io/name"] != "object-storage-backup" {
+		t.Fatalf("spec.jobTemplate.metadata.labels app.kubernetes.io/name = %v, want object-storage-backup", jobLabels["app.kubernetes.io/name"])
+	}
+	jobSpec := jobTemplate["spec"].(map[string]any)
+	if jobSpec["activeDeadlineSeconds"] != 3300 {
+		t.Fatalf("spec.jobTemplate.spec.activeDeadlineSeconds = %v, want 3300", jobSpec["activeDeadlineSeconds"])
+	}
+	if jobSpec["backoffLimit"] != 0 {
+		t.Fatalf("spec.jobTemplate.spec.backoffLimit = %v, want 0", jobSpec["backoffLimit"])
+	}
+	podSpec := jobSpec["template"].(map[string]any)["spec"].(map[string]any)
+	container := podSpec["containers"].([]any)[0].(map[string]any)
+	if container["image"] != "rclone/rclone:1.75.1@sha256:45401ad7410db1d67ffdb58e19059ad20b0d8e0285a60e38bbec55cc1019c7a5" {
+		t.Fatalf("container.image = %v, want the pinned rclone image", container["image"])
+	}
+	containerSecurityContext, ok := container["securityContext"].(map[string]any)
+	if !ok {
+		t.Fatal("container.securityContext must be an object")
+	}
+	if containerSecurityContext["readOnlyRootFilesystem"] != true {
+		t.Fatalf("container.securityContext.readOnlyRootFilesystem = %v, want true", containerSecurityContext["readOnlyRootFilesystem"])
+	}
+	if containerSecurityContext["allowPrivilegeEscalation"] != false {
+		t.Fatalf("container.securityContext.allowPrivilegeEscalation = %v, want false", containerSecurityContext["allowPrivilegeEscalation"])
+	}
+	capabilities, ok := containerSecurityContext["capabilities"].(map[string]any)
+	if !ok {
+		t.Fatal("container.securityContext.capabilities must be an object")
+	}
+	droppedCapabilities, ok := capabilities["drop"].([]any)
+	if !ok || len(droppedCapabilities) != 1 || droppedCapabilities[0] != "ALL" {
+		t.Fatalf("container.securityContext.capabilities.drop = %v, want [ALL]", capabilities["drop"])
+	}
+	podSecurityContext, ok := podSpec["securityContext"].(map[string]any)
+	if !ok {
+		t.Fatal("pod securityContext must be an object")
+	}
+	if podSecurityContext["runAsNonRoot"] != true {
+		t.Fatalf("pod securityContext.runAsNonRoot = %v, want true", podSecurityContext["runAsNonRoot"])
+	}
+	if podSpec["automountServiceAccountToken"] != false {
+		t.Fatalf("pod automountServiceAccountToken = %v, want false", podSpec["automountServiceAccountToken"])
+	}
+	for field, want := range map[string]any{
+		"runAsUser":           1009,
+		"runAsGroup":          1009,
+		"fsGroup":             1009,
+		"fsGroupChangePolicy": "OnRootMismatch",
+	} {
+		if podSecurityContext[field] != want {
+			t.Fatalf("pod securityContext.%s = %v, want %v", field, podSecurityContext[field], want)
+		}
+	}
+	seccompProfile, ok := podSecurityContext["seccompProfile"].(map[string]any)
+	if !ok || seccompProfile["type"] != "RuntimeDefault" {
+		t.Fatalf("pod securityContext.seccompProfile = %v, want type RuntimeDefault", podSecurityContext["seccompProfile"])
+	}
+
+	containerResources, ok := container["resources"].(map[string]any)
+	if !ok {
+		t.Fatal("container.resources must be an object")
+	}
+	expectedResources := map[string]map[string]string{
+		"requests": {"cpu": "100m", "memory": "256Mi", "ephemeral-storage": "64Mi"},
+		"limits":   {"cpu": "1", "memory": "1Gi", "ephemeral-storage": "1Gi"},
+	}
+	for scope, expected := range expectedResources {
+		actual, ok := containerResources[scope].(map[string]any)
+		if !ok {
+			t.Fatalf("container.resources.%s must be an object", scope)
+		}
+		for name, want := range expected {
+			if actual[name] != want {
+				t.Fatalf("container.resources.%s.%s = %v, want %s", scope, name, actual[name], want)
+			}
+		}
+	}
+
+	volumes, ok := podSpec["volumes"].([]any)
+	if !ok {
+		t.Fatal("pod template volumes must be an array")
+	}
+	var tmpEmptyDir map[string]any
+	for _, item := range volumes {
+		volume := item.(map[string]any)
+		if volume["name"] != "tmp" {
+			continue
+		}
+		tmpEmptyDir, ok = volume["emptyDir"].(map[string]any)
+		if !ok {
+			t.Fatal("tmp volume must use emptyDir")
+		}
+		break
+	}
+	if tmpEmptyDir == nil {
+		t.Fatal("tmp volume is missing")
+	}
+	if tmpEmptyDir["sizeLimit"] != "1Gi" {
+		t.Fatalf("tmp volume emptyDir.sizeLimit = %v, want 1Gi", tmpEmptyDir["sizeLimit"])
+	}
+
+	expectedRuntimeEnv := map[string]string{
+		"HOME":            "/tmp",
+		"XDG_CONFIG_HOME": "/tmp/.config",
+		"XDG_CACHE_HOME":  "/tmp/.cache",
+	}
+	seenRuntimeEnv := make(map[string]bool, len(expectedRuntimeEnv))
+	for _, item := range container["env"].([]any) {
+		env := item.(map[string]any)
+		name, _ := env["name"].(string)
+		want, expected := expectedRuntimeEnv[name]
+		if !expected {
+			continue
+		}
+		if env["value"] != want {
+			t.Fatalf("runtime environment %q = %v, want %s", name, env["value"], want)
+		}
+		seenRuntimeEnv[name] = true
+	}
+	for name := range expectedRuntimeEnv {
+		if !seenRuntimeEnv[name] {
+			t.Fatalf("runtime environment %q is missing", name)
+		}
+	}
+
+	expectedSecretRefs := map[string]string{
+		"RCLONE_CONFIG_CELLD_ACCESS_KEY_ID":          "celld-storage/AWS_ACCESS_KEY_ID",
+		"RCLONE_CONFIG_CELLD_SECRET_ACCESS_KEY":      "celld-storage/AWS_SECRET_ACCESS_KEY",
+		"RCLONE_CONFIG_FEEDREADER_ACCESS_KEY_ID":     "feed-reader-storage/access_key",
+		"RCLONE_CONFIG_FEEDREADER_SECRET_ACCESS_KEY": "feed-reader-storage/access_secret",
+		"RCLONE_CONFIG_NOSTR_ACCESS_KEY_ID":          "nostr-storage/access-key-id",
+		"RCLONE_CONFIG_NOSTR_SECRET_ACCESS_KEY":      "nostr-storage/secret-access-key",
+		"RCLONE_CONFIG_PCLOUD_ACCESS_KEY_ID":         "object-storage-backup-credentials/S3_ACCESS_KEY_ID",
+		"RCLONE_CONFIG_PCLOUD_SECRET_ACCESS_KEY":     "object-storage-backup-credentials/S3_SECRET_ACCESS_KEY",
+	}
+	seenSecretRefs := make(map[string]bool, len(expectedSecretRefs))
+	for _, item := range container["env"].([]any) {
+		env := item.(map[string]any)
+		name, _ := env["name"].(string)
+		expected, credential := expectedSecretRefs[name]
+		if strings.Contains(name, "ACCESS_KEY") && !credential {
+			t.Fatalf("credential environment entry %q is not an expected Secret reference", name)
+		}
+		if !credential {
+			continue
+		}
+		secretKeyRef, ok := env["valueFrom"].(map[string]any)["secretKeyRef"].(map[string]any)
+		if !ok {
+			t.Fatalf("credential environment entry %q must use secretKeyRef", name)
+		}
+		actual := secretKeyRef["name"].(string) + "/" + secretKeyRef["key"].(string)
+		if actual != expected {
+			t.Fatalf("credential environment entry %q = %q, want %q", name, actual, expected)
+		}
+		seenSecretRefs[name] = true
+	}
+	for name := range expectedSecretRefs {
+		if !seenSecretRefs[name] {
+			t.Fatalf("credential environment entry %q is missing", name)
+		}
+	}
+
+	envText := ""
+	envValues := make(map[string]string)
+	for _, item := range container["env"].([]any) {
+		env := item.(map[string]any)
+		name := env["name"].(string)
+		envText += name + "\n"
+		if value, ok := env["value"].(string); ok {
+			envText += value + "\n"
+			envValues[name] = value
+		}
+	}
+	expectedEndpoints := map[string]string{
+		"RCLONE_CONFIG_CELLD_ENDPOINT":      "http://rook-ceph-rgw-celld.rook-ceph.svc.cluster.local:80",
+		"RCLONE_CONFIG_FEEDREADER_ENDPOINT": "http://storage-clusterip.tailscale.svc.cluster.local:8010",
+		"RCLONE_CONFIG_NOSTR_ENDPOINT":      "http://storage-clusterip.tailscale.svc.cluster.local:8010",
+		"RCLONE_CONFIG_PCLOUD_ENDPOINT":     "http://gateway.pcloud-s3.svc.cluster.local:8080",
+	}
+	for name, want := range expectedEndpoints {
+		if envValues[name] != want {
+			t.Fatalf("backup workload endpoint %q = %q, want %q", name, envValues[name], want)
+		}
+	}
+	for _, required := range []string{
+		"http://gateway.pcloud-s3.svc.cluster.local:8080",
+		"RCLONE_CONFIG_PCLOUD_UPLOAD_CUTOFF",
+	} {
+		if !strings.Contains(envText+script, required) {
+			t.Fatalf("backup workload does not contain %q", required)
+		}
+	}
+	if !strings.Contains(envText, "RCLONE_CONFIG_PCLOUD_UPLOAD_CUTOFF\n5GiB\n") {
+		t.Fatal("backup workload must set RCLONE_CONFIG_PCLOUD_UPLOAD_CUTOFF to 5GiB")
+	}
+}
+
+func TestObjectStorageBackupCommonPolicies(t *testing.T) {
+	evaluator := newTestPolicyEvaluator(t)
+	resources := mustLoadPolicyResources(t, repoPath("clusters", "home", "resources", "object-storage-backup.yaml"))
+	assertPolicyPasses(t, evaluator, PolicyInput{
+		Resources: resources,
+		Context:   policyContext("object-storage-backup"),
+	})
+}
+
+func TestObjectStorageBackupScriptContinuesAfterSourceFailure(t *testing.T) {
+	manifestPath := repoPath("clusters", "home", "resources", "object-storage-backup.yaml")
+	resources := mustLoadPolicyResources(t, manifestPath)
+	configMaps := matchingResources(resources, "ConfigMap", "app", "object-storage-backup-script")
+	script := configMaps[0].Document["data"].(map[string]any)["backup.sh"].(string)
+
+	tempDir := t.TempDir()
+	scriptPath := filepath.Join(tempDir, "backup.sh")
+	if err := os.WriteFile(scriptPath, []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	callLog := filepath.Join(tempDir, "rclone-calls")
+	fakeRclone := `#!/bin/sh
+set -eu
+case "$1" in
+  mkdir)
+    exit 0
+    ;;
+  lsf)
+    source="$4"
+    if [ "$source" = "celld:celld" ]; then
+      exit 1
+    fi
+    printf '%s\n' known-key
+    ;;
+  sync)
+    printf '%s\n' "$*" >>"$CALL_LOG"
+    ;;
+  *)
+    echo "unexpected fake rclone command: $*" >&2
+    exit 2
+    ;;
+esac
+`
+	if err := os.WriteFile(filepath.Join(tempDir, "rclone"), []byte(fakeRclone), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	command := exec.Command("/bin/sh", scriptPath)
+	command.Env = append(os.Environ(),
+		"PATH="+tempDir+":"+os.Getenv("PATH"),
+		"CALL_LOG="+callLog,
+		"OBJECT_STORAGE_BACKUP_DRY_RUN=true",
+	)
+	if err := command.Run(); err == nil {
+		t.Fatal("backup script succeeded after a source failure")
+	}
+
+	log, err := os.ReadFile(callLog)
+	if err != nil {
+		t.Fatal(err)
+	}
+	logText := string(log)
+	for _, destination := range []string{"feedreader:feed-reader", "nostr:nostr"} {
+		if !strings.Contains(logText, destination) {
+			t.Fatalf("backup script did not continue to %s after the first source failed: %s", destination, logText)
+		}
+	}
+	if strings.Contains(logText, "celld:celld") {
+		t.Fatalf("backup script synchronized the failed source: %s", logText)
+	}
+}
+
+func TestObjectStorageBackupScriptRefusesEmptySource(t *testing.T) {
+	manifestPath := repoPath("clusters", "home", "resources", "object-storage-backup.yaml")
+	resources := mustLoadPolicyResources(t, manifestPath)
+	configMaps := matchingResources(resources, "ConfigMap", "app", "object-storage-backup-script")
+	script := configMaps[0].Document["data"].(map[string]any)["backup.sh"].(string)
+
+	tempDir := t.TempDir()
+	scriptPath := filepath.Join(tempDir, "backup.sh")
+	if err := os.WriteFile(scriptPath, []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	callLog := filepath.Join(tempDir, "rclone-calls")
+	fakeRclone := `#!/bin/sh
+set -eu
+case "$1" in
+  mkdir)
+    exit 0
+    ;;
+  lsf)
+    source="$4"
+    if [ "$source" = "celld:celld" ]; then
+      exit 0
+    fi
+    printf '%s\n' known-key
+    ;;
+  sync)
+    printf '%s\n' "$*" >>"$CALL_LOG"
+    ;;
+  *)
+    echo "unexpected fake rclone command: $*" >&2
+    exit 2
+    ;;
+esac
+`
+	if err := os.WriteFile(filepath.Join(tempDir, "rclone"), []byte(fakeRclone), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	command := exec.Command("/bin/sh", scriptPath)
+	command.Env = append(os.Environ(),
+		"PATH="+tempDir+":"+os.Getenv("PATH"),
+		"CALL_LOG="+callLog,
+		"OBJECT_STORAGE_BACKUP_DRY_RUN=true",
+	)
+	if err := command.Run(); err == nil {
+		t.Fatal("backup script succeeded after an empty source listing")
+	}
+
+	log, err := os.ReadFile(callLog)
+	if err != nil {
+		t.Fatal(err)
+	}
+	logText := string(log)
+	for _, destination := range []string{"feedreader:feed-reader", "nostr:nostr"} {
+		if !strings.Contains(logText, destination) {
+			t.Fatalf("backup script did not continue to %s after an empty source failed: %s", destination, logText)
+		}
+	}
+	if strings.Contains(logText, "celld:celld") {
+		t.Fatalf("backup script synchronized the empty source: %s", logText)
+	}
+}
+
+func TestObjectStorageBackupScriptLogsListingSize(t *testing.T) {
+	manifestPath := repoPath("clusters", "home", "resources", "object-storage-backup.yaml")
+	resources := mustLoadPolicyResources(t, manifestPath)
+	configMaps := matchingResources(resources, "ConfigMap", "app", "object-storage-backup-script")
+	script := configMaps[0].Document["data"].(map[string]any)["backup.sh"].(string)
+
+	tempDir := t.TempDir()
+	scriptPath := filepath.Join(tempDir, "backup.sh")
+	if err := os.WriteFile(scriptPath, []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	fakeRclone := `#!/bin/sh
+set -eu
+case "$1" in
+  mkdir)
+    exit 0
+    ;;
+  lsf)
+    printf '%s\n' known-key
+    ;;
+  sync)
+    ;;
+  *)
+    echo "unexpected fake rclone command: $*" >&2
+    exit 2
+    ;;
+esac
+`
+	if err := os.WriteFile(filepath.Join(tempDir, "rclone"), []byte(fakeRclone), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	command := exec.Command("/bin/sh", scriptPath)
+	command.Env = append(os.Environ(),
+		"PATH="+tempDir+":"+os.Getenv("PATH"),
+		"OBJECT_STORAGE_BACKUP_DRY_RUN=true",
+	)
+	output, err := command.CombinedOutput()
+	if err != nil {
+		t.Fatalf("dry-run backup failed: %v\n%s", err, output)
+	}
+	if !strings.Contains(string(output), "source=celld:celld listing_objects=1 listing_bytes=10") {
+		t.Fatalf("backup script did not log the celld listing size: %s", output)
+	}
+}
+
+func TestObjectStorageBackupScriptChecksNonDryRunListing(t *testing.T) {
+	manifestPath := repoPath("clusters", "home", "resources", "object-storage-backup.yaml")
+	resources := mustLoadPolicyResources(t, manifestPath)
+	configMaps := matchingResources(resources, "ConfigMap", "app", "object-storage-backup-script")
+	script := configMaps[0].Document["data"].(map[string]any)["backup.sh"].(string)
+
+	tempDir := t.TempDir()
+	scriptPath := filepath.Join(tempDir, "backup.sh")
+	if err := os.WriteFile(scriptPath, []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	checkLog := filepath.Join(tempDir, "rclone-check-calls")
+	fakeRclone := `#!/bin/sh
+set -eu
+case "$1" in
+  mkdir)
+    exit 0
+    ;;
+  lsf)
+    printf '%s\n' known-key
+    ;;
+  sync)
+    ;;
+  check)
+    printf '%s\n' "$*" >>"$CHECK_LOG"
+    ;;
+  *)
+    echo "unexpected fake rclone command: $*" >&2
+    exit 2
+    ;;
+esac
+`
+	if err := os.WriteFile(filepath.Join(tempDir, "rclone"), []byte(fakeRclone), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(tempDir, "sleep"), []byte("#!/bin/sh\nexit 0\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	command := exec.Command("/bin/sh", scriptPath)
+	command.Env = append(os.Environ(),
+		"PATH="+tempDir+":"+os.Getenv("PATH"),
+		"CHECK_LOG="+checkLog,
+		"OBJECT_STORAGE_BACKUP_DRY_RUN=false",
+	)
+	if err := command.Run(); err != nil {
+		t.Fatalf("non-dry-run backup script failed: %v", err)
+	}
+
+	log, err := os.ReadFile(checkLog)
+	if err != nil {
+		t.Fatal(err)
+	}
+	logText := string(log)
+	if strings.Count(logText, "--files-from") != 3 || strings.Count(logText, "--one-way") != 3 {
+		t.Fatalf("non-dry-run backup did not check all three source listings: %s", logText)
+	}
+	for _, source := range []string{"celld:celld", "feedreader:feed-reader", "nostr:nostr"} {
+		if !strings.Contains(logText, source) {
+			t.Fatalf("non-dry-run backup did not check %s: %s", source, logText)
+		}
+	}
+}
+
+func TestObjectStorageBackupScriptSkipsCheckInDryRun(t *testing.T) {
+	manifestPath := repoPath("clusters", "home", "resources", "object-storage-backup.yaml")
+	resources := mustLoadPolicyResources(t, manifestPath)
+	configMaps := matchingResources(resources, "ConfigMap", "app", "object-storage-backup-script")
+	script := configMaps[0].Document["data"].(map[string]any)["backup.sh"].(string)
+
+	tempDir := t.TempDir()
+	scriptPath := filepath.Join(tempDir, "backup.sh")
+	if err := os.WriteFile(scriptPath, []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	callLog := filepath.Join(tempDir, "rclone-calls")
+	checkLog := filepath.Join(tempDir, "rclone-check-calls")
+	fakeRclone := `#!/bin/sh
+set -eu
+case "$1" in
+  mkdir)
+    exit 0
+    ;;
+  lsf)
+    printf '%s\n' known-key
+    ;;
+  sync)
+    printf '%s\n' "$*" >>"$CALL_LOG"
+    ;;
+  check)
+    printf '%s\n' "$*" >>"$CHECK_LOG"
+    exit 99
+    ;;
+  *)
+    echo "unexpected fake rclone command: $*" >&2
+    exit 2
+    ;;
+esac
+`
+	if err := os.WriteFile(filepath.Join(tempDir, "rclone"), []byte(fakeRclone), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	command := exec.Command("/bin/sh", scriptPath)
+	command.Env = append(os.Environ(),
+		"PATH="+tempDir+":"+os.Getenv("PATH"),
+		"CALL_LOG="+callLog,
+		"CHECK_LOG="+checkLog,
+		"OBJECT_STORAGE_BACKUP_DRY_RUN=true",
+	)
+	if err := command.Run(); err != nil {
+		t.Fatalf("dry-run backup failed: %v", err)
+	}
+
+	log, err := os.ReadFile(callLog)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(log), "--dry-run") {
+		t.Fatalf("dry-run backup did not pass --dry-run to sync: %s", log)
+	}
+	if _, err := os.Stat(checkLog); err == nil {
+		t.Fatal("dry-run backup invoked rclone check")
+	} else if !os.IsNotExist(err) {
+		t.Fatal(err)
+	}
+}
+
+func TestObjectStorageBackupScriptFailsOnNonDryRunCheck(t *testing.T) {
+	manifestPath := repoPath("clusters", "home", "resources", "object-storage-backup.yaml")
+	resources := mustLoadPolicyResources(t, manifestPath)
+	configMaps := matchingResources(resources, "ConfigMap", "app", "object-storage-backup-script")
+	script := configMaps[0].Document["data"].(map[string]any)["backup.sh"].(string)
+
+	tempDir := t.TempDir()
+	scriptPath := filepath.Join(tempDir, "backup.sh")
+	if err := os.WriteFile(scriptPath, []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	fakeRclone := `#!/bin/sh
+set -eu
+case "$1" in
+  mkdir)
+    ;;
+  lsf)
+    printf '%s\n' known-key
+    ;;
+  sync)
+    ;;
+  check)
+    exit 1
+    ;;
+  *)
+    exit 2
+    ;;
+esac
+`
+	if err := os.WriteFile(filepath.Join(tempDir, "rclone"), []byte(fakeRclone), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(tempDir, "sleep"), []byte("#!/bin/sh\nexit 0\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	command := exec.Command("/bin/sh", scriptPath)
+	command.Env = append(os.Environ(),
+		"PATH="+tempDir+":"+os.Getenv("PATH"),
+		"OBJECT_STORAGE_BACKUP_DRY_RUN=false",
+	)
+	if err := command.Run(); err == nil {
+		t.Fatal("non-dry-run backup succeeded after rclone check failed")
+	}
+}
+
+func TestObjectStorageBackupScriptFailsOnNonDryRunSync(t *testing.T) {
+	manifestPath := repoPath("clusters", "home", "resources", "object-storage-backup.yaml")
+	resources := mustLoadPolicyResources(t, manifestPath)
+	configMaps := matchingResources(resources, "ConfigMap", "app", "object-storage-backup-script")
+	script := configMaps[0].Document["data"].(map[string]any)["backup.sh"].(string)
+
+	tempDir := t.TempDir()
+	scriptPath := filepath.Join(tempDir, "backup.sh")
+	if err := os.WriteFile(scriptPath, []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	checkLog := filepath.Join(tempDir, "rclone-check-calls")
+	fakeRclone := `#!/bin/sh
+set -eu
+case "$1" in
+  mkdir)
+    ;;
+  lsf)
+    printf '%s\n' known-key
+    ;;
+  sync)
+    exit 1
+    ;;
+  check)
+    printf '%s\n' "$*" >>"$CHECK_LOG"
+    ;;
+  *)
+    exit 2
+    ;;
+esac
+`
+	if err := os.WriteFile(filepath.Join(tempDir, "rclone"), []byte(fakeRclone), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	command := exec.Command("/bin/sh", scriptPath)
+	command.Env = append(os.Environ(),
+		"PATH="+tempDir+":"+os.Getenv("PATH"),
+		"CHECK_LOG="+checkLog,
+		"OBJECT_STORAGE_BACKUP_DRY_RUN=false",
+	)
+	if err := command.Run(); err == nil {
+		t.Fatal("non-dry-run backup succeeded after rclone sync failed")
+	}
+	if _, err := os.Stat(checkLog); err == nil {
+		t.Fatal("backup invoked rclone check after sync failed")
+	} else if !os.IsNotExist(err) {
+		t.Fatal(err)
+	}
+}
+
+func TestObjectStorageBackupCredentialsExternalSecret(t *testing.T) {
+	manifestPath := repoPath("clusters", "home", "configs", "external-secrets", "object-storage-backup.yaml")
+	resources := mustLoadPolicyResources(t, manifestPath)
+	externalSecrets := matchingResources(resources, "ExternalSecret", "app", "object-storage-backup-credentials")
+	if len(externalSecrets) != 1 {
+		t.Fatalf("ExternalSecret/app/object-storage-backup-credentials count = %d, want 1", len(externalSecrets))
+	}
+
+	spec, ok := externalSecrets[0].Document["spec"].(map[string]any)
+	if !ok {
+		t.Fatal("ExternalSecret spec must be an object")
+	}
+	target, ok := spec["target"].(map[string]any)
+	if !ok {
+		t.Fatal("ExternalSecret spec.target must be an object")
+	}
+	if target["name"] != "object-storage-backup-credentials" {
+		t.Fatalf("ExternalSecret spec.target.name = %v, want object-storage-backup-credentials", target["name"])
+	}
+
+	expectedRemoteRefs := map[string]string{
+		"S3_ACCESS_KEY_ID":     "pcloud-s3/S3_ACCESS_KEY_ID",
+		"S3_SECRET_ACCESS_KEY": "pcloud-s3/S3_SECRET_ACCESS_KEY",
+	}
+	data, ok := spec["data"].([]any)
+	if !ok {
+		t.Fatal("ExternalSecret spec.data must be an array")
+	}
+	seenRemoteRefs := make(map[string]bool, len(expectedRemoteRefs))
+	for _, item := range data {
+		entry := item.(map[string]any)
+		secretKey, _ := entry["secretKey"].(string)
+		want, expected := expectedRemoteRefs[secretKey]
+		if !expected {
+			t.Fatalf("unexpected ExternalSecret spec.data.secretKey %q", secretKey)
+		}
+		remoteRef, ok := entry["remoteRef"].(map[string]any)
+		if !ok {
+			t.Fatalf("ExternalSecret spec.data[%q].remoteRef must be an object", secretKey)
+		}
+		if remoteRef["key"] != want {
+			t.Fatalf("ExternalSecret remoteRef for %q = %v, want %s", secretKey, remoteRef["key"], want)
+		}
+		seenRemoteRefs[secretKey] = true
+	}
+	if len(seenRemoteRefs) != len(expectedRemoteRefs) {
+		t.Fatalf("ExternalSecret remoteRef count = %d, want %d", len(seenRemoteRefs), len(expectedRemoteRefs))
+	}
+}
+
+func TestObjectStorageBackupRunbook(t *testing.T) {
+	runbookPath := repoPath("docs", "object-storage-backup-setup.md")
+	runbook, err := os.ReadFile(runbookPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	runbookText := string(runbook)
+	normalizedRunbook := strings.Join(strings.Fields(runbookText), " ")
+	for _, forbidden := range []string{
+		"Type resume to resume Flux and the schedule",
+		`--type merge -p '{"spec":{"suspend":false}}'`,
+		"kubectl -n app wait --for=condition=",
+		"Alert when an enabled CronJob's last schedule attempt is more than three hours old and it has never produced a success metric:",
+	} {
+		if strings.Contains(normalizedRunbook, forbidden) {
+			t.Fatalf("runbook must not contain %q", forbidden)
+		}
+	}
+	for _, required := range []string{
+		"After the dry run, leave Flux and the CronJob suspended.",
+		"To enable the schedule after all validation passes, change `spec.suspend` to `false` in `clusters/home/resources/object-storage-backup.yaml`",
+		"the enablement change must update `TestObjectStorageBackup`'s expected suspend value in the same change",
+		"a failed Job does not roll back successful synchronization of earlier sources.",
+		"The deletion limit does not roll back earlier deletions",
+		"Run the entire controlled failure validation block from one approved in-cluster operations shell.",
+		"This dry-run controlled failure validates only that a failed source listing stops that source before `sync`; it does not exercise a non-dry-run transfer.",
+		"Each source listing is written to `/tmp`, backed by the `emptyDir` and container ephemeral-storage limit of 1Gi.",
+		"source=<remote> listing_objects=<count> listing_bytes=<bytes>",
+		"These are reference expressions only; this repository does not install these alerts.",
+		"Never-success alert condition (apply `for: 3h` in the alert rule):",
+		"The separate scheduler-stall condition uses the last schedule time:",
+		"Enable the three-hour never-success, scheduler-stall, and stale-success alerts only after the CronJob is enabled in Git.",
+		"kube_cronjob_spec_suspend",
+		`job_name!~"object-storage-backup-(source-failure|dry-run|validation)-.*"`,
+		`failure_job="object-storage-backup-source-failure-$(date +%s)-$$"`,
+		"wait_for_job",
+		"Do not enable the schedule until a real non-dry-run gateway validation has passed.",
+		"kube_job_status_succeeded",
+		`time() - kube_job_status_start_time{namespace="app", job_name=~"object-storage-backup-.*"} < 3 * 60 * 60`,
+		"OBJECT_STORAGE_BACKUP_DRY_RUN=true",
+		"That remote must use the same in-cluster S3 gateway",
+		"An empty or failed source listing skips only that source; other sources continue.",
+		"`rclone check` verifies checksums when the remote exposes them; otherwise it may fall back to size comparison.",
+		"Replace `<known-existing-key>` with an existing object key before running this block.",
+		"The backup Job currently reuses the existing source storage credentials and the pCloud S3 gateway credential.",
+		"Do not print, manually decode, paste, or commit credential values.",
+		"The controlled-failure procedure below loads credentials through the approved Secret delivery mechanism without printing them.",
+		"`cluster-resources` is paused for CronJob and ConfigMap mutations; `cluster-configs` remains active unless ExternalSecrets are being changed.",
+		"If the operations shell is killed before its `EXIT` trap runs",
+		"If a later dry-run listing drops unexpectedly",
+		"Manual validation Jobs must use the documented prefixes because the failed-Job expression excludes those prefixes.",
+		"export RCLONE_CONFIG_PCLOUD_TYPE=s3",
+		"export RCLONE_CONFIG_PCLOUD_PROVIDER=Other",
+		"export RCLONE_CONFIG_PCLOUD_ENDPOINT=http://gateway.pcloud-s3.svc.cluster.local:8080",
+		"export RCLONE_CONFIG_PCLOUD_REGION=us-east-1",
+		"export RCLONE_CONFIG_PCLOUD_FORCE_PATH_STYLE=true",
+		"kubectl -n app get secret object-storage-backup-credentials",
+		"kube_cronjob_status_last_schedule_time",
+		`time() - kube_cronjob_status_last_schedule_time{namespace="app", cronjob="object-storage-backup"} > 3 * 60 * 60`,
+	} {
+		if !strings.Contains(normalizedRunbook, required) {
+			t.Fatalf("runbook does not contain %q", required)
+		}
+	}
+	monitoringValues, err := os.ReadFile(repoPath("components", "monitoring", "values.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var monitoringConfig struct {
+		ClusterMetrics struct {
+			KubeStateMetrics struct {
+				MetricsTuning struct {
+					IncludeMetrics []string `yaml:"includeMetrics"`
+				} `yaml:"metricsTuning"`
+			} `yaml:"kube-state-metrics"`
+		} `yaml:"clusterMetrics"`
+	}
+	if err := yaml.Unmarshal(monitoringValues, &monitoringConfig); err != nil {
+		t.Fatalf("parse monitoring values: %v", err)
+	}
+	includedMetrics := make(map[string]bool, len(monitoringConfig.ClusterMetrics.KubeStateMetrics.MetricsTuning.IncludeMetrics))
+	for _, metric := range monitoringConfig.ClusterMetrics.KubeStateMetrics.MetricsTuning.IncludeMetrics {
+		includedMetrics[metric] = true
+	}
+	for _, metric := range []string{
+		"kube_cronjob_spec_suspend",
+		"kube_cronjob_status_last_schedule_time",
+		"kube_cronjob_status_last_successful_time",
+		"kube_job_status_failed",
+		"kube_job_status_succeeded",
+		"kube_job_status_start_time",
+	} {
+		if !strings.Contains(normalizedRunbook, metric) {
+			t.Fatalf("runbook does not contain metric %q", metric)
+		}
+		if !includedMetrics[metric] {
+			t.Fatalf("monitoring allowlist does not contain metric %q", metric)
+		}
+	}
+}
+
 func TestExternalSecretRateLimitPolicy(t *testing.T) {
 	evaluator := newTestPolicyEvaluator(t)
 
@@ -1782,6 +2638,8 @@ func TestExternalSecretRateLimitPolicy(t *testing.T) {
 	}{
 		{name: "rclone-s3-credentials", namespace: "pcloud-s3"},
 		{name: "feed-reader-storage", namespace: "app"},
+		{name: "nostr-storage", namespace: "app"},
+		{name: "object-storage-backup-credentials", namespace: "app"},
 	} {
 		t.Run("requires "+tc.namespace+"/"+tc.name, func(t *testing.T) {
 			mutated := removeResourceByName(resources, "ExternalSecret", tc.namespace, tc.name)

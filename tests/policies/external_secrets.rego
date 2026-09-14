@@ -5,6 +5,8 @@ import rego.v1
 required_external_secrets := [
 	{"name": "rclone-s3-credentials", "namespace": "pcloud-s3"},
 	{"name": "feed-reader-storage", "namespace": "app"},
+	{"name": "nostr-storage", "namespace": "app"},
+	{"name": "object-storage-backup-credentials", "namespace": "app"},
 ]
 
 violations contains violation if {
