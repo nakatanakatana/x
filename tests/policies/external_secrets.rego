@@ -4,7 +4,6 @@ import rego.v1
 
 required_external_secrets := [
 	{"name": "rclone-s3-credentials", "namespace": "pcloud-s3"},
-	{"name": "neon-s3-credentials", "namespace": "database"},
 	{"name": "feed-reader-storage", "namespace": "app"},
 ]
 
