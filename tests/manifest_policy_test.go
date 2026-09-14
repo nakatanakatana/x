@@ -1781,7 +1781,6 @@ func TestExternalSecretRateLimitPolicy(t *testing.T) {
 		namespace string
 	}{
 		{name: "rclone-s3-credentials", namespace: "pcloud-s3"},
-		{name: "neon-s3-credentials", namespace: "database"},
 		{name: "feed-reader-storage", namespace: "app"},
 	} {
 		t.Run("requires "+tc.namespace+"/"+tc.name, func(t *testing.T) {
@@ -1792,6 +1791,14 @@ func TestExternalSecretRateLimitPolicy(t *testing.T) {
 			}, "external-secret-must-include-required-resources")
 		})
 	}
+
+	t.Run("does not require the Neon ExternalSecret", func(t *testing.T) {
+		mutated := removeResourceByName(resources, "ExternalSecret", "database", "neon-s3-credentials")
+		assertPolicyPasses(t, evaluator, PolicyInput{
+			Resources: mutated,
+			Context:   policyContext("external-secrets"),
+		})
+	})
 
 	t.Run("requires the configured ClusterSecretStore", func(t *testing.T) {
 		mutated := removeResourceByKindName(resources, "ClusterSecretStore", "", "1password-sdk")
@@ -1990,10 +1997,6 @@ func TestFluxSemanticPolicies(t *testing.T) {
 		})
 		assertPolicyFails(t, evaluator, PolicyInput{Resources: mutated}, "flux-vcluster-app-sync-must-depend-on-cluster-resources")
 	})
-}
-
-func TestKubeBlocksNeonSemanticPolicies(t *testing.T) {
-	runKubeBlocksNeonSemanticPolicies(t)
 }
 
 func assertPolicyPasses(t *testing.T, evaluator *PolicyEvaluator, input PolicyInput) {

@@ -4,4 +4,3 @@ namespace: kb-system
 resources:
   - repository.yaml
   - release.yaml
-  - neon-release.yaml

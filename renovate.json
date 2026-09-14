@@ -29,7 +29,6 @@
     ],
     "ignorePaths": [
       "**/flux-system/**",
-      "tests/testdata/kubeblocks/component-definitions.yaml",
       "tests/testdata/policies/invalid-latest.yaml"
     ]
   },
