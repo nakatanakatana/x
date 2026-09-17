@@ -29,6 +29,13 @@
         "loft-sh/vcluster",
         "ghcr.io/loft-sh/vcluster-oss"
       ]
+    },
+    {
+      "groupName": "obsidian-clippings-feed",
+      "matchPackageNames": [
+        "ghcr.io/nakatanakatana/livesync-bridge",
+        "ghcr.io/nakatanakatana/obsidian-clippings-feed"
+      ]
     }
   ],
   "kubernetes": {
