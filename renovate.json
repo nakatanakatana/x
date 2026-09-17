@@ -21,6 +21,14 @@
         "major"
       ],
       "automerge": false
+    },
+    {
+      "groupName": "vcluster",
+      "matchPackageNames": [
+        "vcluster",
+        "loft-sh/vcluster",
+        "ghcr.io/loft-sh/vcluster-oss"
+      ]
     }
   ],
   "kubernetes": {
