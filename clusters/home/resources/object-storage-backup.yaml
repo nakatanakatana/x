@@ -76,7 +76,7 @@ metadata:
   namespace: app
 spec:
   schedule: "0 * * * *"
-  suspend: true
+  suspend: false
   timeZone: Asia/Tokyo
   concurrencyPolicy: Forbid
   startingDeadlineSeconds: 900
