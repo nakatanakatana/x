@@ -1850,7 +1850,7 @@ func TestObjectStorageBackup(t *testing.T) {
 	spec := cronJob["spec"].(map[string]any)
 	for name, want := range map[string]any{
 		"schedule": "0 * * * *",
-		"suspend":  true,
+		"suspend":  false,
 		"timeZone": "Asia/Tokyo",
 	} {
 		if spec[name] != want {
