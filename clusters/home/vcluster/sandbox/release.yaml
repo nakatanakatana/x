@@ -16,7 +16,7 @@ spec:
   chart:
     spec:
       chart: flux2
-      version: "2.19.0"
+      version: "2.19.1"
       interval: 1h
       sourceRef:
         kind: HelmRepository
