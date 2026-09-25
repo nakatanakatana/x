@@ -103,7 +103,7 @@ spec:
               mountPath: /models
       containers:
         - name: llama-server
-          image: ghcr.io/ggml-org/llama.cpp:server-rocm@sha256:93125cc141a364b239a8309557bcf26997ffb0f2e6261e6848b48ebf46eec9ab
+          image: ghcr.io/ggml-org/llama.cpp:server-rocm@sha256:70c15e6ec490484e31e9b2fb82c9a9e09082c1983af56f90459866ace3d69d09
           imagePullPolicy: IfNotPresent
           args:
             - --host
