@@ -63,7 +63,7 @@ mimir:
         region: us-east-1
         bucket_name: observability-mimir-blocks
         insecure: false
-        http_config:
+        http:
           insecure_skip_verify: true
         bucket_lookup_type: path
         dualstack_enabled: false
@@ -78,7 +78,7 @@ mimir:
         region: us-east-1
         bucket_name: observability-mimir-ruler
         insecure: false
-        http_config:
+        http:
           insecure_skip_verify: true
         bucket_lookup_type: path
         dualstack_enabled: false
@@ -91,7 +91,7 @@ mimir:
         region: us-east-1
         bucket_name: observability-mimir-alertmanager
         insecure: false
-        http_config:
+        http:
           insecure_skip_verify: true
         bucket_lookup_type: path
         dualstack_enabled: false
