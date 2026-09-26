@@ -45,11 +45,8 @@ spec:
       mon_cluster_log_level: warning
       debug_mon: "0/5"
       debug_mgr: "0/5"
-    # mon:
-    #   mon_cluster_log_level: warning
-    #   debug_mon: "0/5"
-    # mgr:
-    #   debug_mgr: "0/5"
+    client.rgw:
+      rgw_sigv4_insecure: "true"
   cleanupPolicy:
     confirmation: ""
     sanitizeDisks:
