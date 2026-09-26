@@ -59,11 +59,11 @@ mimir:
     blocks_storage:
       backend: s3
       s3:
-        endpoint: rook-ceph-rgw-celld.rook-ceph.svc.cluster.local:80
+        endpoint: rook-ceph-rgw-celld.rook-ceph.svc.cluster.local:443
         region: us-east-1
         bucket_name: observability-mimir-blocks
-        insecure: true
-        signature_version: v2
+        insecure: false
+        insecure_skip_verify: true
         bucket_lookup_type: path
         dualstack_enabled: false
         access_key_id: ${BLOCKS_AWS_ACCESS_KEY_ID}
@@ -73,11 +73,11 @@ mimir:
     ruler_storage:
       backend: s3
       s3:
-        endpoint: rook-ceph-rgw-celld.rook-ceph.svc.cluster.local:80
+        endpoint: rook-ceph-rgw-celld.rook-ceph.svc.cluster.local:443
         region: us-east-1
         bucket_name: observability-mimir-ruler
-        insecure: true
-        signature_version: v2
+        insecure: false
+        insecure_skip_verify: true
         bucket_lookup_type: path
         dualstack_enabled: false
         access_key_id: ${RULER_AWS_ACCESS_KEY_ID}
@@ -85,11 +85,11 @@ mimir:
     alertmanager_storage:
       backend: s3
       s3:
-        endpoint: rook-ceph-rgw-celld.rook-ceph.svc.cluster.local:80
+        endpoint: rook-ceph-rgw-celld.rook-ceph.svc.cluster.local:443
         region: us-east-1
         bucket_name: observability-mimir-alertmanager
-        insecure: true
-        signature_version: v2
+        insecure: false
+        insecure_skip_verify: true
         bucket_lookup_type: path
         dualstack_enabled: false
         access_key_id: ${ALERTMANAGER_AWS_ACCESS_KEY_ID}
