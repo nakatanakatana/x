@@ -63,7 +63,8 @@ mimir:
         region: us-east-1
         bucket_name: observability-mimir-blocks
         insecure: false
-        insecure_skip_verify: true
+        http_config:
+          insecure_skip_verify: true
         bucket_lookup_type: path
         dualstack_enabled: false
         access_key_id: ${BLOCKS_AWS_ACCESS_KEY_ID}
@@ -77,7 +78,8 @@ mimir:
         region: us-east-1
         bucket_name: observability-mimir-ruler
         insecure: false
-        insecure_skip_verify: true
+        http_config:
+          insecure_skip_verify: true
         bucket_lookup_type: path
         dualstack_enabled: false
         access_key_id: ${RULER_AWS_ACCESS_KEY_ID}
@@ -89,7 +91,8 @@ mimir:
         region: us-east-1
         bucket_name: observability-mimir-alertmanager
         insecure: false
-        insecure_skip_verify: true
+        http_config:
+          insecure_skip_verify: true
         bucket_lookup_type: path
         dualstack_enabled: false
         access_key_id: ${ALERTMANAGER_AWS_ACCESS_KEY_ID}

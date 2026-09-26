@@ -17,7 +17,7 @@ storage:
       endpoint: rook-ceph-rgw-celld.rook-ceph.svc.cluster.local:443
       region: us-east-1
       insecure: false
-      insecure_skip_verify: true
+      tls_insecure_skip_verify: true
       forcepathstyle: true
       access_key: ${AWS_ACCESS_KEY_ID}
       secret_key: ${AWS_SECRET_ACCESS_KEY}
