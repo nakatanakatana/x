@@ -134,7 +134,7 @@ temporary port forwarding process was stopped.
 and ClusterIP Service in `monitoring`. The Service address is
 `nisshi.monitoring.svc.cluster.local:9092`. The one-replica broker uses only the
 `observability-nisshi` Secret and bucket. Its image is pinned to
-`ghcr.io/nisshi-io/nisshi@sha256:f062b76a500f4629e5faad5bd106aafa6705a83bea9c7a21eefe70b55b663250`;
+`ghcr.io/nisshi-io/nisshi:0.7.0-pre.2@sha256:f062b76a500f4629e5faad5bd106aafa6705a83bea9c7a21eefe70b55b663250`;
 the running broker reported `0.7.0-pre.2` on 2026-09-24.
 
 On 2026-09-24, an Apache Kafka 4.1 CLI Pod created `observability-loki`,
@@ -665,7 +665,7 @@ restarted, and no telemetry was sent in this verification round.
 | Recovery and isolation | New write/read-path restarts, known-data re-queries, all-signal canaries, Nisshi interruption, and bounded RGW denial are pending under the user's stop/outage hold. Recovery time, query gap, local buffering loss, and Cloud independence during those failures remain unmeasured. |
 
 The current application image observations are Nisshi
-`ghcr.io/nisshi-io/nisshi@sha256:f062b76a500f4629e5faad5bd106aafa6705a83bea9c7a21eefe70b55b663250`
+`ghcr.io/nisshi-io/nisshi:0.7.0-pre.2@sha256:f062b76a500f4629e5faad5bd106aafa6705a83bea9c7a21eefe70b55b663250`
 and Loki ingester
 `docker.io/grafana/loki@sha256:1107dd5274e0ada47e42472b7a7e71f3b2a2fe878878108f3e2f9e51528f0193`.
 The chart pins are Loki `18.13.5`, Mimir `6.2.0`, Tempo `3.7.0`, and
