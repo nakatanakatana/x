@@ -715,6 +715,10 @@ confirmed on 2026-09-26 and must be rechecked before applying the source.
   does not establish a numeric non-root UID, inspect the first Flux-managed
   Pod's startup result and keep dependent Kustomizations blocked until its
   supported UID and writable paths are verified.
+  The first Flux-managed Pod was rejected because the pinned image defaults to
+  root. The validation manifest now sets UID/GID `65532`; verify the broker
+  reaches Ready and its S3-backed startup succeeds before dependent children
+  proceed.
 - Render the pinned charts from local cache only (`helm template` with the
   versions in this runbook, plus `kustomize build` per component) and confirm
   `storageClassName: rook-ceph-block` on the Loki ingester/compactor and
