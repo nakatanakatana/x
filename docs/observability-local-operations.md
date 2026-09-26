@@ -4,11 +4,14 @@ The self-hosted observability stores use the existing Ceph `celld` RGW. The
 Grafana Cloud collection remains active while the local services are brought
 online.
 
-The six new child Flux Kustomizations (`nisshi`, `loki`, `mimir`, `tempo`,
-`grafana`, and `observability-local-alloy`) are committed with
-`spec.suspend: true`. Source reconciliation may create these child objects,
-but they cannot reconcile their component manifests until each is explicitly
-unsuspended. Mimir's SigV2 configuration is a candidate and remains unapplied.
+The six child Flux Kustomizations (`nisshi`, `loki`, `mimir`, `tempo`,
+`grafana`, and `observability-local-alloy`) were initially committed with
+`spec.suspend: true`. The validation activation change sets them to
+`spec.suspend: false`; Flux applies that state after the change reaches the
+`main` source and `cluster-controllers` reconciles. Mimir's SigV2 configuration
+is a candidate for this trial, not a proven fix. Tempo's current configuration
+does not select SigV2. Activating these controllers is for validation only:
+metric and trace routes remain disabled, and stop/outage tests remain deferred.
 
 ## Baseline and connection
 
@@ -697,17 +700,21 @@ top-level persistence class key), plus Mimir
 and secret-sourced credentials. Confirm both render in the pinned-chart
 template output before unsuspending (see gates below).
 
-### Unsuspend verification gates
+### Controller activation and validation gates
 
-Complete these read-only checks before lifting any child `spec.suspend`:
+Before source reconciliation, confirm all seven ObjectBucketClaims are
+`Bound` and each matching generated Secret and ConfigMap exists in
+`monitoring`; check names and status only, never Secret values. This was
+confirmed on 2026-09-26 and must be rechecked before applying the source.
 
 - Confirm all seven ObjectBucketClaims are `Bound` and each matching generated
   Secret and ConfigMap exists in `monitoring`; check names and status only,
   never Secret values. Do not unsuspend a backend whose bucket or credentials
   are not ready.
-- Confirm the pinned Nisshi image starts as a non-root user. If its image
-  metadata does not identify a numeric non-root UID, choose and verify a
-  supported UID and writable paths before unsuspending Nisshi.
+- Confirm the pinned Nisshi image starts as a non-root user. If image metadata
+  does not establish a numeric non-root UID, inspect the first Flux-managed
+  Pod's startup result and keep dependent Kustomizations blocked until its
+  supported UID and writable paths are verified.
 - Render the pinned charts from local cache only (`helm template` with the
   versions in this runbook, plus `kustomize build` per component) and confirm
   `storageClassName: rook-ceph-block` on the Loki ingester/compactor and
@@ -716,9 +723,15 @@ Complete these read-only checks before lifting any child `spec.suspend`:
 - Confirm the rendered Loki containers retain
   `-config.expand-env=true`; its S3 credentials are referenced by environment
   variables in structured configuration and require Loki environment expansion.
-- Capture live Helm release values and history for any same-name release
-  (`helm get values`, `helm history`) and diff them against the committed
-  values before Flux adopts the release; resolve every drift first.
+- `HelmRelease/loki` exists from the manual trial. Flux will reconcile it to
+  committed values; inspect its non-secret settings and history during
+  activation. Do not delete retained ObjectBucketClaims, Secrets, ConfigMaps,
+  or PVCs when replacing test workloads.
+- The retained Loki and Mimir PVCs were `Bound` to `local-path` on
+  2026-09-26, while the chart values request `rook-ceph-block`. PVC storage
+  classes are immutable; record the actual class after activation and do not
+  claim Ceph-backed PVC validation unless new claims are provisioned on
+  `rook-ceph-block`. Preserve existing claims and their data.
 - Inspect the rendered manifests for chart-wide S3 env injection: Loki
   `defaults.extraEnvFrom`, Mimir `global.extraEnv`, and Tempo
   `global.extraEnvFrom` may expose bucket credentials beyond the pods that
@@ -726,9 +739,11 @@ Complete these read-only checks before lifting any child `spec.suspend`:
   before unsuspending. Narrow the injection to the components that need
   each Secret only when render evidence shows a chart-supported
   per-component path; otherwise keep this as a known-broad permission.
-- Keep Mimir's SigV2 settings an unapplied candidate, metric and trace routes
-  disabled, and every child suspended until the product-specific S3 and
-  record-size gates in this runbook pass.
+- This validation activation proceeds with the Mimir / Tempo block-persistence
+  gates open so their product write paths can be observed. Keep metric and
+  trace routes disabled until S3 block upload, object existence, and
+  post-restart query checks pass. The Mimir near-limit Kafka record gate and
+  all stop/outage tests remain open and are not part of this activation.
 
 ### Read-only triage and restore sequence
 
@@ -756,9 +771,10 @@ child, change its controller file's `spec.suspend` to `false` in Git and publish
 that change to the Flux `GitRepository/flux-system` source. Reconcile the source
 and parent `cluster-controllers` Kustomization, then verify the child's live
 `spec.suspend` is `false` before reconciling it. A direct `flux reconcile`
-cannot make a Git-suspended child active. Keep `mimir` suspended while its
-SigV2 candidate and S3/record gates remain unverified; keep `tempo` suspended
-while its block-persistence gate remains open. `grafana` now depends only on
+cannot make a Git-suspended child active. Child dependencies stage startup:
+Nisshi first; Loki, Mimir, and Tempo after Nisshi and `monitoring-controller`;
+Grafana and local Alloy after Loki. Keep metric and trace routes disabled while
+the Mimir and Tempo block-persistence gates remain open. `grafana` now depends only on
 `monitoring-controller` and `loki`, with health checks on its own HelmRelease
 and Loki's, so the approved logs/dashboard stack (Loki, Grafana, local Alloy)
 can proceed once Loki is authorized while `mimir` and `tempo` stay held. The
@@ -780,10 +796,11 @@ kubectl get kustomizations nisshi loki mimir tempo grafana observability-local-a
 # Run each child command only after its Git suspension is lifted and verified:
 flux reconcile kustomization nisshi --with-source -n flux-system
 flux reconcile kustomization loki --with-source -n flux-system
-# Only after each storage gate and Mimir's record gate pass:
+# Once Nisshi is Ready, reconcile Mimir and Tempo for bounded write validation.
+# Keep metric and trace routes disabled while persistence checks are open.
 flux reconcile kustomization mimir --with-source -n flux-system
 flux reconcile kustomization tempo --with-source -n flux-system
-# Only after dependencies and the corresponding canary prerequisites pass:
+# Grafana and local Alloy follow Loki according to their dependencies.
 flux reconcile kustomization grafana --with-source -n flux-system
 flux reconcile kustomization observability-local-alloy --with-source -n flux-system
 ```
