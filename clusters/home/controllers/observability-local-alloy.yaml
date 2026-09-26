@@ -1,0 +1,23 @@
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: observability-local-alloy
+  namespace: flux-system
+spec:
+  suspend: false
+  interval: 10m
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  targetNamespace: monitoring
+  path: components/observability-local-alloy
+  prune: true
+  timeout: 10m
+  dependsOn:
+    - name: monitoring-controller
+    - name: loki
+  healthChecks:
+    - apiVersion: apps/v1
+      kind: Deployment
+      name: observability-local-alloy
+      namespace: monitoring

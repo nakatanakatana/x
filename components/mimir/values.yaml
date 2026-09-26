@@ -1,0 +1,216 @@
+# Isolated trial sizing; see operations documentation for measured usage.
+global:
+  extraEnv:
+  - name: BLOCKS_AWS_ACCESS_KEY_ID
+    valueFrom:
+      secretKeyRef:
+        name: observability-mimir-blocks
+        key: AWS_ACCESS_KEY_ID
+  - name: BLOCKS_AWS_SECRET_ACCESS_KEY
+    valueFrom:
+      secretKeyRef:
+        name: observability-mimir-blocks
+        key: AWS_SECRET_ACCESS_KEY
+  - name: RULER_AWS_ACCESS_KEY_ID
+    valueFrom:
+      secretKeyRef:
+        name: observability-mimir-ruler
+        key: AWS_ACCESS_KEY_ID
+  - name: RULER_AWS_SECRET_ACCESS_KEY
+    valueFrom:
+      secretKeyRef:
+        name: observability-mimir-ruler
+        key: AWS_SECRET_ACCESS_KEY
+  - name: ALERTMANAGER_AWS_ACCESS_KEY_ID
+    valueFrom:
+      secretKeyRef:
+        name: observability-mimir-alertmanager
+        key: AWS_ACCESS_KEY_ID
+  - name: ALERTMANAGER_AWS_SECRET_ACCESS_KEY
+    valueFrom:
+      secretKeyRef:
+        name: observability-mimir-alertmanager
+        key: AWS_SECRET_ACCESS_KEY
+minio:
+  enabled: false
+kafka:
+  enabled: false
+rollout_operator:
+  enabled: false
+mimir:
+  structuredConfig:
+    multitenancy_enabled: false
+    ingest_storage:
+      enabled: true
+      kafka:
+        address: nisshi.monitoring.svc.cluster.local:9092
+        topic: observability-mimir
+        auto_create_topic_enabled: false
+    ingester:
+      ring:
+        replication_factor: 1
+    store_gateway:
+      sharding_ring:
+        replication_factor: 1
+    server:
+      log_level: info
+    usage_stats:
+      enabled: false
+    blocks_storage:
+      backend: s3
+      s3:
+        endpoint: rook-ceph-rgw-celld.rook-ceph.svc.cluster.local:443
+        region: us-east-1
+        bucket_name: observability-mimir-blocks
+        insecure: false
+        http:
+          insecure_skip_verify: true
+        bucket_lookup_type: path
+        dualstack_enabled: false
+        access_key_id: ${BLOCKS_AWS_ACCESS_KEY_ID}
+        secret_access_key: ${BLOCKS_AWS_SECRET_ACCESS_KEY}
+        trace:
+          enabled: true
+    ruler_storage:
+      backend: s3
+      s3:
+        endpoint: rook-ceph-rgw-celld.rook-ceph.svc.cluster.local:443
+        region: us-east-1
+        bucket_name: observability-mimir-ruler
+        insecure: false
+        http:
+          insecure_skip_verify: true
+        bucket_lookup_type: path
+        dualstack_enabled: false
+        access_key_id: ${RULER_AWS_ACCESS_KEY_ID}
+        secret_access_key: ${RULER_AWS_SECRET_ACCESS_KEY}
+    alertmanager_storage:
+      backend: s3
+      s3:
+        endpoint: rook-ceph-rgw-celld.rook-ceph.svc.cluster.local:443
+        region: us-east-1
+        bucket_name: observability-mimir-alertmanager
+        insecure: false
+        http:
+          insecure_skip_verify: true
+        bucket_lookup_type: path
+        dualstack_enabled: false
+        access_key_id: ${ALERTMANAGER_AWS_ACCESS_KEY_ID}
+        secret_access_key: ${ALERTMANAGER_AWS_SECRET_ACCESS_KEY}
+alertmanager:
+  replicas: 1
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      memory: 1Gi
+  zoneAwareReplication:
+    enabled: false
+  persistentVolume:
+    enabled: true
+    size: 10Gi
+    storageClass: rook-ceph-block
+compactor:
+  replicas: 1
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      memory: 1Gi
+  persistentVolume:
+    enabled: true
+    size: 10Gi
+    storageClass: rook-ceph-block
+distributor:
+  replicas: 1
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      memory: 1Gi
+ingester:
+  replicas: 1
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      memory: 1Gi
+  zoneAwareReplication:
+    enabled: false
+  persistentVolume:
+    enabled: true
+    size: 10Gi
+    storageClass: rook-ceph-block
+querier:
+  replicas: 1
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      memory: 1Gi
+query_frontend:
+  replicas: 1
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      memory: 1Gi
+query_scheduler:
+  replicas: 1
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      memory: 1Gi
+ruler:
+  replicas: 1
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      memory: 1Gi
+store_gateway:
+  replicas: 1
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      memory: 1Gi
+  zoneAwareReplication:
+    enabled: false
+  persistentVolume:
+    enabled: true
+    size: 10Gi
+    storageClass: rook-ceph-block
+gateway:
+  replicas: 1
+  resources:
+    requests:
+      cpu: 20m
+      memory: 32Mi
+    limits:
+      memory: 128Mi
+chunks-cache:
+  enabled: false
+index-cache:
+  enabled: false
+metadata-cache:
+  enabled: false
+results-cache:
+  enabled: false
+overrides_exporter:
+  resources:
+    requests:
+      cpu: 20m
+      memory: 64Mi
+    limits:
+      memory: 256Mi
