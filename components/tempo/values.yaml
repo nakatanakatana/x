@@ -1,0 +1,108 @@
+# Isolated trial sizing; see operations documentation for measured usage.
+global:
+  extraArgs:
+    - -config.expand-env=true
+  extraEnv:
+    - name: AWS_DEFAULT_REGION
+      value: us-east-1
+  extraEnvFrom:
+    - secretRef:
+        name: observability-tempo
+
+storage:
+  trace:
+    backend: s3
+    s3:
+      bucket: observability-tempo
+      endpoint: rook-ceph-rgw-celld.rook-ceph.svc.cluster.local:443
+      region: us-east-1
+      insecure: false
+      tls_insecure_skip_verify: true
+      forcepathstyle: true
+      access_key: ${AWS_ACCESS_KEY_ID}
+      secret_key: ${AWS_SECRET_ACCESS_KEY}
+
+ingest:
+  kafka:
+    address: nisshi.monitoring.svc.cluster.local:9092
+    topic: observability-tempo
+    auto_create_topic_enabled: false
+
+traces:
+  otlp:
+    http:
+      enabled: true
+    grpc:
+      enabled: true
+
+multitenancyEnabled: false
+
+blockBuilder:
+  replicas: 3
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      memory: 1Gi
+
+liveStore:
+  replicas: 3
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      memory: 1Gi
+
+distributor:
+  replicas: 1
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      memory: 1Gi
+
+querier:
+  replicas: 1
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      memory: 1Gi
+
+queryFrontend:
+  replicas: 1
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      memory: 1Gi
+
+backendScheduler:
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      memory: 1Gi
+
+backendWorker:
+  replicas: 1
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      memory: 1Gi
+
+memcached:
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      memory: 512Mi

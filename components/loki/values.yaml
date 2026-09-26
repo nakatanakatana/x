@@ -1,0 +1,162 @@
+deploymentMode: Distributed
+
+defaults:
+  extraArgs:
+    - -config.expand-env=true
+  extraEnvFrom:
+    - secretRef:
+        name: observability-loki
+  extraEnv:
+    - name: RULER_AWS_ACCESS_KEY_ID
+      valueFrom:
+        secretKeyRef:
+          name: observability-loki-ruler
+          key: AWS_ACCESS_KEY_ID
+    - name: RULER_AWS_SECRET_ACCESS_KEY
+      valueFrom:
+        secretKeyRef:
+          name: observability-loki-ruler
+          key: AWS_SECRET_ACCESS_KEY
+
+loki:
+  auth_enabled: false
+  storage:
+    type: s3
+    bucketNames:
+      chunks: observability-loki
+      ruler: observability-loki-ruler
+    s3:
+      endpoint: rook-ceph-rgw-celld.rook-ceph.svc.cluster.local:80
+      region: us-east-1
+      s3ForcePathStyle: true
+      insecure: true
+  structuredConfig:
+    auth_enabled: false
+    server:
+      http_listen_port: 3100
+      grpc_listen_port: 9095
+    memberlist:
+      join_members:
+        - loki-memberlist.monitoring.svc.cluster.local
+    common:
+      path_prefix: /var/loki
+      replication_factor: 1
+      ring:
+        kvstore:
+          store: memberlist
+      storage:
+        s3:
+          endpoint: rook-ceph-rgw-celld.rook-ceph.svc.cluster.local:80
+          region: us-east-1
+          bucketnames: observability-loki
+          s3forcepathstyle: true
+          insecure: true
+          access_key_id: ${AWS_ACCESS_KEY_ID}
+          secret_access_key: ${AWS_SECRET_ACCESS_KEY}
+    schema_config:
+      configs:
+        - from: '2024-04-01'
+          store: tsdb
+          object_store: s3
+          schema: v13
+          index:
+            prefix: loki_index_
+            period: 24h
+    storage_config:
+      tsdb_shipper:
+        index_gateway_client:
+          server_address: dns:///loki-index-gateway.monitoring.svc.cluster.local:9095
+    index_gateway:
+      mode: simple
+    ingester:
+      kafka_ingestion:
+        enabled: true
+      wal:
+        flush_on_shutdown: true
+    limits_config:
+      reject_old_samples: true
+      reject_old_samples_max_age: 168h
+      volume_enabled: true
+    runtime_config:
+      file: /etc/loki/runtime-config/runtime-config.yaml
+    frontend:
+      scheduler_address: loki-query-scheduler.monitoring.svc.cluster.local:9095
+      tail_proxy_url: http://loki-querier.monitoring.svc.cluster.local:3100
+    frontend_worker:
+      scheduler_address: loki-query-scheduler.monitoring.svc.cluster.local:9095
+    ruler:
+      storage:
+        type: s3
+        s3:
+          endpoint: rook-ceph-rgw-celld.rook-ceph.svc.cluster.local:80
+          region: us-east-1
+          bucketnames: observability-loki-ruler
+          s3forcepathstyle: true
+          insecure: true
+          access_key_id: ${RULER_AWS_ACCESS_KEY_ID}
+          secret_access_key: ${RULER_AWS_SECRET_ACCESS_KEY}
+    kafka_config:
+      topic: observability-loki
+      auto_create_topic_enabled: false
+      reader_config:
+        address: nisshi.monitoring.svc.cluster.local:9092
+      writer_config:
+        address: nisshi.monitoring.svc.cluster.local:9092
+    distributor:
+      kafka_writes_enabled: true
+      ingester_writes_enabled: false
+
+singleBinary:
+  replicas: 0
+read:
+  replicas: 0
+write:
+  replicas: 0
+backend:
+  replicas: 0
+
+distributor:
+  replicas: 1
+ingester:
+  replicas: 1
+  zoneAwareReplication:
+    enabled: false
+  persistence:
+    enabled: true
+    size: 10Gi
+    claims:
+      - name: data
+        accessModes:
+          - ReadWriteOnce
+        size: 10Gi
+        storageClass: rook-ceph-block
+querier:
+  replicas: 1
+queryFrontend:
+  replicas: 1
+queryScheduler:
+  replicas: 1
+compactor:
+  replicas: 1
+  persistence:
+    enabled: true
+    size: 10Gi
+    claims:
+      - name: data
+        accessModes:
+          - ReadWriteOnce
+        size: 10Gi
+        storageClass: rook-ceph-block
+indexGateway:
+  replicas: 1
+ruler:
+  replicas: 1
+
+lokiCanary:
+  enabled: false
+test:
+  enabled: false
+chunksCache:
+  enabled: false
+resultsCache:
+  enabled: false

@@ -1,0 +1,58 @@
+// The Kubernetes API selector and this keep rule both require an exact Pod opt-in.
+discovery.kubernetes "opt_in_pods" {
+  role = "pod"
+
+  selectors {
+    role  = "pod"
+    label = "observability.nakatanakatana.app/local=true"
+  }
+}
+
+discovery.relabel "opt_in_logs" {
+  targets = discovery.kubernetes.opt_in_pods.targets
+
+  rule {
+    source_labels = ["__meta_kubernetes_pod_label_observability_nakatanakatana_app_local"]
+    regex         = "true"
+    action        = "keep"
+  }
+
+  rule {
+    source_labels = ["__meta_kubernetes_namespace"]
+    target_label  = "namespace"
+  }
+
+  rule {
+    source_labels = ["__meta_kubernetes_pod_name"]
+    target_label  = "pod"
+  }
+
+  rule {
+    source_labels = ["__meta_kubernetes_pod_container_name"]
+    target_label  = "container"
+  }
+
+  // Stable job label so the Grafana panel can query with equality.
+  rule {
+    target_label = "job"
+    replacement  = "observability-local-alloy"
+  }
+}
+
+loki.source.kubernetes "opt_in_logs" {
+  targets    = discovery.relabel.opt_in_logs.output
+  forward_to = [loki.write.local.receiver]
+}
+
+loki.write "local" {
+  max_streams = 1000
+
+  endpoint {
+    url                 = "http://loki-gateway.monitoring.svc.cluster.local/loki/api/v1/push"
+    batch_size          = "512KiB"
+    batch_wait          = "1s"
+    min_backoff_period  = "500ms"
+    max_backoff_period  = "30s"
+    max_backoff_retries = 5
+  }
+}

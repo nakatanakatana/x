@@ -1,0 +1,23 @@
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: rook-ceph-selfsigned-issuer
+  namespace: rook-ceph
+spec:
+  selfSigned: {}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: rook-ceph-rgw-celld-tls
+  namespace: rook-ceph
+spec:
+  secretName: rook-ceph-rgw-celld-tls
+  issuerRef:
+    name: rook-ceph-selfsigned-issuer
+    kind: Issuer
+  dnsNames:
+    - rook-ceph-rgw-celld
+    - rook-ceph-rgw-celld.rook-ceph
+    - rook-ceph-rgw-celld.rook-ceph.svc
+    - rook-ceph-rgw-celld.rook-ceph.svc.cluster.local
