@@ -26,7 +26,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: nisshi
-          image: ghcr.io/nisshi-io/nisshi:0.7.0-pre.2@sha256:f062b76a500f4629e5faad5bd106aafa6705a83bea9c7a21eefe70b55b663250
+          image: ghcr.io/nisshi-io/nisshi:0.7.0-pre.2@sha256:5335ac895ce681bab6b869a6929195060f409efca781fdb11a8bc0bccd7c6a5a
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
