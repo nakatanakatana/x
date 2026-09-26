@@ -357,9 +357,14 @@ now includes `signature_version: v2` under
 `mimir.structuredConfig.alertmanager_storage.s3`. Helm renders `v2` beside
 each required bucket while retaining the Ceph endpoint, path-style lookup,
 and environment-sourced credentials. This is an unapplied configuration
-candidate for a bounded trial, not a tested remedy: the live release and
-metric routes were not changed, and no block upload or post-restart query
-passed with it.
+The SigV2 trial did not resolve the HTTP 403 on block uploads under Ceph 20.2.4 (tentacle),
+as the stricter SigV4 header validation (CVE-2026-54330) continued rejecting unsigned streaming headers
+over unencrypted HTTP. To remediate this without disabling SigV4 security checks, Ceph RGW enabled
+dual-port TLS (`securePort: 443` alongside HTTP `port: 80`) with a cert-manager-issued certificate
+`rook-ceph-rgw-celld-tls`. Over HTTPS, `minio-go` utilizes `UNSIGNED-PAYLOAD` for uploads, avoiding the
+incompatible `STREAMING-AWS4-HMAC-SHA256-PAYLOAD` header mismatch. Mimir and Tempo S3 configurations
+switch to `endpoint: rook-ceph-rgw-celld.rook-ceph.svc.cluster.local:443`, `insecure: false`, and
+`insecure_skip_verify: true`.
 
 ### Decision gate and fallback
 
