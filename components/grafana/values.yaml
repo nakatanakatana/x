@@ -1,0 +1,93 @@
+service:
+  enabled: true
+  type: ClusterIP
+  port: 80
+  targetPort: 3000
+
+persistence:
+  enabled: false
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 128Mi
+  limits:
+    memory: 512Mi
+
+datasources:
+  datasources.yaml:
+    apiVersion: 1
+    datasources:
+      - name: Local Loki
+        type: loki
+        uid: local-loki
+        url: http://loki-gateway.monitoring.svc.cluster.local
+        access: proxy
+        jsonData:
+          maxLines: 1000
+      - name: Local Mimir
+        type: prometheus
+        uid: local-mimir
+        url: http://mimir-gateway.monitoring.svc.cluster.local/prometheus
+        access: proxy
+        jsonData:
+          httpMethod: POST
+      - name: Local Tempo
+        type: tempo
+        uid: local-tempo
+        url: http://tempo-query-frontend.monitoring.svc.cluster.local:3200
+        access: proxy
+
+dashboardProviders:
+  dashboardproviders.yaml:
+    apiVersion: 1
+    providers:
+      - name: default
+        orgId: 1
+        folder: ''
+        type: file
+        disableDeletion: true
+        editable: false
+        options:
+          path: /var/lib/grafana/dashboards/default
+
+dashboards:
+  default:
+    local-observability:
+      json: |
+        {
+          "uid": "local-observability",
+          "title": "Local Observability",
+          "tags": ["local", "observability"],
+          "timezone": "browser",
+          "schemaVersion": 41,
+          "version": 1,
+          "refresh": "5m",
+          "time": {"from": "now-48h", "to": "now"},
+          "panels": [
+            {
+              "id": 1,
+              "title": "Recent local logs",
+              "type": "logs",
+              "gridPos": {"h": 9, "w": 24, "x": 0, "y": 0},
+              "datasource": {"type": "loki", "uid": "local-loki"},
+              "targets": [{"refId": "A", "datasource": {"type": "loki", "uid": "local-loki"}, "expr": "{job=\"observability-local-alloy\"}", "queryType": "range", "maxLines": 100}]
+            },
+            {
+              "id": 2,
+              "title": "Local Mimir trial metric",
+              "type": "timeseries",
+              "gridPos": {"h": 9, "w": 12, "x": 0, "y": 9},
+              "datasource": {"type": "prometheus", "uid": "local-mimir"},
+              "targets": [{"refId": "A", "datasource": {"type": "prometheus", "uid": "local-mimir"}, "expr": "task4_mimir_trial_metric_total", "range": true}]
+            },
+            {
+              "id": 3,
+              "title": "Recent local traces",
+              "type": "table",
+              "gridPos": {"h": 9, "w": 12, "x": 12, "y": 9},
+              "datasource": {"type": "tempo", "uid": "local-tempo"},
+              "targets": [{"refId": "A", "datasource": {"type": "tempo", "uid": "local-tempo"}, "queryType": "traceql", "query": "{}", "limit": 20}]
+            }
+          ]
+        }

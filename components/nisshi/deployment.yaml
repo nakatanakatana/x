@@ -1,0 +1,68 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nisshi
+  namespace: monitoring
+  labels:
+    app: nisshi
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: nisshi
+  template:
+    metadata:
+      labels:
+        app: nisshi
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: nisshi
+          image: ghcr.io/nisshi-io/nisshi@sha256:f062b76a500f4629e5faad5bd106aafa6705a83bea9c7a21eefe70b55b663250
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          envFrom:
+            - secretRef:
+                name: observability-nisshi
+          env:
+            - name: STORAGE_ENGINE
+              value: s3://observability-nisshi/
+            - name: AWS_ENDPOINT
+              value: http://rook-ceph-rgw-celld.rook-ceph.svc.cluster.local:80
+            - name: AWS_ALLOW_HTTP
+              value: "true"
+            - name: AWS_DEFAULT_REGION
+              value: us-east-1
+            - name: ADVERTISED_LISTENER_URL
+              value: tcp://nisshi.monitoring.svc.cluster.local:9092
+            - name: CLUSTER_ID
+              value: observability-home
+          ports:
+            - name: kafka
+              containerPort: 9092
+              protocol: TCP
+          startupProbe:
+            tcpSocket:
+              port: kafka
+            periodSeconds: 5
+            failureThreshold: 24
+          readinessProbe:
+            tcpSocket:
+              port: kafka
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
