@@ -10,7 +10,7 @@ spec:
     spec:
       interval: 10m
       chart: tempo-distributed
-      version: '3.10.1'
+      version: '3.11.0'
       sourceRef:
         kind: HelmRepository
         name: grafana-community
