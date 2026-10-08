@@ -22,7 +22,7 @@ spec:
     spec:
       containers:
         - name: obsidian-clippings-feed
-          image: ghcr.io/nakatanakatana/obsidian-clippings-feed:latest@sha256:7d0263db7bc90eec364326093d4932c0c391236dadf78896c27aeb803dfb3716
+          image: ghcr.io/nakatanakatana/obsidian-clippings-feed:latest@sha256:7eb40645de9cd1f00b1e9a4d136d6e4a0c20b03fe8b155b116f826d01216e52c
           imagePullPolicy: Always
           env:
             - name: FEED_TARGET_DIR
@@ -34,7 +34,7 @@ spec:
             - containerPort: 8080
       initContainers:
         - name: livesync-bridge
-          image: ghcr.io/nakatanakatana/livesync-bridge:latest@sha256:ca8c211d61424c86ae4f17c640bdccf79d0b6f138721041abd229ec932e98c9e
+          image: ghcr.io/nakatanakatana/livesync-bridge:latest@sha256:86ca93da5edc16d96f896676f262a3beb56414c5a8c05d23316b6f3d130a2283
           imagePullPolicy: Always
           restartPolicy: Always
           volumeMounts:
