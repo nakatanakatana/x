@@ -1,0 +1,23 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: feed-reader
+  namespace: feed-reader
+  annotations:
+    tailscale.com/hostname: "feed-reader"
+    tailscale.com/proxy-class: "avoid-slow-nodes"
+spec:
+  ingressClassName: tailscale
+  tls:
+    - hosts:
+        - feed-reader
+  rules:
+    - http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: feed-reader
+                port:
+                  number: 8080
