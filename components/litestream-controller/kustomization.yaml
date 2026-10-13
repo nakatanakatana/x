@@ -4,4 +4,4 @@ resources:
   - https://github.com/nakatanakatana/mytools//config/litestream-controller/default?ref=v0.12.1
 images:
   - name: ghcr.io/nakatanakatana/litestream-controller
-    newTag: 0.12.1@sha256:34667220f2991c976416b2f6224fc269bad29b9f2069df0539353f678332e911
+    newTag: 0.12.2@sha256:271441fe2a2f264bde7f33d240aa6d48cf00c74d88e089f5579014b662595310
