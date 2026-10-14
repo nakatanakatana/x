@@ -1,15 +1,17 @@
 destinations:
   metricsService:
     type: prometheus
-    url: https://prometheus-us-central1.grafana.net/api/prom/push
-    secret:
-      create: false
-      name: grafana-cloud-secret
-      namespace: monitoring
-    auth:
-      type: basic
-      usernameKey: prom_user
-      passwordKey: password
+    url: http://mimir-gateway.monitoring.svc.cluster.local/api/v1/push
+    # Grafana Cloud destination (commented out for rollback):
+    # url: https://prometheus-us-central1.grafana.net/api/prom/push
+    # secret:
+    #   create: false
+    #   name: grafana-cloud-secret
+    #   namespace: monitoring
+    # auth:
+    #   type: basic
+    #   usernameKey: prom_user
+    #   passwordKey: password
   logsService:
     type: loki
     url: https://logs-prod-us-central1.grafana.net/loki/api/v1/push
