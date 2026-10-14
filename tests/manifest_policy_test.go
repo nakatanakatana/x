@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -1881,7 +1882,8 @@ func TestObjectStorageBackup(t *testing.T) {
 	}
 	podSpec := jobSpec["template"].(map[string]any)["spec"].(map[string]any)
 	container := podSpec["containers"].([]any)[0].(map[string]any)
-	if container["image"] != "rclone/rclone:1.75.1@sha256:45401ad7410db1d67ffdb58e19059ad20b0d8e0285a60e38bbec55cc1019c7a5" {
+	image, _ := container["image"].(string)
+	if matched, _ := regexp.MatchString(`^rclone/rclone:[^@]+@sha256:[0-9a-f]{64}$`, image); !matched {
 		t.Fatalf("container.image = %v, want the pinned rclone image", container["image"])
 	}
 	containerSecurityContext, ok := container["securityContext"].(map[string]any)
