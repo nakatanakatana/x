@@ -490,6 +490,25 @@ podLogsViaLoki:
       action = "labelmap"
       regex = "__meta_kubernetes_pod_label_(app)"
     }
+  extraLogProcessingStages: |
+    stage.match {
+      selector = "{namespace=\"rook-ceph\"}"
+
+      stage.drop {
+        expression          = "beast: .* \"(GET|PUT|POST|HEAD|DELETE) .* HTTP/"
+        drop_counter_reason = "rook_ceph_rgw_beast_access_log"
+      }
+
+      stage.drop {
+        expression          = "log_channel\\(cluster\\) log \\[DBG\\] : pgmap"
+        drop_counter_reason = "rook_ceph_mgr_pgmap_log"
+      }
+
+      stage.drop {
+        expression          = "log_channel\\(audit\\) log \\[DBG\\] : .* cmd='mon_status'"
+        drop_counter_reason = "rook_ceph_mon_mon_status_audit_log"
+      }
+    }
   collector: alloy-logs
 annotationAutodiscovery:
   enabled: true
