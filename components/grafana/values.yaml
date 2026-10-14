@@ -4,6 +4,17 @@ service:
   port: 80
   targetPort: 3000
 
+ingress:
+  enabled: true
+  ingressClassName: tailscale
+  annotations:
+    tailscale.com/proxy-class: avoid-slow-nodes
+  hosts:
+    - grafana
+  tls:
+    - hosts:
+        - grafana
+
 persistence:
   enabled: false
 
