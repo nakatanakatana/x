@@ -14,15 +14,17 @@ destinations:
     #   passwordKey: password
   logsService:
     type: loki
-    url: https://logs-prod-us-central1.grafana.net/loki/api/v1/push
-    secret:
-      create: false
-      name: grafana-cloud-secret
-      namespace: monitoring
-    auth:
-      type: basic
-      usernameKey: loki_user
-      passwordKey: password
+    url: http://loki-gateway.monitoring.svc.cluster.local/loki/api/v1/push
+    # Grafana Cloud destination (commented out for rollback):
+    # url: https://logs-prod-us-central1.grafana.net/loki/api/v1/push
+    # secret:
+    #   create: false
+    #   name: grafana-cloud-secret
+    #   namespace: monitoring
+    # auth:
+    #   type: basic
+    #   usernameKey: loki_user
+    #   passwordKey: password
   tracesService:
     type: otlp
     url: https://tempo-us-central1.grafana.net:443
