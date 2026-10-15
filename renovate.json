@@ -31,6 +31,13 @@
       ]
     },
     {
+      "matchPackageNames": [
+        "ghcr.io/loft-sh/kubernetes",
+        "loft-sh/kubernetes"
+      ],
+      "allowedVersions": "<1.37.0"
+    },
+    {
       "groupName": "obsidian-clippings-feed",
       "matchPackageNames": [
         "ghcr.io/nakatanakatana/livesync-bridge",
