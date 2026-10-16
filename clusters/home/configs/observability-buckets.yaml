@@ -74,3 +74,19 @@ metadata:
 spec:
   bucketName: observability-nisshi
   storageClassName: celld-rgw
+  additionalConfig:
+    bucketLifecycle: |
+      {
+        "Rules": [
+          {
+            "ID": "expire-nisshi-topics",
+            "Status": "Enabled",
+            "Filter": {
+              "Prefix": "clusters/observability-home/topics/"
+            },
+            "Expiration": {
+              "Days": 1
+            }
+          }
+        ]
+      }
