@@ -675,7 +675,12 @@ The local Alloy digest above is a Git pin from the Cloud receiver observation;
 the local Alloy Deployment has not run.
 
 No explicit production retention period or bucket lifecycle policy is set in
-these component values. The pinned Tempo 3.7.0 chart render includes defaults
+these component values, except for `observability-nisshi`. For `observability-nisshi`,
+a 1-day S3 bucket lifecycle rule (`expire-nisshi-topics`) is configured on
+`clusters/observability-home/topics/` via the Ceph RGW S3 API to automatically expire
+and delete batch objects after 1 day. This prevents unbounded object accumulation and
+ensures `ListOffsets` during ingester startup completes well within the client timeout.
+The pinned Tempo 3.7.0 chart render includes defaults
 `block_retention: 48h` and `compacted_block_retention: 1h`; these are chart
 defaults, not user overrides or an approved production retention policy.
 Loki's `reject_old_samples_max_age: 168h` rejects old ingest samples; it is
