@@ -98,6 +98,8 @@ loki:
     kafka_config:
       topic: observability-loki
       auto_create_topic_enabled: false
+      producer_linger: 500ms
+      producer_max_buffered_bytes: 104857600
       reader_config:
         address: nisshi.monitoring.svc.cluster.local:9092
       writer_config:
