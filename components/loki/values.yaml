@@ -98,6 +98,8 @@ loki:
     kafka_config:
       topic: observability-loki
       auto_create_topic_enabled: false
+      max_consumer_lag_at_startup: 0s
+      max_consumer_workers: 8
       reader_config:
         address: nisshi.monitoring.svc.cluster.local:9092
       writer_config:
