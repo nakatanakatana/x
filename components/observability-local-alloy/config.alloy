@@ -49,8 +49,8 @@ loki.write "local" {
 
   endpoint {
     url                 = "http://loki-gateway.monitoring.svc.cluster.local/loki/api/v1/push"
-    batch_size          = "512KiB"
-    batch_wait          = "1s"
+    batch_size          = "1MiB"
+    batch_wait          = "5s"
     min_backoff_period  = "500ms"
     max_backoff_period  = "30s"
     max_backoff_retries = 5

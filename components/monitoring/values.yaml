@@ -15,6 +15,8 @@ destinations:
   logsService:
     type: loki
     url: http://loki-gateway.monitoring.svc.cluster.local/loki/api/v1/push
+    batchWait: 5s
+    batchSize: 1MiB
     # Grafana Cloud destination (commented out for rollback):
     # url: https://logs-prod-us-central1.grafana.net/loki/api/v1/push
     # secret:
