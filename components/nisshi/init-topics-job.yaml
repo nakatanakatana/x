@@ -1,0 +1,64 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: nisshi-init-topics
+  namespace: monitoring
+  labels:
+    app: nisshi-init-topics
+spec:
+  ttlSecondsAfterFinished: 600
+  template:
+    metadata:
+      labels:
+        app: nisshi-init-topics
+    spec:
+      automountServiceAccountToken: false
+      restartPolicy: OnFailure
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: kafka-cli
+          image: apache/kafka:4.1.0
+          command:
+            - /bin/bash
+            - -c
+            - |
+              set -e
+              BOOTSTRAP="nisshi.monitoring.svc.cluster.local:9092"
+              TOPICS="observability-loki observability-mimir observability-tempo"
+              PARTITIONS=3
+              REPLICATION=1
+
+              for t in $TOPICS; do
+                echo "Ensuring topic $t exists with at least $PARTITIONS partitions..."
+                /opt/kafka/bin/kafka-topics.sh --bootstrap-server "$BOOTSTRAP" \
+                  --create --if-not-exists \
+                  --topic "$t" \
+                  --partitions "$PARTITIONS" \
+                  --replication-factor "$REPLICATION" || true
+
+                CURRENT=$(/opt/kafka/bin/kafka-topics.sh --bootstrap-server "$BOOTSTRAP" --describe --topic "$t" | grep -o 'PartitionCount: [0-9]*' | awk '{print $2}')
+                echo "Topic $t has $CURRENT partitions."
+                if [ -n "$CURRENT" ] && [ "$CURRENT" -lt "$PARTITIONS" ]; then
+                  echo "Altering topic $t to $PARTITIONS partitions..."
+                  /opt/kafka/bin/kafka-topics.sh --bootstrap-server "$BOOTSTRAP" \
+                    --alter --topic "$t" --partitions "$PARTITIONS"
+                fi
+              done
+              echo "Topics ensured successfully."
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: "1"
+              memory: 512Mi

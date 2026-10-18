@@ -120,7 +120,7 @@ backend:
 distributor:
   replicas: 1
 ingester:
-  replicas: 1
+  replicas: 3
   zoneAwareReplication:
     enabled: false
   persistence:
