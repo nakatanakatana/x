@@ -4,3 +4,4 @@ namespace: monitoring
 resources:
   - deployment.yaml
   - service.yaml
+  - init-topics-job.yaml
