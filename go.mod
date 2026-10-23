@@ -3,7 +3,7 @@ module github.com/nakatanakatana/x
 go 1.26.5
 
 require (
-	github.com/open-policy-agent/opa v1.21.3
+	github.com/open-policy-agent/opa v1.21.4
 	gopkg.in/yaml.v3 v3.0.1
 )
 
