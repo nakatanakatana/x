@@ -10,7 +10,7 @@ spec:
     spec:
       interval: 10m
       chart: loki
-      version: '18.17.1'
+      version: '20.0.2'
       sourceRef:
         kind: HelmRepository
         name: grafana-community
