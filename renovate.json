@@ -43,6 +43,13 @@
         "ghcr.io/nakatanakatana/livesync-bridge",
         "ghcr.io/nakatanakatana/obsidian-clippings-feed"
       ]
+    },
+    {
+      "groupName": "flux-action",
+      "matchPackageNames": [
+        "fluxcd/flux2",
+        "fluxcd/flux2/action"
+      ]
     }
   ],
   "kubernetes": {
@@ -104,6 +111,18 @@
       "matchStrings": [
         "**.image[repository and tag].{\"depName\": ($exists(registry) ? registry & \"/\" : \"\") & repository, \"currentValue\": tag, \"currentDigest\": digest}"
       ]
+    },
+    {
+      "customType": "regex",
+      "managerFilePatterns": [
+        "^\\.github/workflows/.*\\.ya?ml$"
+      ],
+      "matchStrings": [
+        "uses:\\s*fluxcd/flux2/action@.*\\s+with:\\s+version:\\s*['\"]?(?<currentValue>[0-9.]+)['\"]?"
+      ],
+      "depNameTemplate": "fluxcd/flux2",
+      "datasourceTemplate": "github-releases",
+      "extractVersionTemplate": "^v?(?<version>.*)$"
     }
   ]
 }
