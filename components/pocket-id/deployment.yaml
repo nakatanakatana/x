@@ -20,6 +20,7 @@ spec:
         litestream.mytools.nakatanakatana.app/volume: data
       labels:
         app: pocket-id
+        observability.nakatanakatana.app/local: "true"
     spec:
       securityContext:
         fsGroup: 65532
@@ -45,6 +46,10 @@ spec:
             - name: PORT
               value: "1411"
             - name: TRUST_PROXY
+              value: "true"
+            - name: TRUSTED_PLATFORM
+              value: "CF-Connecting-IP"
+            - name: LOG_JSON
               value: "true"
             - name: PUID
               value: "65532"
