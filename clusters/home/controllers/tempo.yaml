@@ -15,7 +15,6 @@ spec:
   timeout: 20m
   dependsOn:
     - name: monitoring-controller
-    - name: nisshi
   healthChecks:
     - apiVersion: helm.toolkit.fluxcd.io/v2
       kind: HelmRelease
