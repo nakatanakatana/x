@@ -200,7 +200,7 @@ spec:
         replicaRef:
           name: pocket-id-db-replica
         ifDatabaseExists: skip
-        ifReplicaMissing: fail
+        ifReplicaMissing: skip
         integrityCheck: quick
       replicate:
         replicaRef:
