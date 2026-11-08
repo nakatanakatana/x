@@ -1,0 +1,38 @@
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: pocket-id-secret
+  namespace: auth
+spec:
+  refreshInterval: 13h2m
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: 1password-sdk
+  target:
+    name: pocket-id-secret
+    creationPolicy: Owner
+  data:
+    - secretKey: ENCRYPTION_KEY
+      remoteRef:
+        key: pocket-id/ENCRYPTION_KEY
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: pocket-id-storage
+  namespace: auth
+spec:
+  refreshInterval: 21h18m
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: 1password-sdk
+  target:
+    name: pocket-id-storage
+    creationPolicy: Owner
+  data:
+    - secretKey: access_key
+      remoteRef:
+        key: pocket-id-storage/access_key
+    - secretKey: access_secret
+      remoteRef:
+        key: pocket-id-storage/access_secret

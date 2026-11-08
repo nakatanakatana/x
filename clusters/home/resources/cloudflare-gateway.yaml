@@ -89,3 +89,42 @@ data:
                 operator: NotIn
                 values:
                   - slow
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: cloudflare-auth
+  namespace: auth
+spec:
+  gatewayClassName: cloudflare
+  infrastructure:
+    parametersRef:
+      group: ""
+      kind: ConfigMap
+      name: cloudflare-infrastructure
+  listeners:
+    - name: http
+      protocol: HTTP
+      port: 80
+      allowedRoutes:
+        namespaces:
+          from: Same
+        kinds:
+          - kind: HTTPRoute
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cloudflare-infrastructure
+  namespace: auth
+data:
+  replicas: "1"
+  affinity: |
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: network
+                operator: NotIn
+                values:
+                  - slow
