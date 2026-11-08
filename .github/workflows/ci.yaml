@@ -21,7 +21,7 @@ jobs:
       - name: Setup Flux CLI
         uses: fluxcd/flux2/action@v2.10.0
         with:
-          version: '2.9.4'
+          version: '2.10.0'
       - name: Prepare Flux build temp directory
         run: mkdir -p .flux-tmp
       - name: Check duplicate Flux resource ownership
