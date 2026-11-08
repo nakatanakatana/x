@@ -156,3 +156,53 @@ spec:
         replicaRef:
           name: nostr-bridge-db-replica
         syncInterval: 10s
+---
+apiVersion: litestream.mytools.nakatanakatana.app/v1alpha1
+kind: LitestreamReplica
+metadata:
+  name: pocket-id-db-replica
+  namespace: auth
+spec:
+  replica:
+    type: s3
+    s3:
+      endpoint: http://storage-clusterip.tailscale.svc.cluster.local:8010
+      bucket: pocket-id
+      path: pocket-id.db
+      credentials:
+        accessKeyID:
+          secretKeyRef:
+            name: pocket-id-storage
+            key: access_key
+        secretAccessKey:
+          secretKeyRef:
+            name: pocket-id-storage
+            key: access_secret
+---
+apiVersion: litestream.mytools.nakatanakatana.app/v1alpha1
+kind: Litestream
+metadata:
+  name: pocket-id-db
+  namespace: auth
+spec:
+  image:
+    repository: litestream/litestream
+    tag: 0.5.17
+    digest: sha256:4b02b9859a6b6b4087d8b8944e15f7e984bd7957cba322bbeee38b0e27b9656a
+    pullPolicy: IfNotPresent
+  injection:
+    targetContainer: pocket-id
+    volume: data
+  databases:
+    - name: pocket-id
+      path: /app/data/pocket-id.db
+      restore:
+        replicaRef:
+          name: pocket-id-db-replica
+        ifDatabaseExists: skip
+        ifReplicaMissing: fail
+        integrityCheck: quick
+      replicate:
+        replicaRef:
+          name: pocket-id-db-replica
+        syncInterval: 10s
