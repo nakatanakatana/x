@@ -65,6 +65,13 @@ spec:
     mon: system-node-critical
     osd: system-node-critical
     mgr: system-cluster-critical
+  resources:
+    osd:
+      requests:
+        cpu: "500m"
+        memory: "4Gi"
+      limits:
+        memory: "6Gi"
   storage:
     useAllNodes: false
     useAllDevices: false
