@@ -1,0 +1,20 @@
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: grafana-pocket-id
+  namespace: monitoring
+spec:
+  refreshInterval: 19h42m
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: 1password-sdk
+  target:
+    name: grafana-pocket-id
+    creationPolicy: Owner
+  data:
+    - secretKey: GF_AUTH_GENERIC_OAUTH_CLIENT_ID
+      remoteRef:
+        key: grafana-pocket-id/client_id
+    - secretKey: GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET
+      remoteRef:
+        key: grafana-pocket-id/client_secret
