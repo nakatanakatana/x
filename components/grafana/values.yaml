@@ -36,12 +36,12 @@ grafana.ini:
     name: Pocket ID
     allow_sign_up: true
     auto_login: false
-    scopes: openid email profile
+    scopes: openid email profile groups
     auth_url: https://id.nakatanakatana.app/authorize
     token_url: https://id.nakatanakatana.app/api/oidc/token
     api_url: https://id.nakatanakatana.app/api/oidc/userinfo
     email_attribute_path: email:primary
-    role_attribute_path: "'Admin'"
+    role_attribute_path: "contains(groups[*], 'admin') && 'Admin' || 'Viewer'"
     skip_org_role_sync: false
 
 datasources:
