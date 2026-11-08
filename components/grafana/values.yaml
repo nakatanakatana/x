@@ -65,7 +65,7 @@ datasources:
       - name: Local Tempo
         type: tempo
         uid: local-tempo
-        url: http://tempo-query-frontend.monitoring.svc.cluster.local:3200
+        url: http://tempo.monitoring.svc.cluster.local:3100
         access: proxy
 
 sidecar:

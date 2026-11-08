@@ -41,11 +41,7 @@ mimir:
   structuredConfig:
     multitenancy_enabled: false
     ingest_storage:
-      enabled: true
-      kafka:
-        address: nisshi.monitoring.svc.cluster.local:9092
-        topic: observability-mimir
-        auto_create_topic_enabled: false
+      enabled: false
     ingester:
       ring:
         replication_factor: 1

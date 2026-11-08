@@ -63,30 +63,3 @@ metadata:
 spec:
   bucketName: observability-tempo
   storageClassName: celld-rgw
----
-apiVersion: objectbucket.io/v1alpha1
-kind: ObjectBucketClaim
-metadata:
-  name: observability-nisshi
-  namespace: monitoring
-  annotations:
-    kustomize.toolkit.fluxcd.io/prune: disabled
-spec:
-  bucketName: observability-nisshi
-  storageClassName: celld-rgw
-  additionalConfig:
-    bucketLifecycle: |
-      {
-        "Rules": [
-          {
-            "ID": "expire-nisshi-topics",
-            "Status": "Enabled",
-            "Filter": {
-              "Prefix": "clusters/observability-home/topics/"
-            },
-            "Expiration": {
-              "Days": 1
-            }
-          }
-        ]
-      }
