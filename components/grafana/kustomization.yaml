@@ -7,5 +7,26 @@ configMapGenerator:
   - name: grafana-values
     files:
       - values.yaml=values.yaml
+  - name: grafana-dashboards-flux
+    files:
+      - dashboards/flux/flux-cluster-stats.json
+      - dashboards/flux/flux-control-plane.json
+      - dashboards/flux/flux-logs.json
+    options:
+      disableNameSuffixHash: true
+      labels:
+        grafana_dashboard: "1"
+      annotations:
+        grafana_folder: "Flux"
+  - name: grafana-dashboards-general
+    files:
+      - dashboards/general/clusters.json
+      - dashboards/general/local-observability.json
+    options:
+      disableNameSuffixHash: true
+      labels:
+        grafana_dashboard: "1"
+      annotations:
+        grafana_folder: "General"
 configurations:
   - kustomizeconfig.yaml
