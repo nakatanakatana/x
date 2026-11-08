@@ -384,7 +384,7 @@ ConfigMap. It depends on `monitoring-controller`.
 
 Following the decommissioning of Nisshi, Tempo was migrated from `tempo-distributed` to
 the Monolithic architecture (`grafana/tempo` chart). The internal endpoints in `monitoring` are:
-- HTTP / Query API / Grafana: `tempo.monitoring.svc.cluster.local:3100`
+- HTTP / Query API / Grafana: `tempo.monitoring.svc.cluster.local:3200`
 - OTLP gRPC receiver: `tempo.monitoring.svc.cluster.local:4317`
 - OTLP HTTP receiver: `tempo.monitoring.svc.cluster.local:4318`
 
@@ -398,7 +398,7 @@ Ceph S3 storage is configured under `tempo.storage.trace.s3` pointing to bucket
 Secret `observability-tempo` provides credentials via `tempo.extraEnvFrom` and
 `tempo.extraArgs.config.expand-env: "true"`.
 
-In Grafana, the `local-tempo` datasource connects to `http://tempo.monitoring.svc.cluster.local:3100`.
+In Grafana, the `local-tempo` datasource connects to `http://tempo.monitoring.svc.cluster.local:3200`.
 
 ### Historical trial observations (Tempo Distributed)
 
@@ -467,7 +467,7 @@ The isolated local Grafana release provides an internal, cluster-local interface
 - Data sources provisioned with stable UIDs:
   - `Local Loki` (`local-loki`): `http://loki-gateway.monitoring.svc.cluster.local` (type `loki`).
   - `Local Mimir` (`local-mimir`): `http://mimir-gateway.monitoring.svc.cluster.local/prometheus` (type `prometheus`, POST method).
-  - `Local Tempo` (`local-tempo`): `http://tempo.monitoring.svc.cluster.local:3100` (type `tempo`).
+  - `Local Tempo` (`local-tempo`): `http://tempo.monitoring.svc.cluster.local:3200` (type `tempo`).
 
 ### Verification results
 
