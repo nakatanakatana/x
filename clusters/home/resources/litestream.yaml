@@ -193,6 +193,9 @@ spec:
   injection:
     targetContainer: pocket-id
     volume: data
+    podSecurityContext:
+      fsGroup: 65532
+      fsGroupChangePolicy: OnRootMismatch
   databases:
     - name: pocket-id
       path: /app/data/pocket-id.db
