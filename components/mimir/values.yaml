@@ -43,6 +43,7 @@ mimir:
     ingest_storage:
       enabled: false
     ingester:
+      push_grpc_method_enabled: true
       ring:
         replication_factor: 1
     store_gateway:
