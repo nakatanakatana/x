@@ -107,6 +107,7 @@ spec:
           volumeMounts:
             - name: data
               mountPath: /var/lib/kafka/data
+              subPath: data
   volumeClaimTemplates:
     - metadata:
         name: data
