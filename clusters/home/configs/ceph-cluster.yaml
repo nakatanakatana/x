@@ -34,6 +34,13 @@ spec:
         enabled: false
       requireMsgr2: false
 
+  security:
+    cephx:
+      daemon:
+        keyRotationPolicy: KeyGeneration
+        keyGeneration: 2
+        keyType: aes256k
+
   crashCollector:
     disable: false
   logCollector:
