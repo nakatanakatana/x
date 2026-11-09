@@ -41,9 +41,14 @@ mimir:
   structuredConfig:
     multitenancy_enabled: false
     ingest_storage:
-      enabled: false
+      enabled: true
+      kafka:
+        address: kafka.monitoring.svc.cluster.local:9092
+        topic: observability-mimir
+        auto_create_topic_enabled: true
+        auto_create_topic_default_partitions: 3
     ingester:
-      push_grpc_method_enabled: true
+      push_grpc_method_enabled: false
       ring:
         replication_factor: 1
     store_gateway:

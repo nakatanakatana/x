@@ -69,6 +69,8 @@ loki:
     index_gateway:
       mode: simple
     ingester:
+      kafka_ingestion:
+        enabled: true
       wal:
         flush_on_shutdown: true
     limits_config:
@@ -94,8 +96,17 @@ loki:
           access_key_id: ${RULER_AWS_ACCESS_KEY_ID}
           secret_access_key: ${RULER_AWS_SECRET_ACCESS_KEY}
     distributor:
-      kafka_writes_enabled: false
-      ingester_writes_enabled: true
+      ingester_writes_enabled: false
+      kafka_writes_enabled: true
+    kafka_config:
+      topic: observability-loki
+      auto_create_topic_enabled: true
+      max_consumer_lag_at_startup: 0s
+      max_consumer_workers: 8
+      reader_config:
+        address: kafka.monitoring.svc.cluster.local:9092
+      writer_config:
+        address: kafka.monitoring.svc.cluster.local:9092
 
 singleBinary:
   replicas: 0

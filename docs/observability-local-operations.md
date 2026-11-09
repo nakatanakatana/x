@@ -4,7 +4,7 @@ The self-hosted observability stores use the existing Ceph `celld` RGW. The
 Grafana Cloud collection remains active while the local services are brought
 online.
 
-The five child Flux Kustomizations (`loki`, `mimir`, `tempo`,
+The six child Flux Kustomizations (`kafka`, `loki`, `mimir`, `tempo`,
 `grafana`, and `observability-local-alloy`) were initially committed with
 `spec.suspend: true`. The validation activation change sets them to
 `spec.suspend: false`; Flux applies that state after the change reaches the
@@ -140,18 +140,50 @@ empty and low-traffic topics. This created severe background load and bandwidth
 amplification on the underlying Ceph storage cluster. Consequently, Nisshi and its
 accompanying resources were decommissioned.
 
-The observability stack was migrated to a Kafka-free Classic Architecture:
-- **Loki Distributed**: Migrated to direct Ingester write path via hash ring (`distributor.ingester_writes_enabled: true`, `kafka_writes_enabled: false`). Removed `kafka_config` and `ingester.kafka_ingestion`.
-- **Mimir Distributed**: Migrated to direct Ingester write path via hash ring (`ingest_storage.enabled: false`).
-- **Tempo**: Migrated from distributed architecture with Kafka to Monolithic Tempo (`grafana/tempo` chart), writing traces locally and shipping blocks to Ceph S3 (`observability-tempo`).
+The observability stack was temporarily migrated to a Kafka-free Classic Architecture:
+- **Loki Distributed**: Temporarily migrated to direct Ingester write path via hash ring.
+- **Mimir Distributed**: Temporarily migrated to direct Ingester write path via hash ring (`ingest_storage.enabled: false`).
+- **Tempo**: Temporarily migrated to Monolithic Tempo (`grafana/tempo` chart).
 - **Decommissioned components**: The `nisshi` Deployment, Service, Flux controller (`clusters/home/controllers/nisshi.yaml`), and `observability-nisshi` ObjectBucketClaim (`clusters/home/configs/observability-buckets.yaml`) were completely removed from the cluster configuration.
+
+To restore distributed buffering and decoupling without S3 polling overhead, standard Apache Kafka in KRaft mode was subsequently introduced on Ceph RBD block storage.
+
+## Apache Kafka deployment (KRaft mode)
+
+To eliminate S3 polling overhead while restoring Grafana's recommended distributed buffer architecture for Loki, Mimir, and Tempo v3, standard Apache Kafka in KRaft mode is deployed via `components/kafka` and `clusters/home/controllers/kafka.yaml` in namespace `monitoring`.
+
+### Storage and KRaft architecture
+
+- **Workload and image**: StatefulSet `kafka` (1 replica) running `apache/kafka:4.3.1@sha256:77e3df9054047a88b520d0cc46e16696d3b22022e1d580aeccd2632df6532837`.
+- **KRaft controller & broker**: Operates without ZooKeeper in KRaft mode (`KAFKA_PROCESS_ROLES=broker,controller`, `KAFKA_NODE_ID=1`, deterministic cluster ID `4L622nShTUiGHLSkiIsCLg`), combining controller and broker responsibilities in a single process.
+- **Ceph RBD block storage**: Persistent volume claim template requests 10Gi on `storageClassName: rook-ceph-block` mounted at `/var/lib/kafka/data`.
+- **Contrast with decommissioned Nisshi**: The decommissioned Nisshi broker attempted to store commit logs on Ceph S3 object storage via Ceph RGW, which generated constant `ListObjects` polling storms (~85 req/sec, ~38 MB/s RGW egress) even when topics were idle or empty. In contrast, Apache Kafka in KRaft mode stores commit logs entirely on local block storage via Ceph RBD (`rook-ceph-block`). This generates zero S3 `ListObjects` polling requests and zero Ceph RGW egress bandwidth.
+
+### Broker listeners, retention, and topic management
+
+- **Broker listener**: `PLAINTEXT://0.0.0.0:9092`, advertised internally as `PLAINTEXT://kafka.monitoring.svc.cluster.local:9092` via ClusterIP Service `kafka`.
+- **Controller listener**: `CONTROLLER://0.0.0.0:9093` (quorum voter `1@127.0.0.1:9093`) exposed via headless Service `kafka-headless`.
+- **Topic auto-creation**: `KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"`, defaulting to 3 partitions (`KAFKA_NUM_PARTITIONS: 3`) to match the concurrency of downstream consumer replicas (Loki ingesters, Tempo blockBuilders).
+- **Log retention and segment cleanup**:
+  - Retention time: 24 hours (`KAFKA_LOG_RETENTION_HOURS: 24`).
+  - Retention check interval: 5 minutes (`KAFKA_LOG_RETENTION_CHECK_INTERVAL_MS: 300000`).
+  - Segment size: 64 MB (`KAFKA_LOG_SEGMENT_BYTES: 67108864`).
+  - Cleanup policy: `KAFKA_LOG_CLEANUP_POLICY: delete`, which deterministically deletes expired log segments from Ceph RBD block storage.
+
+### Operational inspection commands
+
+Check Kafka StatefulSet, Pods, and broker logs with:
+
+```sh
+kubectl get statefulset kafka -n monitoring
+kubectl logs kafka-0 -c kafka --tail=50 -n monitoring
+```
 
 ## Loki Distributed trial
 
 `components/loki` pins community chart `loki@18.13.5` (Loki `3.7.8`) and
 `clusters/home/controllers/loki.yaml` owns its HelmRelease and generated values
-ConfigMap. It depends on `monitoring-controller` for the shared
-`grafana-community` HelmRepository. The local HTTP endpoint is
+ConfigMap. It depends on `monitoring-controller` and `kafka`. The local HTTP endpoint is
 `http://loki-gateway.monitoring.svc.cluster.local`; push uses `/loki/api/v1/push`
 and gateway queries use the query frontend. Authentication is disabled for this
 internal trial; no ingress is configured.
@@ -161,10 +193,12 @@ frontend, query scheduler, compactor, index gateway, ruler, and gateway. The
 SingleBinary and SimpleScalable workloads are disabled. TSDB schema v13 uses
 `observability-loki`; ruler storage uses `observability-loki-ruler`. Both use
 path-style S3 access with credentials expanded from their generated Secrets.
-Ingester and compactor have 10 Gi PVCs. Following the migration to Classic
-Architecture, distributors write directly to ingesters via the ring:
-`distributor.ingester_writes_enabled: true` and `distributor.kafka_writes_enabled: false`.
-The `kafka_config` section and `ingester.kafka_ingestion` have been removed.
+Ingester and compactor have 10 Gi PVCs on `rook-ceph-block`.
+
+Loki is configured with Kafka write buffering:
+- **Distributor writes**: `distributor.kafka_writes_enabled: true` and `distributor.ingester_writes_enabled: false`. Incoming log streams sent to the distributor are buffered to Kafka topic `observability-loki`.
+- **Ingester consumption**: Ingesters consume log streams asynchronously from Kafka via `ingester.kafka_ingestion.enabled: true`, with `wal.flush_on_shutdown: true`.
+- **Kafka configuration**: Configured under `loki.structuredConfig.kafka_config` with topic `observability-loki`, `auto_create_topic_enabled: true`, `max_consumer_lag_at_startup: 0s`, `max_consumer_workers: 8`, and broker endpoints `kafka.monitoring.svc.cluster.local:9092` for both `reader_config` and `writer_config`. Ingesters consume from the 3 Kafka partitions and flush TSDB chunks to Ceph S3 bucket `observability-loki`.
 
 Observed on 2026-09-24 with a dedicated Python HTTP client, without changing
 the production collector or its Cloud destinations:
@@ -221,11 +255,12 @@ committed controller path reaches the cluster's source revision. No production
 collector route was enabled. Retention and sustained-load capacity remain to
 be established before production migration.
 
-## Mimir Classic Architecture trial
+## Mimir Distributed deployment with Kafka Ingest Storage
 
 `components/mimir` pins upstream chart `mimir-distributed@6.2.0` (Mimir `3.2.0`)
 from the `grafana` HelmRepository, and `clusters/home/controllers/mimir.yaml` owns
-its HelmRelease and generated values ConfigMap. It depends on `monitoring-controller`.
+its HelmRelease and generated values ConfigMap. It depends on `monitoring-controller`
+and `kafka`.
 The internal HTTP gateway endpoint is
 `http://mimir-gateway.monitoring.svc.cluster.local`; Prometheus remote write uses
 `/api/v1/push` and queries use `/prometheus/api/v1/query`. Multitenancy is disabled
@@ -237,15 +272,16 @@ overrides exporter, and gateway. MinIO and Kafka subcharts are disabled. Three
 Ceph buckets are configured with path-style S3 access and environment-expanded
 credentials: `observability-mimir-blocks` (blocks storage), `observability-mimir-ruler`
 (ruler storage), and `observability-mimir-alertmanager` (alertmanager storage).
-Ingester, compactor, store gateway, and alertmanager have 10 Gi PVCs.
+Ingester, compactor, store gateway, and alertmanager have 10 Gi PVCs on `rook-ceph-block`.
 The PVC and resource request sizes are trial settings; peak CPU, memory,
 WAL/TSDB disk use, and free disk under a measured trial load have not been
 recorded, so production sizing remains open.
 
-Following the decommissioning of Nisshi, Mimir uses Classic direct ingester
-writes: `mimir.structuredConfig.ingest_storage.enabled: false`. Distributors
-route pushed metric batches directly to ingesters via the memberlist hash ring
-(with `replication_factor: 1`), without Kafka mediation.
+Mimir uses Grafana Mimir's recommended `ingest_storage` architecture with Kafka buffer:
+- **Kafka ingest storage**: `mimir.structuredConfig.ingest_storage.enabled: true` buffers metric writes to Kafka topic `observability-mimir` at `kafka.monitoring.svc.cluster.local:9092` with `auto_create_topic_enabled: true` and `auto_create_topic_default_partitions: 3`.
+- **Direct ingester push disabled**: `mimir.structuredConfig.ingester.push_grpc_method_enabled: false`. Distributors write pushed Prometheus remote write samples into Kafka, decoupling ingestion bursts from ingester state.
+- **Top-level Kafka subchart disabled**: `kafka.enabled: false` (to prevent provisioning the bundled Bitnami demo Kafka subchart) while configuring external broker address `kafka.monitoring.svc.cluster.local:9092`.
+- **Ingester block shipping**: Ingesters consume batches from topic `observability-mimir` across 3 partitions and ship 2-hour TSDB blocks to Ceph S3 (`observability-mimir-blocks`).
 
 Observed on 2026-09-24 and 2026-09-25 with a dedicated Go HTTP probe client,
 without modifying the existing `grafana-k8s-monitoring` release or its Grafana Cloud routes:
@@ -332,7 +368,7 @@ switch to `endpoint: rook-ceph-rgw-celld.rook-ceph.svc.cluster.local:443`, `inse
 ### Decision gate and fallback
 
 In accordance with Task 4 Step 5:
-- The historical ingest storage path via Nisshi Kafka passed initial functional checks, but Nisshi was subsequently decommissioned due to continuous S3 `ListObjects` polling storms. Mimir was migrated to Classic Architecture with direct ingester writes (`ingest_storage.enabled: false`).
+- The ingest storage buffer operates via Apache Kafka in KRaft mode on topic `observability-mimir` at `kafka.monitoring.svc.cluster.local:9092`, with direct gRPC push disabled (`ingester.push_grpc_method_enabled: false`, `ingest_storage.enabled: true`).
 - TSDB long-term block shipping to Ceph RGW failed with HTTP 403 / S3 `AccessDenied`; the SigV4 streaming incompatibility is the trial diagnosis and remains unconfirmed by a successful remedial test.
 - **Local metric routing is kept disabled.** Production and opt-in local metric routing will not be directed to Mimir until block uploads and follow-up queries pass.
 
@@ -375,30 +411,30 @@ kubectl get pods -l app.kubernetes.io/instance=mimir -n monitoring
 kubectl logs mimir-ingester-0 --tail=50 -n monitoring
 ```
 
-## Tempo Monolithic deployment
+## Tempo v3 Distributed deployment
 
-`components/tempo` pins upstream chart `tempo@1.23.2` (Tempo image `grafana/tempo:2.7.2`)
+`components/tempo` pins upstream chart `tempo-distributed@3.27.0` (Tempo v3 architecture)
 from the shared `grafana-community` HelmRepository, and
 `clusters/home/controllers/tempo.yaml` owns its HelmRelease and generated values
-ConfigMap. It depends on `monitoring-controller`.
+ConfigMap. It depends on `monitoring-controller` and `kafka`.
 
-Following the decommissioning of Nisshi, Tempo was migrated from `tempo-distributed` to
-the Monolithic architecture (`grafana/tempo` chart). The internal endpoints in `monitoring` are:
-- HTTP / Query API / Grafana: `tempo.monitoring.svc.cluster.local:3200`
-- OTLP gRPC receiver: `tempo.monitoring.svc.cluster.local:4317`
-- OTLP HTTP receiver: `tempo.monitoring.svc.cluster.local:4318`
+Tempo v3 uses a decoupled read and write microservices architecture:
+- **Distributor**: `distributor` (1 replica) receives traces via OTLP gRPC (port 4317) and OTLP HTTP (port 4318), buffering incoming traces to Kafka topic `observability-tempo` at `kafka.monitoring.svc.cluster.local:9092` (`ingest.kafka.auto_create_topic_enabled: true`).
+- **Kafka trace buffer**: Kafka decouples ingestion from storage pipelines via topic `observability-tempo` (auto-created with 3 partitions), providing durable write buffering.
+- **BlockBuilder worker**: `blockBuilder` (3 replicas) consumes trace data asynchronously from Kafka, compiles traces into columnar Parquet blocks, and uploads them to Ceph S3 bucket `observability-tempo`.
+- **LiveStore worker**: `liveStore` (3 replicas) consumes the same trace stream from Kafka, holding recent traces in local WAL and memory to immediately serve TraceQL queries without waiting for Parquet block compaction.
+- **Querier and Query Frontend**: `querier` (1 replica) and `queryFrontend` (1 replica) coordinate TraceQL queries across both `liveStore` (recent traces) and Ceph S3 Parquet blocks (historical traces). The internal query frontend endpoint is `http://tempo-query-frontend.monitoring.svc.cluster.local:3200`.
+- **Backend Scheduler & Backend Worker**: `backendScheduler` (1 replica) and `backendWorker` (1 replica) manage block lifecycle, compaction, and retention policies in S3.
+- **Memcached**: `memcached` provides caching for trace searches and Parquet blocks.
 
-The release deploys a single monolithic Tempo workload with resources requesting
-50m CPU / 128Mi memory and a 1Gi memory limit. Receivers are configured for OTLP gRPC
-(port 4317) and OTLP HTTP (port 4318).
-
-Ceph S3 storage is configured under `tempo.storage.trace.s3` pointing to bucket
+Ceph S3 storage is configured under `storage.trace.s3` pointing to bucket
 `observability-tempo`, endpoint `rook-ceph-rgw-celld.rook-ceph.svc.cluster.local:443`,
 `region: us-east-1`, `insecure: false`, `tls_insecure_skip_verify: true`, and `forcepathstyle: true`.
-Secret `observability-tempo` provides credentials via `tempo.extraEnvFrom` and
-`tempo.extraArgs.config.expand-env: "true"`.
+Secret `observability-tempo` provides credentials via `global.extraEnvFrom` and
+`global.extraArgs` (`-config.expand-env=true`).
 
-In Grafana, the `local-tempo` datasource connects to `http://tempo.monitoring.svc.cluster.local:3200`.
+In Grafana, the `local-tempo` datasource connects to the query frontend at:
+`http://tempo-query-frontend.monitoring.svc.cluster.local:3200`.
 
 ### Historical trial observations (Tempo Distributed)
 
@@ -438,7 +474,7 @@ This mechanism was not independently confirmed. The verified result is PUT 403
 ### Decision gate and fallback
 
 In accordance with Task 5 Step 5:
-- The historical distributed Kafka ingest storage was decommissioned along with Nisshi. Tempo is now configured as a Monolithic deployment with local ingestion and S3 block persistence.
+- Tempo has been upgraded to `tempo-distributed` v3.27.0 (Tempo v3 architecture) with Kafka ingest buffering on topic `observability-tempo` (`kafka.monitoring.svc.cluster.local:9092`) and decoupled `blockBuilder` / `liveStore` components.
 - Long-term block persistence to Ceph RGW **FAILED**: the block upload PUT returned HTTP 403 `AccessDenied`. The SigV4 streaming incompatibility is a trial diagnosis, not an established cause.
 - **Production and opt-in local trace routing are kept disabled.** Enable them only after block upload succeeds, the object is confirmed in `observability-tempo`, and the stored trace is queryable after a restart.
 - The existing Grafana Cloud trace export route remains active and unaffected.
@@ -447,8 +483,8 @@ Check Tempo health with:
 
 ```sh
 kubectl get helmreleases tempo -n monitoring
-kubectl get pods -l app.kubernetes.io/name=tempo -n monitoring
-kubectl logs -l app.kubernetes.io/name=tempo --tail=50 -n monitoring
+kubectl get pods -l app.kubernetes.io/instance=tempo -n monitoring
+kubectl logs -l app.kubernetes.io/name=tempo-query-frontend --tail=50 -n monitoring
 ```
 
 ## Local Grafana trial operations
@@ -467,7 +503,7 @@ The isolated local Grafana release provides an internal, cluster-local interface
 - Data sources provisioned with stable UIDs:
   - `Local Loki` (`local-loki`): `http://loki-gateway.monitoring.svc.cluster.local` (type `loki`).
   - `Local Mimir` (`local-mimir`): `http://mimir-gateway.monitoring.svc.cluster.local/prometheus` (type `prometheus`, POST method).
-  - `Local Tempo` (`local-tempo`): `http://tempo.monitoring.svc.cluster.local:3200` (type `tempo`).
+  - `Local Tempo` (`local-tempo`): `http://tempo-query-frontend.monitoring.svc.cluster.local:3200` (type `tempo`).
 
 ### Verification results
 
@@ -576,7 +612,7 @@ restarted, and no telemetry was sent in this verification round.
 | Gate | Evidence and present status |
 | --- | --- |
 | Repository tests | `go test ./...` passed (`github.com/nakatanakatana/x/tests`, 5.487 s). |
-| Component renders | `kustomize build` passed for Loki, Mimir, Tempo, Grafana, and local Alloy. `helm template` passed for the four pinned charts in this runbook. |
+| Component renders | `kustomize build` passed for Kafka, Loki, Mimir, Tempo, Grafana, and local Alloy. `helm template` passed for the pinned charts in this runbook. |
 | Repository ownership | `go run ./tests repository --repo-root .` did not finish. Outside the sandbox it stopped while rendering the existing Cloudflare remote base with `fs-security-constraint`; therefore it did not establish unique ownership for every repository resource. |
 | Ceph claims | All six ObjectBucketClaims were `Bound`; `CephObjectStore/celld` was `Ready`. The `celld-rgw` StorageClass had reclaim policy `Retain`. This is a point-in-time control-plane check, not a fresh object read. |
 | Loki | Loki Pods were Running. `HelmRelease/loki` was Ready at revision 2, chart `loki@18.13.5`. Direct ingester write path configured; no new restart or query was performed here. |
@@ -587,25 +623,26 @@ restarted, and no telemetry was sent in this verification round.
 
 The current application image observation is Loki ingester
 `docker.io/grafana/loki@sha256:1107dd5274e0ada47e42472b7a7e71f3b2a2fe878878108f3e2f9e51528f0193`.
-The chart pins are Loki `18.13.5`, Mimir `6.2.0`, Tempo `1.23.2` (app `2.7.2`), and
-Grafana `13.2.5`; the Mimir, Tempo, and Grafana imageIDs above are earlier
+The chart pins are Loki `18.13.5`, Mimir `6.2.0`, Tempo `tempo-distributed@3.27.0`, and
+Grafana `13.2.5`; Kafka uses StatefulSet with image `apache/kafka:4.3.1`. The Mimir, Tempo, and Grafana imageIDs above are earlier
 trial observations, not historical imageIDs for every test.
 The local Alloy digest above is a Git pin from the Cloud receiver observation;
 the local Alloy Deployment has not run.
 
 No explicit production retention period or bucket lifecycle policy is set in
-these component values. The monolithic Tempo chart configuration specifies
-`tempo.retention: 48h`.
+these component values. Tempo v3 block retention and lifecycle are managed by
+`backendWorker` and `backendScheduler`.
 Loki's `reject_old_samples_max_age: 168h` rejects old ingest samples; it is
 not a data-retention policy. The six bucket claims use `Retain`, so deleting
-a claim is not a data-purge procedure. Alert rules,
+a claim is not a data-purge procedure. Kafka retains commit logs for 24 hours
+with 64 MB segments. Alert rules,
 rule evaluation, silence/Alertmanager recovery, backup inventory, and restore
 from a Ceph backup have not been verified.
 
-Resource requests are provisional: Mimir application components generally
-request 50m/128Mi (gateway 20m/32Mi, overrides exporter 20m/64Mi) and its
-four stateful roles each request a 10Gi PVC. Tempo monolithic requests 50m/128Mi
-with a 1Gi memory limit;
+Resource requests are provisional: Kafka requests 100m CPU / 512Mi memory (1 CPU / 1Gi limit);
+Mimir application components generally request 50m/128Mi (gateway 20m/32Mi, overrides exporter 20m/64Mi) and its
+four stateful roles each request a 10Gi PVC; Tempo v3 components request 50m/128Mi (1Gi limit) for distributor,
+blockBuilder (3 replicas), liveStore (3 replicas), querier, queryFrontend, backendScheduler, and backendWorker, with memcached at 50m/128Mi (512Mi limit);
 Grafana requests 50m/128Mi; local Alloy requests 50m/128Mi and has a 256Mi
 `emptyDir.sizeLimit` for `/var/lib/alloy`. Loki ingester and compactor each
 have a 10Gi PVC;
@@ -613,8 +650,8 @@ the chart supplies their other resource defaults. No sustained-load CPU,
 memory, disk, RGW request-rate, or retention-capacity measurements justify
 production sizing yet.
 
-Durable PVCs pin `storageClass: rook-ceph-block`: Loki sets it per
-`ingester.persistence.claims[0]` and `compactor.persistence.claims[0]` (the
+Durable PVCs pin `storageClass: rook-ceph-block`: Kafka requests 10Gi on `/var/lib/kafka/data`;
+Loki sets it per `ingester.persistence.claims[0]` and `compactor.persistence.claims[0]` (the
 chart schema keeps the class on each claim entry; there is no effective
 top-level persistence class key), plus Mimir
 `alertmanager`/`compactor`/`ingester`/`store_gateway`
@@ -636,7 +673,7 @@ confirmed on 2026-09-26 and must be rechecked before applying the source.
   are not ready.
 - Render the pinned charts from local cache only (`helm template` with the
   versions in this runbook, plus `kustomize build` per component) and confirm
-  `storageClassName: rook-ceph-block` on the Loki ingester/compactor and
+  `storageClassName: rook-ceph-block` on the Kafka StatefulSet, Loki ingester/compactor, and
   Mimir stateful PVCs, `region: us-east-1` in the Tempo S3 config, and the
   `job="observability-local-alloy"` relabel in the Alloy ConfigMap.
 - Confirm the rendered Loki containers retain
@@ -653,7 +690,7 @@ confirmed on 2026-09-26 and must be rechecked before applying the source.
   `rook-ceph-block`. Preserve existing claims and their data.
 - Inspect the rendered manifests for chart-wide S3 env injection: Loki
   `defaults.extraEnvFrom`, Mimir `global.extraEnv`, and Tempo
-  `extraEnvFrom` may expose bucket credentials beyond the pods that
+  `global.extraEnvFrom` may expose bucket credentials beyond the pods that
   need each Secret; confirm the actual scope in the pinned-chart render
   before unsuspending. Narrow the injection to the components that need
   each Secret only when render evidence shows a chart-supported
@@ -690,7 +727,7 @@ that change to the Flux `GitRepository/flux-system` source. Reconcile the source
 and parent `cluster-controllers` Kustomization, then verify the child's live
 `spec.suspend` is `false` before reconciling it. A direct `flux reconcile`
 cannot make a Git-suspended child active. Child dependencies stage startup:
-monitoring-controller first; Loki, Mimir, and Tempo after `monitoring-controller`;
+monitoring-controller first; kafka after `monitoring-controller`; Loki, Mimir, and Tempo after `kafka` and `monitoring-controller`;
 Grafana and local Alloy after Loki. Keep metric and trace routes disabled while
 the Mimir and Tempo block-persistence gates remain open. `grafana` now depends only on
 `monitoring-controller` and `loki`, with health checks on its own HelmRelease
@@ -709,9 +746,10 @@ flux reconcile kustomization cluster-configs --with-source -n flux-system
 flux reconcile kustomization monitoring-controller --with-source -n flux-system
 flux reconcile source git flux-system -n flux-system
 flux reconcile kustomization cluster-controllers --with-source -n flux-system
-kubectl get kustomizations loki mimir tempo grafana observability-local-alloy -n flux-system \
+kubectl get kustomizations kafka loki mimir tempo grafana observability-local-alloy -n flux-system \
   -o custom-columns=NAME:.metadata.name,SUSPEND:.spec.suspend
 # Run each child command only after its Git suspension is lifted and verified:
+flux reconcile kustomization kafka --with-source -n flux-system
 flux reconcile kustomization loki --with-source -n flux-system
 # Reconcile Mimir and Tempo for bounded write validation.
 # Keep metric and trace routes disabled while persistence checks are open.
