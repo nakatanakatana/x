@@ -42,7 +42,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: nostr-bridge
-          image: ghcr.io/nakatanakatana/nostr-bridge:0.12.4@sha256:b254deeb9047fbc7a7011d1517b74dbcfc58d8ec29d34368aca69ffc42c232ca
+          image: ghcr.io/nakatanakatana/nostr-bridge:0.12.5@sha256:02b17b3ad41da4c19373aec831002563958ed6365a913214983d8c2f7481515f
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
