@@ -121,6 +121,15 @@ spec:
       status:
         disabled: false
         interval: 60s
+    muteHealthWarning:
+      AUTH_EMERGENCY_CIPHERS_SET:
+        policy: mute
+      AUTH_INSECURE_CLIENT_KEY_TYPE:
+        policy: mute
+      AUTH_INSECURE_KEYS_ALLOWED:
+        policy: mute
+      AUTH_INSECURE_KEYS_CREATABLE:
+        policy: mute
     livenessProbe:
       mon:
         disabled: false
