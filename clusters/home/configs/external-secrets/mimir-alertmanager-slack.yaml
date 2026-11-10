@@ -1,0 +1,17 @@
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: mimir-alertmanager-slack
+  namespace: monitoring
+spec:
+  refreshInterval: 18h45m
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: 1password-sdk
+  target:
+    name: mimir-alertmanager-slack
+    creationPolicy: Owner
+  data:
+    - secretKey: bot-token
+      remoteRef:
+        key: mimir-alertmanager-slack/bot-token
