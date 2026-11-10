@@ -84,4 +84,15 @@ sidecar:
         memory: 64Mi
       limits:
         memory: 256Mi
+  alerts:
+    enabled: true
+    label: grafana_alert
+    labelValue: "1"
+    searchNamespace: monitoring
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        memory: 256Mi
 

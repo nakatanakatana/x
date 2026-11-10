@@ -1,0 +1,56 @@
+apiVersion: 1
+
+groups:
+  - orgId: 1
+    name: ceph-health
+    folder: Ceph
+    interval: 1m
+    rules:
+      - uid: ceph-cluster-health-status
+        title: Ceph Cluster Health Warning or Error
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: local-mimir
+            model:
+              editorMode: code
+              expr: ceph_health_status{}
+              instant: true
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: C
+            relativeTimeRange:
+              from: 0
+              to: 0
+            datasourceUid: __expr__
+            model:
+              conditions:
+                - evaluator:
+                    params:
+                      - 0
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params:
+                      - A
+                  reducer:
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              type: classic_conditions
+        for: 3m
+        annotations:
+          summary: "Ceph cluster health is not OK"
+          description: "Ceph cluster health status is not OK (ceph_health_status > 0)."
+        labels:
+          severity: warning
+        noDataState: OK
+        execErrState: Error
