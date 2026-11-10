@@ -67,7 +67,7 @@ datasources:
       - name: Local Mimir Alertmanager
         type: alertmanager
         uid: local-mimir-alertmanager
-        url: http://mimir-gateway.monitoring.svc.cluster.local/alertmanager
+        url: http://mimir-gateway.monitoring.svc.cluster.local
         access: proxy
         jsonData:
           implementation: mimir
