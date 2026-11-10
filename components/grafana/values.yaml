@@ -64,6 +64,14 @@ datasources:
           httpMethod: POST
           prometheusType: Mimir
           manageAlerts: true
+      - name: Local Mimir Alertmanager
+        type: alertmanager
+        uid: local-mimir-alertmanager
+        url: http://mimir-gateway.monitoring.svc.cluster.local
+        access: proxy
+        jsonData:
+          implementation: mimir
+          handleGrafanaManagedAlerts: false
       - name: Local Tempo
         type: tempo
         uid: local-tempo
