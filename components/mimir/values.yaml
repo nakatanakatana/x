@@ -113,6 +113,29 @@ alertmanager:
     enabled: true
     size: 10Gi
     storageClass: rook-ceph-block
+  extraVolumes:
+    - name: slack-bot-token
+      secret:
+        secretName: mimir-alertmanager-slack
+  extraVolumeMounts:
+    - name: slack-bot-token
+      mountPath: /etc/alertmanager/secrets/mimir-alertmanager-slack
+      readOnly: true
+  fallbackConfig: |
+    route:
+      group_by: ['alertname', 'namespace']
+      group_wait: 30s
+      group_interval: 5m
+      repeat_interval: 12h
+      receiver: 'slack-alert'
+    receivers:
+      - name: 'slack-alert'
+        slack_configs:
+          - api_url: 'https://slack.com/api/chat.postMessage'
+            channel: '#alert'
+            http_config:
+              bearer_token_file: '/etc/alertmanager/secrets/mimir-alertmanager-slack/bot-token'
+            send_resolved: true
 compactor:
   replicas: 1
   resources:

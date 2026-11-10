@@ -62,6 +62,8 @@ datasources:
         access: proxy
         jsonData:
           httpMethod: POST
+          prometheusType: Mimir
+          manageAlerts: true
       - name: Local Tempo
         type: tempo
         uid: local-tempo

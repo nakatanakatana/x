@@ -1,2 +1,4 @@
 logLevel: WARNING
 obcAllowAdditionalConfigFields: "maxObjects,maxSize,bucketLifecycle"
+monitoring:
+  enabled: true
