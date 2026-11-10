@@ -8,7 +8,7 @@ spec:
     image: quay.io/ceph/ceph:v20.2.5@sha256:4337ac8ac81d40df136e5eac92ca53bb52360a5e039f3d1f7935e729eb5ef42c
     allowUnsupported: false
   dataDirHostPath: /var/lib/rook
-  skipUpgradeChecks: true
+  skipUpgradeChecks: false
   continueUpgradeAfterChecksEvenIfNotHealthy: false
   waitTimeoutForHealthyOSDInMinutes: 10
   mon:
@@ -121,6 +121,15 @@ spec:
       status:
         disabled: false
         interval: 60s
+    muteHealthWarning:
+      AUTH_EMERGENCY_CIPHERS_SET:
+        policy: mute
+      AUTH_INSECURE_CLIENT_KEY_TYPE:
+        policy: mute
+      AUTH_INSECURE_KEYS_ALLOWED:
+        policy: mute
+      AUTH_INSECURE_KEYS_CREATABLE:
+        policy: mute
     livenessProbe:
       mon:
         disabled: false
