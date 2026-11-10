@@ -62,6 +62,8 @@ datasources:
         access: proxy
         jsonData:
           httpMethod: POST
+          prometheusType: Mimir
+          manageAlerts: true
       - name: Local Tempo
         type: tempo
         uid: local-tempo
@@ -78,17 +80,6 @@ sidecar:
     provider:
       allowUiUpdates: false
       foldersFromFilesStructure: true
-    resources:
-      requests:
-        cpu: 50m
-        memory: 64Mi
-      limits:
-        memory: 256Mi
-  alerts:
-    enabled: true
-    label: grafana_alert
-    labelValue: "1"
-    searchNamespace: monitoring
     resources:
       requests:
         cpu: 50m

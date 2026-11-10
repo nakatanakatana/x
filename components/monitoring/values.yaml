@@ -63,6 +63,11 @@ collectors:
       - singleton
     logging:
       format: json
+    extraConfig: |-
+      mimir.rules.kubernetes "k8s_rules" {
+        address   = "http://mimir-ruler.monitoring.svc.cluster.local:8080"
+        tenant_id = "anonymous"
+      }
   alloy-receiver:
     presets:
       - deployment
