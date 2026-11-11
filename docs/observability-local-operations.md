@@ -564,7 +564,7 @@ The Grafana Model Context Protocol (MCP) server exposes local observability capa
   - Listens on loopback `127.0.0.1:8000` using `streamable-http` transport mode (`-t streamable-http -address 127.0.0.1:8000`).
   - Authenticates against internal Grafana at `http://grafana.monitoring.svc.cluster.local` using credentials from the chart admin Secret `grafana` (`GRAFANA_USERNAME` from `admin-user`, `GRAFANA_PASSWORD` from `admin-password`).
   - **Tool capabilities enabled**: Querying Loki, Mimir, Mimir Alertmanager, Tempo, dashboards, folders, and alerting rules/silences.
-  - **Cloud-only tools disabled**: Explicitly disabled via flags (`--disable-incident`, `--disable-oncall`, `--disable-sift`, `--disable-pyroscope`, `--disable-asserts`).
+  - **Cloud-only tools disabled**: Explicitly disabled via flags (`--disable-incident`, `--disable-oncall`, `--disable-pyroscope`, `--disable-asserts`). `--allowed-hosts=*` is set for loopback reverse-proxy forwarding from `mcp-auth-proxy`.
 
 #### Access & Tailscale Ingress
 
