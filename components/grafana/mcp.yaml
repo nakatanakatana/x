@@ -83,9 +83,9 @@ spec:
             - streamable-http
             - -address
             - 127.0.0.1:8000
+            - --allowed-hosts=*
             - --disable-incident
             - --disable-oncall
-            - --disable-sift
             - --disable-pyroscope
             - --disable-asserts
           env:
