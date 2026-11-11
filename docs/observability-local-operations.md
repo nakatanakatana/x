@@ -568,7 +568,7 @@ The Grafana Model Context Protocol (MCP) server exposes local observability capa
 
 #### Access & Tailscale Ingress
 
-- **Tailnet-only access**: Route exposed at `https://grafana-mcp.mora-egret.ts.net/mcp`.
+- **Tailnet-only access**: Route exposed at `https://grafana-mcp.mora-egret.ts.net/`.
 - **Ingress configuration**:
   - Managed via Tailscale Ingress (`Ingress/grafana-mcp`) with `ingressClassName: tailscale`.
   - Annotated with `tailscale.com/proxy-class: avoid-slow-nodes`.
@@ -577,7 +577,7 @@ The Grafana Model Context Protocol (MCP) server exposes local observability capa
 #### Pocket ID & 1Password Configuration
 
 - **Pocket ID client setup**:
-  - Redirect / callback URL: `https://grafana-mcp.mora-egret.ts.net/oauth/callback`.
+  - Redirect / callback URL: `https://grafana-mcp.mora-egret.ts.net/.auth/oidc/callback`.
   - Group permission: Restrict client authorization in Pocket ID to the authorized user group.
 - **Secret management**:
   - 1Password vault item `grafana-mcp-pocket-id` stores `client_id` and `client_secret`.
@@ -592,12 +592,12 @@ kubectl get pods -n monitoring -l app=grafana-mcp
 kubectl get ingress grafana-mcp -n monitoring
 ```
 
-MCP client connection example (SSE / streamable-http URL `https://grafana-mcp.mora-egret.ts.net/mcp`):
+MCP client connection example (SSE / streamable-http URL `https://grafana-mcp.mora-egret.ts.net/`):
 
 Configure your MCP client with the server endpoint:
-- **Server URL**: `https://grafana-mcp.mora-egret.ts.net/mcp`
-- **Transport**: `streamable-http` / `sse`
-- **OAuth Callback URL**: `https://grafana-mcp.mora-egret.ts.net/oauth/callback`
+- **Server URL**: `https://grafana-mcp.mora-egret.ts.net/`
+- **Transport**: `streamable-http` / `http`
+- **Pocket ID Callback URL**: `https://grafana-mcp.mora-egret.ts.net/.auth/oidc/callback`
 
 ## Opt-in local Alloy log collection
 
