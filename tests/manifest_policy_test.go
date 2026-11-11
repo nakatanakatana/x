@@ -3467,6 +3467,37 @@ func TestGrafanaMCPManifestPolicy(t *testing.T) {
 		t.Fatal("Deployment/monitoring/grafana-mcp not found")
 	})
 
+	t.Run("mcp-grafana serves at root endpoint path", func(t *testing.T) {
+		for _, resource := range resources {
+			if resource.Document["kind"] != "Deployment" ||
+				resourceName(resource.Document) != "grafana-mcp" ||
+				resourceNamespace(resource.Document) != "monitoring" {
+				continue
+			}
+			podSpec := resource.Document["spec"].(map[string]any)["template"].(map[string]any)["spec"].(map[string]any)
+			for _, rawContainer := range podSpec["containers"].([]any) {
+				container := rawContainer.(map[string]any)
+				if container["name"] != "mcp-grafana" {
+					continue
+				}
+				args := container["args"].([]any)
+				hasRootEndpoint := false
+				for _, arg := range args {
+					if arg == "--endpoint-path=/" {
+						hasRootEndpoint = true
+						break
+					}
+				}
+				if !hasRootEndpoint {
+					t.Fatal("mcp-grafana container missing --endpoint-path=/ arg")
+				}
+				return
+			}
+			t.Fatal("mcp-grafana container not found in Deployment/grafana-mcp")
+		}
+		t.Fatal("Deployment/monitoring/grafana-mcp not found")
+	})
+
 	for _, tc := range []struct {
 		kind string
 		name string
