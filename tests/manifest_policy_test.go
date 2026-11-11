@@ -3442,6 +3442,31 @@ func TestGrafanaMCPManifestPolicy(t *testing.T) {
 		Resources: resources,
 	})
 
+	t.Run("auth proxy targets the mcp-grafana origin", func(t *testing.T) {
+		for _, resource := range resources {
+			if resource.Document["kind"] != "Deployment" ||
+				resourceName(resource.Document) != "grafana-mcp" ||
+				resourceNamespace(resource.Document) != "monitoring" {
+				continue
+			}
+			podSpec := resource.Document["spec"].(map[string]any)["template"].(map[string]any)["spec"].(map[string]any)
+			for _, rawContainer := range podSpec["containers"].([]any) {
+				container := rawContainer.(map[string]any)
+				if container["name"] != "mcp-auth-proxy" {
+					continue
+				}
+				args := container["args"].([]any)
+				target := args[len(args)-1]
+				if target != "http://127.0.0.1:8000" {
+					t.Fatalf("mcp-auth-proxy target = %q, want origin without the /mcp path", target)
+				}
+				return
+			}
+			t.Fatal("mcp-auth-proxy container not found in Deployment/grafana-mcp")
+		}
+		t.Fatal("Deployment/monitoring/grafana-mcp not found")
+	})
+
 	for _, tc := range []struct {
 		kind string
 		name string
