@@ -17,4 +17,10 @@ spec:
   releaseName: external-secrets
   values:
     concurrent: 1
+    serviceMonitor:
+      enabled: true
+      metricRelabelings:
+        - action: drop
+          sourceLabels: [__name__]
+          regex: "(go|process)_.*"
 

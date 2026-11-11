@@ -1,0 +1,43 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  labels:
+    role: alert-rules
+  name: flux-rules
+  namespace: flux-system
+spec:
+  groups:
+    - name: flux-system
+      rules:
+        - alert: FluxControlPlaneDown
+          annotations:
+            description: "One or more Flux core controllers (source, kustomize, or helm) are down or unreachable."
+            summary: "Flux core controller is down"
+          expr: "absent(up{namespace=\"flux-system\", pod=~\"source-controller-.*\"} == 1) or absent(up{namespace=\"flux-system\", pod=~\"kustomize-controller-.*\"} == 1) or absent(up{namespace=\"flux-system\", pod=~\"helm-controller-.*\"} == 1)"
+          for: 10m
+          labels:
+            severity: critical
+        - alert: FluxKustomizationNotReady
+          annotations:
+            description: "The Flux Kustomization {{ $labels.name }} in namespace {{ $labels.exported_namespace }} has failed reconciliation for more than 15 minutes."
+            summary: "Flux Kustomization {{ $labels.name }} is not ready"
+          expr: "gotk_resource_info{customresource_kind=\"Kustomization\", ready=\"False\", suspended!=\"true\"} == 1"
+          for: 15m
+          labels:
+            severity: warning
+        - alert: FluxHelmReleaseNotReady
+          annotations:
+            description: "The Flux HelmRelease {{ $labels.name }} in namespace {{ $labels.exported_namespace }} has failed reconciliation or health check for more than 15 minutes."
+            summary: "Flux HelmRelease {{ $labels.name }} is not ready"
+          expr: "gotk_resource_info{customresource_kind=\"HelmRelease\", ready=\"False\", suspended!=\"true\"} == 1"
+          for: 15m
+          labels:
+            severity: warning
+        - alert: FluxSourceNotReady
+          annotations:
+            description: "The Flux {{ $labels.customresource_kind }} source {{ $labels.name }} in namespace {{ $labels.exported_namespace }} is not ready for more than 15 minutes."
+            summary: "Flux source {{ $labels.customresource_kind }}/{{ $labels.name }} is not ready"
+          expr: "gotk_resource_info{customresource_kind=~\"GitRepository|HelmRepository|Bucket|OCIRepository\", ready=\"False\", suspended!=\"true\"} == 1"
+          for: 15m
+          labels:
+            severity: warning
