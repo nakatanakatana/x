@@ -1,0 +1,59 @@
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: preview-pocket-id
+  namespace: app
+spec:
+  refreshInterval: 20h47m
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: 1password-sdk
+  target:
+    name: preview-pocket-id
+    creationPolicy: Owner
+  data:
+    - secretKey: client-id
+      remoteRef:
+        key: preview-pocket-id/client_id
+    - secretKey: client-secret
+      remoteRef:
+        key: preview-pocket-id/client_secret
+    - secretKey: cookie-secret
+      remoteRef:
+        key: preview-pocket-id/cookie_secret
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: vcluster-app-kubeconfig
+  namespace: ci
+spec:
+  refreshInterval: 21h49m
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: 1password-sdk
+  target:
+    name: vcluster-app-kubeconfig
+    creationPolicy: Owner
+  data:
+    - secretKey: config
+      remoteRef:
+        key: preview-deployer/kubeconfig
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: tekton-preview-github
+  namespace: ci
+spec:
+  refreshInterval: 22h19m
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: 1password-sdk
+  target:
+    name: tekton-preview-github
+    creationPolicy: Owner
+  data:
+    - secretKey: token
+      remoteRef:
+        key: preview-deployer/github_token

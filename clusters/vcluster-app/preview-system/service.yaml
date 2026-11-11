@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: preview-auth-proxy
+  namespace: preview-system
+spec:
+  type: ClusterIP
+  selector:
+    app: preview-auth-proxy
+  ports:
+    - name: http
+      protocol: TCP
+      port: 8080
+      targetPort: 8080

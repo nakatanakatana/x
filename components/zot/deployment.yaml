@@ -1,0 +1,69 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: zot-registry
+  namespace: ci
+  labels:
+    app: zot-registry
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: zot-registry
+  template:
+    metadata:
+      labels:
+        app: zot-registry
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        fsGroup: 65532
+        fsGroupChangePolicy: OnRootMismatch
+        runAsGroup: 65532
+        runAsNonRoot: true
+        runAsUser: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: zot
+          image: ghcr.io/project-zot/zot-minimal:v2.1.2@sha256:9f24a2594a59fb956d49cd9196215a02f704ef65f213b963d939562835cb31d0
+          args:
+            - serve
+            - /etc/zot/config.json
+          ports:
+            - name: http
+              containerPort: 5000
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+          readinessProbe:
+            httpGet:
+              path: /v2/
+              port: http
+          livenessProbe:
+            httpGet:
+              path: /v2/
+              port: http
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/registry
+            - name: config
+              mountPath: /etc/zot/config.json
+              subPath: config.json
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: zot-data
+        - name: config
+          configMap:
+            name: zot-config
+        - name: tmp
+          emptyDir: {}

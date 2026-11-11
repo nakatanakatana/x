@@ -1,0 +1,15 @@
+apiVersion: pipelinesascode.tekton.dev/v1alpha1
+kind: Repository
+metadata:
+  name: feed-reader
+  namespace: tekton-workspace
+spec:
+  url: https://github.com/nakatanakatana/feed-reader
+---
+apiVersion: pipelinesascode.tekton.dev/v1alpha1
+kind: Repository
+metadata:
+  name: mytools
+  namespace: tekton-workspace
+spec:
+  url: https://github.com/nakatanakatana/mytools

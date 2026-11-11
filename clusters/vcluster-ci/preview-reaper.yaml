@@ -1,0 +1,74 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: preview-reaper
+  namespace: tekton-workspace
+spec:
+  schedule: "17 * * * *"
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          automountServiceAccountToken: false
+          restartPolicy: OnFailure
+          securityContext:
+            fsGroup: 65532
+            runAsNonRoot: true
+            runAsGroup: 65532
+            runAsUser: 65532
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: reaper
+              image: bitnami/kubectl:1.32.2@sha256:41f5fb5a722a1d28c2ccb4c8d1f60f9f9a6906244896fb42a930e8a2b17822e4
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop:
+                    - ALL
+                readOnlyRootFilesystem: true
+              env:
+                - name: KUBECONFIG
+                  value: /var/run/vcluster-app/config
+                - name: GITHUB_TOKEN
+                  valueFrom:
+                    secretKeyRef:
+                      name: tekton-preview-github
+                      key: token
+              volumeMounts:
+                - name: vcluster-app-kubeconfig
+                  mountPath: /var/run/vcluster-app
+                  readOnly: true
+                - name: tmp
+                  mountPath: /tmp
+              command:
+                - /bin/sh
+                - -c
+              args:
+                - |
+                  set -eu
+                  for ns in $(kubectl get ns -l preview.nakatanakatana.app/enabled=true -o jsonpath='{.items[*].metadata.name}'); do
+                    repo=$(kubectl get ns "$ns" -o jsonpath='{.metadata.annotations.preview\.nakatanakatana\.app/repo}')
+                    pr=$(kubectl get ns "$ns" -o jsonpath='{.metadata.annotations.preview\.nakatanakatana\.app/pr}')
+                    if [ -z "$repo" ] || [ -z "$pr" ]; then
+                      continue
+                    fi
+                    resp=$(curl -fsSL -H "Authorization: Bearer ${GITHUB_TOKEN}" -H "Accept: application/vnd.github+json" "https://api.github.com/repos/${repo}/pulls/${pr}" || true)
+                    if [ -z "$resp" ]; then
+                      echo "warning: failed to query GitHub PR ${repo}#${pr} for namespace ${ns}" >&2
+                      continue
+                    fi
+                    is_open=$(printf '%s' "$resp" | grep -c '"state":[[:space:]]*"open"' || true)
+                    has_label=$(printf '%s' "$resp" | grep -c '"name":[[:space:]]*"preview"' || true)
+                    if [ "$is_open" -eq 0 ] || [ "$has_label" -eq 0 ]; then
+                      kubectl delete httproute -n preview-system "$ns" --ignore-not-found
+                      kubectl delete ns "$ns" --ignore-not-found
+                    fi
+                  done
+          volumes:
+            - name: vcluster-app-kubeconfig
+              secret:
+                secretName: vcluster-app-kubeconfig
+            - name: tmp
+              emptyDir: {}

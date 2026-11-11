@@ -3,4 +3,6 @@ kind: Kustomization
 resources:
   - cloudflare-gateway-canary.yaml
   - namespace.yaml
+  - preview-reaper.yaml
+  - preview-tasks.yaml
   - tekton-ingress.yaml

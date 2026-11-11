@@ -19,6 +19,10 @@ spec:
       namespace: app
     - apiVersion: litestream.mytools.nakatanakatana.app/v1alpha1
       kind: Litestream
+      name: feed-reader-db-preview
+      namespace: app
+    - apiVersion: litestream.mytools.nakatanakatana.app/v1alpha1
+      kind: Litestream
       name: feed-reader-db
       namespace: app
     - apiVersion: litestream.mytools.nakatanakatana.app/v1alpha1

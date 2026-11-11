@@ -27,6 +27,11 @@ spec:
                   tailscale.com/hostname: "vcluster-ci"
             exportKubeConfig:
               server: "https://vcluster.ci.svc.cluster.local:443"
+            networking:
+              replicateServices:
+                fromHost:
+                  - from: ci/zot-registry
+                    to: tekton-workspace/zot-registry
             sync:
               fromHost:
                 gatewayClasses:
@@ -47,3 +52,5 @@ spec:
                   mappings:
                     byName:
                       "ci/pipelines-as-code-secret": "tekton-pipelines/pipelines-as-code-secret"
+                      "ci/vcluster-app-kubeconfig": "tekton-workspace/vcluster-app-kubeconfig"
+                      "ci/tekton-preview-github": "tekton-workspace/tekton-preview-github"

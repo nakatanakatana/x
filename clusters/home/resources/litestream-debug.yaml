@@ -46,3 +46,52 @@ spec:
         ifDatabaseExists: skip
         ifReplicaMissing: fail
         integrityCheck: quick
+---
+apiVersion: litestream.mytools.nakatanakatana.app/v1alpha1
+kind: LitestreamReplica
+metadata:
+  name: feed-reader-db-preview-source
+  namespace: app
+spec:
+  replica:
+    type: s3
+    s3:
+      endpoint: http://storage-clusterip.tailscale.svc.cluster.local:8010
+      bucket: feed-reader
+      path: feed-reader.db
+      credentials:
+        accessKeyID:
+          secretKeyRef:
+            name: feed-reader-storage
+            key: access_key
+        secretAccessKey:
+          secretKeyRef:
+            name: feed-reader-storage
+            key: access_secret
+---
+apiVersion: litestream.mytools.nakatanakatana.app/v1alpha1
+kind: Litestream
+metadata:
+  name: feed-reader-db-preview
+  namespace: app
+spec:
+  image:
+    repository: litestream/litestream
+    tag: 0.5.18
+    digest: sha256:513bff62a88fc0c86c73d27333c41c54c89fe890a7c32a551600adff9309b11b
+    pullPolicy: IfNotPresent
+  injection:
+    targetContainer: feed-reader
+    volume: data
+    podSecurityContext:
+      fsGroup: 65532
+      fsGroupChangePolicy: OnRootMismatch
+  databases:
+    - name: feed-reader
+      path: /data/feed-reader.db
+      restore:
+        replicaRef:
+          name: feed-reader-db-preview-source
+        ifDatabaseExists: skip
+        ifReplicaMissing: fail
+        integrityCheck: quick
