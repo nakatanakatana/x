@@ -1,2 +1,11 @@
 crds:
   enabled: true
+prometheus:
+  enabled: true
+  servicemonitor:
+    enabled: true
+    endpointAdditionalProperties:
+      metricRelabelings:
+        - action: drop
+          sourceLabels: [__name__]
+          regex: "(go|process)_.*"
