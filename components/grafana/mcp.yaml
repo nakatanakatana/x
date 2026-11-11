@@ -77,7 +77,7 @@ spec:
             - name: tmp
               mountPath: /tmp
         - name: mcp-grafana
-          image: grafana/mcp-grafana:2.0.2@sha256:0d488e08b7543f8026bb7122f7c6116e55aa3dace89d0de702704167738ade14
+          image: grafana/mcp-grafana:2.3.0@sha256:97d82eea2a7d493beafc56eaa4572dcfbe4f7255ed193cfa12da07ba62c8a3fa
           args:
             - -t
             - streamable-http
