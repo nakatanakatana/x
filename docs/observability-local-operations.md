@@ -558,7 +558,7 @@ The Grafana Model Context Protocol (MCP) server exposes local observability capa
   - Image: `ghcr.io/sigbit/mcp-auth-proxy:v2.10.2` (pinned with sha256 digest).
   - Listens on `:8080`, exposed cluster-internally by Service `grafana-mcp` (ClusterIP, port 80 -> targetPort 8080).
   - Handles OAuth 2.1 authorization via Pocket ID OIDC discovery at `https://id.nakatanakatana.app/.well-known/openid-configuration`.
-  - Forwards authenticated requests over loopback to `http://127.0.0.1:8000/mcp`.
+  - Forwards authenticated requests over loopback to `http://127.0.0.1:8000`. The proxy joins the incoming path with the target path, so the target must be the origin; including `/mcp` would forward requests to `/mcp/mcp`.
 - **Upstream MCP server (`mcp-grafana`)**:
   - Image: `grafana/mcp-grafana:2.0.2` (pinned with sha256 digest).
   - Listens on loopback `127.0.0.1:8000` using `streamable-http` transport mode (`-t streamable-http -address 127.0.0.1:8000`).
