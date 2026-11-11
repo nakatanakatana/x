@@ -17,6 +17,10 @@ spec:
     - name: monitoring-controller
     - name: loki
   healthChecks:
+    - apiVersion: apps/v1
+      kind: Deployment
+      name: grafana-mcp
+      namespace: monitoring
     - apiVersion: helm.toolkit.fluxcd.io/v2
       kind: HelmRelease
       name: grafana

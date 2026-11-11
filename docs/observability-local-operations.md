@@ -547,6 +547,58 @@ result was observed during the live-store trial, but this follow-up cannot
 establish its continued availability while Tempo block uploads remain blocked.
 No live Grafana configuration or telemetry route was changed in this follow-up.
 
+### Grafana MCP Server (Tailnet + Pocket ID OAuth 2.1)
+
+The Grafana Model Context Protocol (MCP) server exposes local observability capabilities (Loki logs, Mimir metrics and alerts, Tempo traces, and Grafana dashboards, folders, and alerting rules or silences) to AI assistants over the Tailnet with OAuth 2.1 authentication.
+
+#### Architecture & Transport
+
+- **Pod co-location**: Deployed as a single co-located Pod (`Deployment/grafana-mcp`) in the `monitoring` namespace containing both `mcp-auth-proxy` and `mcp-grafana`.
+- **OAuth 2.1 authentication proxy (`mcp-auth-proxy`)**:
+  - Image: `ghcr.io/sigbit/mcp-auth-proxy:v2.10.2` (pinned with sha256 digest).
+  - Listens on `:8080`, exposed cluster-internally by Service `grafana-mcp` (ClusterIP, port 80 -> targetPort 8080).
+  - Handles OAuth 2.1 authorization via Pocket ID OIDC discovery at `https://id.nakatanakatana.app/.well-known/openid-configuration`.
+  - Forwards authenticated requests over loopback to `http://127.0.0.1:8000/mcp`.
+- **Upstream MCP server (`mcp-grafana`)**:
+  - Image: `grafana/mcp-grafana:2.0.2` (pinned with sha256 digest).
+  - Listens on loopback `127.0.0.1:8000` using `streamable-http` transport mode (`-t streamable-http -address 127.0.0.1:8000`).
+  - Authenticates against internal Grafana at `http://grafana.monitoring.svc.cluster.local` using credentials from the chart admin Secret `grafana` (`GRAFANA_USERNAME` from `admin-user`, `GRAFANA_PASSWORD` from `admin-password`).
+  - **Tool capabilities enabled**: Querying Loki, Mimir, Mimir Alertmanager, Tempo, dashboards, folders, and alerting rules/silences.
+  - **Cloud-only tools disabled**: Explicitly disabled via flags (`--disable-incident`, `--disable-oncall`, `--disable-sift`, `--disable-pyroscope`, `--disable-asserts`).
+
+#### Access & Tailscale Ingress
+
+- **Tailnet-only access**: Route exposed at `https://grafana-mcp.mora-egret.ts.net/mcp`.
+- **Ingress configuration**:
+  - Managed via Tailscale Ingress (`Ingress/grafana-mcp`) with `ingressClassName: tailscale`.
+  - Annotated with `tailscale.com/proxy-class: avoid-slow-nodes`.
+  - Pod template enforces node affinity avoiding `network=slow` nodes (`requiredDuringSchedulingIgnoredDuringExecution`).
+
+#### Pocket ID & 1Password Configuration
+
+- **Pocket ID client setup**:
+  - Redirect / callback URL: `https://grafana-mcp.mora-egret.ts.net/oauth/callback`.
+  - Group permission: Restrict client authorization in Pocket ID to the authorized user group.
+- **Secret management**:
+  - 1Password vault item `grafana-mcp-pocket-id` stores `client_id` and `client_secret`.
+  - Synced by `ExternalSecret/grafana-mcp-pocket-id` (`refreshInterval: 20h47m`) from `ClusterSecretStore/1password-sdk` into Kubernetes Secret `grafana-mcp-pocket-id` (keys `OIDC_CLIENT_ID` and `OIDC_CLIENT_SECRET`).
+
+#### Verification & Operational Commands
+
+Check Pod, Service, and Ingress status:
+
+```sh
+kubectl get pods -n monitoring -l app=grafana-mcp
+kubectl get ingress grafana-mcp -n monitoring
+```
+
+MCP client connection example (SSE / streamable-http URL `https://grafana-mcp.mora-egret.ts.net/mcp`):
+
+Configure your MCP client with the server endpoint:
+- **Server URL**: `https://grafana-mcp.mora-egret.ts.net/mcp`
+- **Transport**: `streamable-http` / `sse`
+- **OAuth Callback URL**: `https://grafana-mcp.mora-egret.ts.net/oauth/callback`
+
 ## Opt-in local Alloy log collection
 
 `components/observability-local-alloy/` defines a separate Alloy Deployment,

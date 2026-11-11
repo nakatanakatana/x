@@ -1,0 +1,162 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: grafana-mcp
+  namespace: monitoring
+  labels:
+    app: grafana-mcp
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: grafana-mcp
+  template:
+    metadata:
+      labels:
+        app: grafana-mcp
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        fsGroup: 65532
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: network
+                    operator: NotIn
+                    values:
+                      - slow
+      containers:
+        - name: mcp-auth-proxy
+          image: ghcr.io/sigbit/mcp-auth-proxy:v2.10.2@sha256:89212087a60f452277639ee2299ff6aa4cbe18dbfb11dd1bc8a5e40082e536a8
+          args:
+            - --listen=:8080
+            - --no-auto-tls
+            - --external-url=https://grafana-mcp.mora-egret.ts.net
+            - --data-path=/data
+            - --oidc-configuration-url=https://id.nakatanakatana.app/.well-known/openid-configuration
+            - --oidc-provider-name=Pocket ID
+            - --
+            - http://127.0.0.1:8000/mcp
+          ports:
+            - containerPort: 8080
+              name: http
+          env:
+            - name: OIDC_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: grafana-mcp-pocket-id
+                  key: OIDC_CLIENT_ID
+            - name: OIDC_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: grafana-mcp-pocket-id
+                  key: OIDC_CLIENT_SECRET
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              memory: 128Mi
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            - name: tmp
+              mountPath: /tmp
+        - name: mcp-grafana
+          image: grafana/mcp-grafana:2.0.2@sha256:0d488e08b7543f8026bb7122f7c6116e55aa3dace89d0de702704167738ade14
+          args:
+            - -t
+            - streamable-http
+            - -address
+            - 127.0.0.1:8000
+            - --disable-incident
+            - --disable-oncall
+            - --disable-sift
+            - --disable-pyroscope
+            - --disable-asserts
+          env:
+            - name: GRAFANA_URL
+              value: http://grafana.monitoring.svc.cluster.local
+            - name: GRAFANA_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: grafana
+                  key: admin-user
+            - name: GRAFANA_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: grafana
+                  key: admin-password
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              memory: 128Mi
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: data
+          emptyDir: {}
+        - name: tmp
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: grafana-mcp
+  namespace: monitoring
+spec:
+  type: ClusterIP
+  selector:
+    app: grafana-mcp
+  ports:
+    - name: http
+      protocol: TCP
+      port: 80
+      targetPort: 8080
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: grafana-mcp
+  namespace: monitoring
+  annotations:
+    tailscale.com/proxy-class: avoid-slow-nodes
+spec:
+  ingressClassName: tailscale
+  tls:
+    - hosts:
+        - grafana-mcp
+  rules:
+    - host: grafana-mcp
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: grafana-mcp
+                port:
+                  number: 80
