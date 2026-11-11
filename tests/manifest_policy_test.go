@@ -3433,3 +3433,36 @@ func externalSecretDocument(name, namespace, refreshInterval string) map[string]
 		},
 	}
 }
+
+func TestGrafanaMCPManifestPolicy(t *testing.T) {
+	evaluator := newTestPolicyEvaluator(t)
+
+	resources := mustRenderPolicyResources(t, "components/grafana")
+	assertPolicyPasses(t, evaluator, PolicyInput{
+		Resources: resources,
+	})
+
+	for _, tc := range []struct {
+		kind string
+		name string
+	}{
+		{kind: "Deployment", name: "grafana-mcp"},
+		{kind: "Service", name: "grafana-mcp"},
+		{kind: "Ingress", name: "grafana-mcp"},
+	} {
+		t.Run("renders "+tc.kind+"/"+tc.name, func(t *testing.T) {
+			found := false
+			for _, resource := range resources {
+				if resource.Document["kind"] == tc.kind &&
+					resourceName(resource.Document) == tc.name &&
+					resourceNamespace(resource.Document) == "monitoring" {
+					found = true
+					break
+				}
+			}
+			if !found {
+				t.Fatalf("expected %s/monitoring/%s in components/grafana render", tc.kind, tc.name)
+			}
+		})
+	}
+}
