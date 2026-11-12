@@ -1,0 +1,16 @@
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+# NOTE: We do not set a global namespace here, as setting a namespace on a
+# Component transforms all resources in the root Kustomization, causing ID conflicts
+# with other namespaces (e.g. proxy in clusters/vcluster-agent). Each manifest
+# explicitly specifies its namespace (agent-sandbox-system).
+resources:
+  - namespace.yaml
+  - crds.yaml
+  - controller.yaml
+  - router.yaml
+  - oauth2-proxy.yaml
+  - ingress.yaml
+  - batch-template.yaml
+  - rbac-self-shutdown.yaml
+  - sample-interactive.yaml
