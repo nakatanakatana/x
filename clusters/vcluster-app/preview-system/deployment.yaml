@@ -1,0 +1,96 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: preview-auth-proxy
+  namespace: preview-system
+  labels:
+    app: preview-auth-proxy
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: preview-auth-proxy
+  template:
+    metadata:
+      labels:
+        app: preview-auth-proxy
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        fsGroup: 65532
+        runAsGroup: 65532
+        runAsNonRoot: true
+        runAsUser: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: oauth2-proxy
+          image: quay.io/oauth2-proxy/oauth2-proxy:v7.8.1@sha256:c0958ef1c0c4fa39dc9f7d8b5d2b3c25f00789166b5d3f1241a7e7b8f19c97b3
+          args:
+            - --provider=oidc
+            - --oidc-issuer-url=https://id.nakatanakatana.app
+            - --redirect-url=https://auth.preview.nakatanakatana.app/oauth2/callback
+            - --cookie-domain=.preview.nakatanakatana.app
+            - --whitelist-domain=.preview.nakatanakatana.app
+            - --email-domain=*
+            - --http-address=127.0.0.1:4180
+            - --upstream=static://202
+            - --reverse-proxy=true
+            - --set-xauthrequest=true
+            - --cookie-secure=true
+            - --cookie-samesite=lax
+          env:
+            - name: OAUTH2_PROXY_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: preview-pocket-id
+                  key: client-id
+            - name: OAUTH2_PROXY_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: preview-pocket-id
+                  key: client-secret
+            - name: OAUTH2_PROXY_COOKIE_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: preview-pocket-id
+                  key: cookie-secret
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+          ports:
+            - name: oauth2
+              containerPort: 4180
+        - name: router
+          image: nginx:1.31.8@sha256:165ddde8751e75a1c907d24ef10d9f6deb08b57e0fe56caf67512486aff76d82
+          args:
+            - nginx
+            - -c
+            - /etc/nginx/nginx.conf
+            - -g
+            - daemon off;
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+          ports:
+            - name: http
+              containerPort: 8080
+          volumeMounts:
+            - name: nginx-config
+              mountPath: /etc/nginx/nginx.conf
+              subPath: nginx.conf
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: nginx-config
+          configMap:
+            name: preview-auth-router-config
+        - name: tmp
+          emptyDir: {}

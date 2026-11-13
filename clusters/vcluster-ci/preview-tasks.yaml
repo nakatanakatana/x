@@ -1,0 +1,237 @@
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: preview-build-push
+  namespace: tekton-workspace
+spec:
+  params:
+    - name: APP_NAME
+      type: string
+    - name: PR_NUMBER
+      type: string
+    - name: COMMIT_SHA
+      type: string
+    - name: CONTEXT_DIR
+      type: string
+      default: "."
+    - name: DOCKERFILE
+      type: string
+      default: "Dockerfile"
+  workspaces:
+    - name: source
+  steps:
+    - name: build-and-push
+      image: gcr.io/kaniko-project/executor:v1.23.2@sha256:6d9dd2bc02f9d3bf3c0f08b6e6514b0e0bf042bc9fd6c278f3a110668419cb8a
+      args:
+        - --dockerfile=$(params.DOCKERFILE)
+        - --context=$(workspaces.source.path)/$(params.CONTEXT_DIR)
+        - --destination=zot-registry.tekton-workspace.svc.cluster.local:5000/$(params.APP_NAME):pr-$(params.PR_NUMBER)-$(params.COMMIT_SHA)
+        - --insecure
+        - --skip-tls-verify
+---
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: preview-deploy
+  namespace: tekton-workspace
+spec:
+  params:
+    - name: APP_NAME
+      type: string
+    - name: PR_NUMBER
+      type: string
+    - name: COMMIT_SHA
+      type: string
+    - name: REPO_FULL_NAME
+      type: string
+    - name: EXPOSE_HTTP
+      type: string
+      default: "true"
+    - name: PORT
+      type: string
+      default: "8080"
+    - name: LITESTREAM_INJECT
+      type: string
+      default: ""
+    - name: KUSTOMIZE_PATH
+      type: string
+      default: ""
+  workspaces:
+    - name: source
+      optional: true
+  volumes:
+    - name: vcluster-app-kubeconfig
+      secret:
+        secretName: vcluster-app-kubeconfig
+  steps:
+    - name: deploy
+      image: bitnami/kubectl:1.32.2@sha256:41f5fb5a722a1d28c2ccb4c8d1f60f9f9a6906244896fb42a930e8a2b17822e4
+      env:
+        - name: KUBECONFIG
+          value: /var/run/vcluster-app/config
+      volumeMounts:
+        - name: vcluster-app-kubeconfig
+          mountPath: /var/run/vcluster-app
+          readOnly: true
+      script: |
+        #!/bin/sh
+        set -eu
+        NS="$(params.APP_NAME)-pr-$(params.PR_NUMBER)"
+        HOST="${NS}.preview.nakatanakatana.app"
+        IMAGE="localhost:30500/$(params.APP_NAME):pr-$(params.PR_NUMBER)-$(params.COMMIT_SHA)"
+
+        cat <<EOF | kubectl apply -f -
+        apiVersion: v1
+        kind: Namespace
+        metadata:
+          name: ${NS}
+          labels:
+            preview.nakatanakatana.app/enabled: "true"
+          annotations:
+            preview.nakatanakatana.app/repo: "$(params.REPO_FULL_NAME)"
+            preview.nakatanakatana.app/pr: "$(params.PR_NUMBER)"
+            preview.nakatanakatana.app/app: "$(params.APP_NAME)"
+        EOF
+
+        if [ -n "$(params.KUSTOMIZE_PATH)" ]; then
+          kubectl apply -n "${NS}" -k "$(workspaces.source.path)/$(params.KUSTOMIZE_PATH)"
+          kubectl set image -n "${NS}" "deployment/$(params.APP_NAME)" "$(params.APP_NAME)=${IMAGE}"
+        else
+          ANNOTATIONS=""
+          if [ -n "$(params.LITESTREAM_INJECT)" ]; then
+            ANNOTATIONS="
+                litestream.mytools.nakatanakatana.app/inject: $(params.LITESTREAM_INJECT)
+                litestream.mytools.nakatanakatana.app/target-container: $(params.APP_NAME)
+                litestream.mytools.nakatanakatana.app/volume: data"
+          fi
+
+          cat <<EOF | kubectl apply -f -
+        apiVersion: apps/v1
+        kind: Deployment
+        metadata:
+          name: $(params.APP_NAME)
+          namespace: ${NS}
+          labels:
+            app: $(params.APP_NAME)
+        spec:
+          replicas: 1
+          strategy:
+            type: Recreate
+          selector:
+            matchLabels:
+              app: $(params.APP_NAME)
+          template:
+            metadata:
+              annotations:${ANNOTATIONS}
+              labels:
+                app: $(params.APP_NAME)
+            spec:
+              automountServiceAccountToken: false
+              securityContext:
+                fsGroup: 65532
+                runAsNonRoot: true
+                runAsGroup: 65532
+                runAsUser: 65532
+                seccompProfile:
+                  type: RuntimeDefault
+              containers:
+                - name: $(params.APP_NAME)
+                  image: ${IMAGE}
+                  imagePullPolicy: Always
+                  securityContext:
+                    allowPrivilegeEscalation: false
+                    capabilities:
+                      drop:
+                        - ALL
+                    readOnlyRootFilesystem: true
+                  env:
+                    - name: CORS_ALLOWED_ORIGINS
+                      value: https://${HOST}
+                  volumeMounts:
+                    - name: data
+                      mountPath: /data
+                    - name: tmp
+                      mountPath: /tmp
+                  ports:
+                    - containerPort: $(params.PORT)
+              volumes:
+                - name: data
+                  emptyDir: {}
+                - name: tmp
+                  emptyDir: {}
+        EOF
+        fi
+
+        if [ "$(params.EXPOSE_HTTP)" = "true" ]; then
+          cat <<EOF | kubectl apply -f -
+        apiVersion: v1
+        kind: Service
+        metadata:
+          name: preview-http
+          namespace: ${NS}
+        spec:
+          type: ClusterIP
+          selector:
+            app: $(params.APP_NAME)
+          ports:
+            - protocol: TCP
+              port: 8080
+              targetPort: $(params.PORT)
+        ---
+        apiVersion: gateway.networking.k8s.io/v1
+        kind: HTTPRoute
+        metadata:
+          name: ${NS}
+          namespace: preview-system
+          labels:
+            preview.nakatanakatana.app/enabled: "true"
+            preview.nakatanakatana.app/namespace: ${NS}
+        spec:
+          parentRefs:
+            - name: cloudflare-app
+              namespace: cloudflare-gateway
+              sectionName: http
+          hostnames:
+            - ${HOST}
+          rules:
+            - matches:
+                - path:
+                    type: PathPrefix
+                    value: /
+              backendRefs:
+                - name: preview-auth-proxy
+                  port: 8080
+        EOF
+        fi
+---
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: preview-cleanup
+  namespace: tekton-workspace
+spec:
+  params:
+    - name: APP_NAME
+      type: string
+    - name: PR_NUMBER
+      type: string
+  volumes:
+    - name: vcluster-app-kubeconfig
+      secret:
+        secretName: vcluster-app-kubeconfig
+  steps:
+    - name: cleanup
+      image: bitnami/kubectl:1.32.2@sha256:41f5fb5a722a1d28c2ccb4c8d1f60f9f9a6906244896fb42a930e8a2b17822e4
+      env:
+        - name: KUBECONFIG
+          value: /var/run/vcluster-app/config
+      volumeMounts:
+        - name: vcluster-app-kubeconfig
+          mountPath: /var/run/vcluster-app
+          readOnly: true
+      script: |
+        #!/bin/sh
+        set -eu
+        NS="$(params.APP_NAME)-pr-$(params.PR_NUMBER)"
+        kubectl delete httproute -n preview-system "${NS}" --ignore-not-found
+        kubectl delete namespace "${NS}" --ignore-not-found

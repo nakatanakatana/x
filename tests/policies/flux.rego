@@ -95,6 +95,7 @@ violations contains violation if {
 
 litestream_health_check_names := {
 	"feed-reader-db-debug",
+	"feed-reader-db-preview",
 	"feed-reader-db",
 	"nostr-relay-db",
 	"nostr-bridge-db",

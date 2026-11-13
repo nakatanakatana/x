@@ -63,3 +63,4 @@ spec:
                       "app/nostr-storage": "nostr/nostr-storage"
                       "app/feed-reader-storage": "feed-reader/feed-reader-storage"
                       "app/celld-storage": "celld/celld-storage"
+                      "app/preview-pocket-id": "preview-system/preview-pocket-id"

@@ -2828,6 +2828,25 @@ func TestFluxSemanticPolicies(t *testing.T) {
 			},
 		},
 		{
+			name:       "cluster resources health check litestream requires feed-reader-db-preview",
+			policyName: "flux-cluster-resources-must-health-check-litestream",
+			mutate: func(resources []PolicyResource) []PolicyResource {
+				return mutateFluxKustomization(resources, "cluster-resources", func(document map[string]any) {
+					spec := document["spec"].(map[string]any)
+					checks, _ := spec["healthChecks"].([]any)
+					filtered := make([]any, 0, len(checks))
+					for _, c := range checks {
+						checkMap, ok := c.(map[string]any)
+						if ok && checkMap["name"] == "feed-reader-db-preview" {
+							continue
+						}
+						filtered = append(filtered, c)
+					}
+					spec["healthChecks"] = filtered
+				})
+			},
+		},
+		{
 			name:       "cluster vcluster depends on cluster resources",
 			policyName: "flux-cluster-vcluster-must-depend-on-resources",
 			mutate: func(resources []PolicyResource) []PolicyResource {
@@ -2856,6 +2875,23 @@ func TestFluxSemanticPolicies(t *testing.T) {
 			return resource
 		})
 		assertPolicyFails(t, evaluator, PolicyInput{Resources: mutated}, "flux-vcluster-app-sync-must-depend-on-cluster-resources")
+	})
+}
+
+func TestPreviewEnvironmentManifests(t *testing.T) {
+	evaluator := newTestPolicyEvaluator(t)
+
+	resources := appendPolicyResources(
+		mustLoadPolicyResources(t, repoPath("components", "zot")),
+		mustLoadPolicyResources(t, repoPath("clusters", "home", "resources", "zot.yaml")),
+		mustLoadPolicyResources(t, repoPath("clusters", "vcluster-app", "preview-system")),
+		mustLoadPolicyResources(t, repoPath("clusters", "vcluster-ci", "preview-tasks.yaml")),
+		mustLoadPolicyResources(t, repoPath("clusters", "vcluster-ci", "preview-reaper.yaml")),
+		mustLoadPolicyResources(t, repoPath("clusters", "vcluster-ci", "preview-repos.yaml")),
+	)
+
+	assertPolicyPasses(t, evaluator, PolicyInput{
+		Resources: resources,
 	})
 }
 
