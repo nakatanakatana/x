@@ -28,7 +28,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: zot
-          image: ghcr.io/project-zot/zot-minimal:v2.1.2@sha256:201ab91b11fc488a54f8517b34369e9fd44775b7d1f97be86a2b3305a8f85f24
+          image: ghcr.io/project-zot/zot-minimal:v2.1.23@sha256:59cb5740832970818903c5ce104425762664c7880835ee566506aad397cd3458
           args:
             - serve
             - /etc/zot/config.json
