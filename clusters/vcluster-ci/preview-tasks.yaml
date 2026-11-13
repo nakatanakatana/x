@@ -65,7 +65,7 @@ spec:
         secretName: vcluster-app-kubeconfig
   steps:
     - name: deploy
-      image: alpine/k8s:1.32.2@sha256:15cfdf84d6de3559bc54d7479eb4e8aadbf71f6d7f08782cb1e91f3446f4b2d8
+      image: alpine/k8s:1.37.2@sha256:7a82aeefea3d554a43a8676b137f2b88bae6c1fe11c13862b191b3a086cc28c0
       env:
         - name: KUBECONFIG
           value: /var/run/vcluster-app/config
@@ -221,7 +221,7 @@ spec:
         secretName: vcluster-app-kubeconfig
   steps:
     - name: cleanup
-      image: alpine/k8s:1.32.2@sha256:15cfdf84d6de3559bc54d7479eb4e8aadbf71f6d7f08782cb1e91f3446f4b2d8
+      image: alpine/k8s:1.37.2@sha256:7a82aeefea3d554a43a8676b137f2b88bae6c1fe11c13862b191b3a086cc28c0
       env:
         - name: KUBECONFIG
           value: /var/run/vcluster-app/config
