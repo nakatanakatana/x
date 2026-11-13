@@ -25,24 +25,6 @@ spec:
 apiVersion: external-secrets.io/v1
 kind: ExternalSecret
 metadata:
-  name: vcluster-app-kubeconfig
-  namespace: ci
-spec:
-  refreshInterval: 21h49m
-  secretStoreRef:
-    kind: ClusterSecretStore
-    name: 1password-sdk
-  target:
-    name: vcluster-app-kubeconfig
-    creationPolicy: Owner
-  data:
-    - secretKey: config
-      remoteRef:
-        key: preview-deployer/kubeconfig
----
-apiVersion: external-secrets.io/v1
-kind: ExternalSecret
-metadata:
   name: tekton-preview-github
   namespace: ci
 spec:
@@ -54,6 +36,9 @@ spec:
     name: tekton-preview-github
     creationPolicy: Owner
   data:
-    - secretKey: token
+    - secretKey: app_id
       remoteRef:
-        key: preview-deployer/github_token
+        key: pac-github-app/app_id
+    - secretKey: private_key
+      remoteRef:
+        key: pac-github-app/private_key

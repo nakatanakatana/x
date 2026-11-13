@@ -52,5 +52,5 @@ spec:
                   mappings:
                     byName:
                       "ci/pipelines-as-code-secret": "tekton-pipelines/pipelines-as-code-secret"
-                      "ci/vcluster-app-kubeconfig": "tekton-workspace/vcluster-app-kubeconfig"
+                      "app/vc-vcluster": "tekton-workspace/vcluster-app-kubeconfig"
                       "ci/tekton-preview-github": "tekton-workspace/tekton-preview-github"
