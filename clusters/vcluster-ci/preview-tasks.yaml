@@ -21,7 +21,7 @@ spec:
     - name: source
   steps:
     - name: build-and-push
-      image: gcr.io/kaniko-project/executor:v1.23.2@sha256:6d9dd2bc02f9d3bf3c0f08b6e6514b0e0bf042bc9fd6c278f3a110668419cb8a
+      image: gcr.io/kaniko-project/executor:v1.23.2@sha256:9e69fd4330ec887829c780f5126dd80edc663df6def362cd22e79bcdf00ac53f
       args:
         - --dockerfile=$(params.DOCKERFILE)
         - --context=$(workspaces.source.path)/$(params.CONTEXT_DIR)
