@@ -482,6 +482,20 @@ cluster:
 clusterEvents:
   enabled: true
   collector: alloy-singleton
+nodeLogs:
+  enabled: true
+  collector: alloy-logs
+  journal:
+    path: /var/log/journal
+    maxAge: 8h
+  structuredMetadata:
+    transport: transport
+  extraDiscoveryRules: |
+    rule {
+      action = "keep"
+      source_labels = ["__journal_priority_keyword"]
+      regex = "(emerg|alert|crit|err|warning)"
+    }
 applicationObservability:
   enabled: true
   receivers:
