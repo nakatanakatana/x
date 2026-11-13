@@ -62,11 +62,6 @@ spec:
       dataSource: zero
       iteration: 1
     allowUninstallWithVolumes: false
-  annotations:
-    mgr:
-      k8s.grafana.com/metrics.container: mgr
-      prometheus.io/port: "9283"
-      prometheus.io/scrape: "true"
   removeOSDsIfOutAndSafeToRemove: false
   priorityClassNames:
     mon: system-node-critical

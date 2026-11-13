@@ -541,7 +541,6 @@ annotationAutodiscovery:
   metricsTuning:
     includeMetrics:
       - traefik_.*
-      - ceph_.*
     excludeMetrics:
       - go_.*
   collector: alloy-metrics
