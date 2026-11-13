@@ -35,7 +35,7 @@ spec:
                       - slow
       containers:
         - name: mcp-auth-proxy
-          image: ghcr.io/sigbit/mcp-auth-proxy:v2.10.2@sha256:89212087a60f452277639ee2299ff6aa4cbe18dbfb11dd1bc8a5e40082e536a8
+          image: ghcr.io/sigbit/mcp-auth-proxy:v2.10.6@sha256:916539526ccadaef071d87111e950bf2f6cecea05dca26c7a160497500b62718
           args:
             - --listen=:8080
             - --no-auto-tls
