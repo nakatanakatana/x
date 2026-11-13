@@ -31,14 +31,12 @@ spec:
               env:
                 - name: KUBECONFIG
                   value: /var/run/vcluster-app/config
-                - name: GITHUB_TOKEN
-                  valueFrom:
-                    secretKeyRef:
-                      name: tekton-preview-github
-                      key: token
               volumeMounts:
                 - name: vcluster-app-kubeconfig
                   mountPath: /var/run/vcluster-app
+                  readOnly: true
+                - name: github-app
+                  mountPath: /var/run/github-app
                   readOnly: true
                 - name: tmp
                   mountPath: /tmp
@@ -48,13 +46,35 @@ spec:
               args:
                 - |
                   set -eu
+                  b64url() {
+                    openssl base64 -e -A | tr '+/' '-_' | tr -d '='
+                  }
+                  app_id=$(tr -d '\r\n' < /var/run/github-app/app_id)
+                  now=$(date +%s)
+                  header=$(printf '{"alg":"RS256","typ":"JWT"}' | b64url)
+                  payload=$(printf '{"iat":%d,"exp":%d,"iss":"%s"}' "$((now - 60))" "$((now + 540))" "$app_id" | b64url)
+                  sig=$(printf '%s.%s' "$header" "$payload" | openssl dgst -sha256 -sign /var/run/github-app/private_key | b64url)
+                  jwt="${header}.${payload}.${sig}"
+
                   for ns in $(kubectl get ns -l preview.nakatanakatana.app/enabled=true -o jsonpath='{.items[*].metadata.name}'); do
                     repo=$(kubectl get ns "$ns" -o jsonpath='{.metadata.annotations.preview\.nakatanakatana\.app/repo}')
                     pr=$(kubectl get ns "$ns" -o jsonpath='{.metadata.annotations.preview\.nakatanakatana\.app/pr}')
                     if [ -z "$repo" ] || [ -z "$pr" ]; then
                       continue
                     fi
-                    resp=$(curl -fsSL -H "Authorization: Bearer ${GITHUB_TOKEN}" -H "Accept: application/vnd.github+json" "https://api.github.com/repos/${repo}/pulls/${pr}" || true)
+                    inst_json=$(curl -fsSL -H "Authorization: Bearer ${jwt}" -H "Accept: application/vnd.github+json" "https://api.github.com/repos/${repo}/installation" || true)
+                    inst_id=$(printf '%s' "$inst_json" | tr '{},' '\n' | sed -n 's/^[[:space:]]*"id"[[:space:]]*:[[:space:]]*\([0-9][0-9]*\)[[:space:]]*$/\1/p' | head -n 1)
+                    if [ -z "$inst_id" ]; then
+                      echo "warning: failed to resolve GitHub App installation for ${repo} (namespace ${ns})" >&2
+                      continue
+                    fi
+                    token_json=$(curl -fsSL -X POST -H "Authorization: Bearer ${jwt}" -H "Accept: application/vnd.github+json" "https://api.github.com/app/installations/${inst_id}/access_tokens" || true)
+                    token=$(printf '%s' "$token_json" | tr '{},' '\n' | sed -n 's/^[[:space:]]*"token"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n 1)
+                    if [ -z "$token" ]; then
+                      echo "warning: failed to mint installation token for ${repo} (namespace ${ns})" >&2
+                      continue
+                    fi
+                    resp=$(curl -fsSL -H "Authorization: Bearer ${token}" -H "Accept: application/vnd.github+json" "https://api.github.com/repos/${repo}/pulls/${pr}" || true)
                     if [ -z "$resp" ]; then
                       echo "warning: failed to query GitHub PR ${repo}#${pr} for namespace ${ns}" >&2
                       continue
@@ -70,5 +90,8 @@ spec:
             - name: vcluster-app-kubeconfig
               secret:
                 secretName: vcluster-app-kubeconfig
+            - name: github-app
+              secret:
+                secretName: tekton-preview-github
             - name: tmp
               emptyDir: {}

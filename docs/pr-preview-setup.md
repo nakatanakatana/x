@@ -59,9 +59,9 @@ flowchart LR
 
 ## 2. Required 1Password Secret Items
 
-Two 1Password items must be provisioned in the vault synced by `1password-sdk`:
+One new 1Password item must be provisioned in the `k8s` vault synced by `1password-sdk` (the `vcluster-app-kubeconfig` secret is synced directly from the in-cluster `app/vc-vcluster` secret, and `tekton-preview-github` reuses the existing `pac-github-app` item):
 
-### 1. `preview-pocket-id`
+### `preview-pocket-id`
 
 Used by `preview-auth-proxy` in `preview-system` to authenticate against PocketID via OIDC.
 
@@ -75,15 +75,6 @@ To generate the `cookie_secret`:
 ```bash
 python3 -c 'import secrets; print(secrets.token_urlsafe(32))'
 ```
-
-### 2. `preview-deployer`
-
-Used by Tekton in `vcluster-ci` to manipulate preview namespaces in `vcluster-app` and check PR status against the GitHub API.
-
-| Field Name | Type | Description |
-| --- | --- | --- |
-| `kubeconfig` | Text | Kubeconfig YAML allowing `vcluster-ci` tasks to manage namespaces, deployments, services, and HTTPRoutes in `vcluster-app`. The server endpoint must point to `https://vcluster.app.svc.cluster.local:443`. |
-| `github_token` | Password | GitHub Fine-grained Personal Access Token (PAT) with `Pull Requests: Read-only` permission on target repositories (`feed-reader`, `mytools`). Used by `preview-reaper` to check PR state. |
 
 ---
 
