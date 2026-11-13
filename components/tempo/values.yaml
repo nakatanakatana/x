@@ -39,6 +39,9 @@ traces:
 
 multitenancyEnabled: false
 
+server:
+  logFormat: json
+
 blockBuilder:
   replicas: 3
   resources:

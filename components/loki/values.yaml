@@ -35,6 +35,7 @@ loki:
     server:
       http_listen_port: 3100
       grpc_listen_port: 9095
+      log_format: json
     memberlist:
       join_members:
         - loki-memberlist.monitoring.svc.cluster.local

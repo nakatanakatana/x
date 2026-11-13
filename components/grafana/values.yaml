@@ -31,6 +31,10 @@ envFromSecrets:
 grafana.ini:
   server:
     root_url: https://grafana.mora-egret.ts.net/
+  log:
+    mode: console
+  log.console:
+    format: json
   auth.generic_oauth:
     enabled: true
     name: Pocket ID
