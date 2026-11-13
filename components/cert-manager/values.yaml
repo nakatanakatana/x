@@ -1,5 +1,13 @@
 crds:
   enabled: true
+extraArgs:
+  - --logging-format=json
+webhook:
+  extraArgs:
+    - --logging-format=json
+cainjector:
+  extraArgs:
+    - --logging-format=json
 prometheus:
   enabled: true
   servicemonitor:
