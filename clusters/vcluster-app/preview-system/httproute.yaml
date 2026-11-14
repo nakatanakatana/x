@@ -9,7 +9,7 @@ spec:
       namespace: cloudflare-gateway
       sectionName: http
   hostnames:
-    - auth.preview.nakatanakatana.app
+    - preview-auth.nakatanakatana.app
   rules:
     - matches:
         - path:

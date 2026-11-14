@@ -30,7 +30,7 @@ data:
 
       server {
         listen 8080;
-        server_name auth.preview.nakatanakatana.app;
+        server_name preview-auth.nakatanakatana.app;
 
         location / {
           proxy_pass http://127.0.0.1:4180;
@@ -43,7 +43,7 @@ data:
 
       server {
         listen 8080;
-        server_name ~^(?<preview_ns>[a-z0-9-]+)\.preview\.nakatanakatana\.app$;
+        server_name ~^(?<preview_ns>[a-z0-9-]+)-preview\.nakatanakatana\.app$;
 
         location = /oauth2/auth {
           internal;
@@ -77,7 +77,7 @@ data:
 
         location = /oauth2/sign_in {
           internal;
-          return 302 https://auth.preview.nakatanakatana.app/oauth2/start?rd=https://$host$request_uri;
+          return 302 https://preview-auth.nakatanakatana.app/oauth2/start?rd=https://$host$request_uri;
         }
       }
     }
