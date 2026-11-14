@@ -39,7 +39,7 @@ flowchart LR
   PaC --> Pipeline
   Pipeline -- "1. Kaniko Push" --> Zot
   Pipeline -- "2. Deploy Namespace" --> PreviewNS
-  CFGateway -- "*.preview.nakatanakatana.app" --> AuthProxy
+  CFGateway -- "*-preview.nakatanakatana.app" --> AuthProxy
   AuthProxy -- "Passkey OIDC" --> Workload
   Reaper -. "Reap closed PRs" .-> PreviewNS
 ```
@@ -52,7 +52,7 @@ flowchart LR
 | **Pipelines-as-Code** | `vcluster-ci` | Listens to GitHub webhook events, validates sender permissions, evaluates CEL expressions to enforce the `preview` label requirement, and triggers isolated Tekton pipelines. |
 | **Ephemeral Namespaces** | `vcluster-app` | Each active PR runs in an isolated namespace `<app>-pr-<num>` containing an ephemeral Deployment, Service (`preview-http:8080`), and an HTTPRoute in `preview-system`. |
 | **Litestream Restore-Only** | Host `app` namespace | Custom resource `feed-reader-db-preview` restores SQLite data from production S3 backups into an ephemeral `emptyDir` on startup via a mutating webhook initContainer, without replicating any changes back. |
-| **PocketID Auth Gateway** | `vcluster-app` (`preview-system`) | Multi-container Pod running `oauth2-proxy` and an Nginx dynamic router. Authenticates requests via PocketID (`https://id.nakatanakatana.app`) using passkeys, sets a wildcard session cookie on `.preview.nakatanakatana.app`, and forwards traffic to `http://preview-http.<app>-pr-<num>.svc.cluster.local:8080`. |
+| **PocketID Auth Gateway** | `vcluster-app` (`preview-system`) | Multi-container Pod running `oauth2-proxy` and an Nginx dynamic router. Authenticates requests via PocketID (`https://id.nakatanakatana.app`) using passkeys, sets a wildcard session cookie on `.nakatanakatana.app`, and forwards traffic to `http://preview-http.<app>-pr-<num>.svc.cluster.local:8080`. |
 | **Preview Reaper** | `vcluster-ci` | Hourly fail-safe CronJob that queries the GitHub API for each active preview namespace and purges any environments whose PR is closed or no longer labeled `preview`. |
 
 ---
@@ -88,7 +88,7 @@ Register a new OIDC client in the PocketID administration interface at `https://
    - **Client ID**: (copy into 1Password `preview-pocket-id/client_id`)
    - **Callback URLs / Redirect URIs**:
      ```
-     https://auth.preview.nakatanakatana.app/oauth2/callback
+     https://preview-auth.nakatanakatana.app/oauth2/callback
      ```
    - **Allowed Scopes**: `openid`, `profile`, `email`
    - **Grant Types**: `Authorization Code`
@@ -230,7 +230,7 @@ spec:
 ### Example B: Monorepo with HTTP Service and Background Worker (`mytools`)
 
 `mytools` is a monorepo containing multiple components:
-- `apps/http-tool`: An HTTP service exposed publicly at `https://mytools-http-tool-pr-<num>.preview.nakatanakatana.app`.
+- `apps/http-tool`: An HTTP service exposed publicly at `https://mytools-http-tool-pr-<num>-preview.nakatanakatana.app`.
 - `apps/worker`: A background worker running in its own namespace without public HTTP ingress.
 
 #### `.tekton/preview-deploy.yaml`

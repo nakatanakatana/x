@@ -83,7 +83,7 @@ spec:
           command kubectl --tls-server-name="vcluster.app.svc.cluster.local" "$@"
         }
         NS="$(params.APP_NAME)-pr-$(params.PR_NUMBER)"
-        HOST="${NS}.preview.nakatanakatana.app"
+        HOST="${NS}-preview.nakatanakatana.app"
         IMAGE="localhost:30500/$(params.APP_NAME):pr-$(params.PR_NUMBER)-$(params.COMMIT_SHA)"
 
         cat <<EOF | kubectl apply -f -

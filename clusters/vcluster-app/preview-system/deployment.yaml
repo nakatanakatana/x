@@ -29,9 +29,9 @@ spec:
           args:
             - --provider=oidc
             - --oidc-issuer-url=https://id.nakatanakatana.app
-            - --redirect-url=https://auth.preview.nakatanakatana.app/oauth2/callback
-            - --cookie-domain=.preview.nakatanakatana.app
-            - --whitelist-domain=.preview.nakatanakatana.app
+            - --redirect-url=https://preview-auth.nakatanakatana.app/oauth2/callback
+            - --cookie-domain=.nakatanakatana.app
+            - --whitelist-domain=.nakatanakatana.app
             - --email-domain=*
             - --http-address=127.0.0.1:4180
             - --upstream=static://202
