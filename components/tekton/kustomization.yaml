@@ -61,3 +61,89 @@ patches:
       - op: replace
         path: /metadata/namespace
         value: tekton-pipelines
+
+  # Reduce leader election Lease write frequency in vCluster kine/apiserver
+  - target:
+      kind: ConfigMap
+      name: config-leader-election-controller
+      namespace: tekton-pipelines
+    patch: |
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: config-leader-election-controller
+        namespace: tekton-pipelines
+      data:
+        lease-duration: "180s"
+        renew-deadline: "120s"
+        retry-period: "60s"
+  - target:
+      kind: ConfigMap
+      name: config-leader-election-events
+      namespace: tekton-pipelines
+    patch: |
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: config-leader-election-events
+        namespace: tekton-pipelines
+      data:
+        lease-duration: "180s"
+        renew-deadline: "120s"
+        retry-period: "60s"
+  - target:
+      kind: ConfigMap
+      name: config-leader-election-webhook
+      namespace: tekton-pipelines
+    patch: |
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: config-leader-election-webhook
+        namespace: tekton-pipelines
+      data:
+        lease-duration: "180s"
+        renew-deadline: "120s"
+        retry-period: "60s"
+  - target:
+      kind: ConfigMap
+      name: pac-watcher-config-leader-election
+      namespace: tekton-pipelines
+    patch: |
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: pac-watcher-config-leader-election
+        namespace: tekton-pipelines
+      data:
+        lease-duration: "180s"
+        renew-deadline: "120s"
+        retry-period: "60s"
+  - target:
+      kind: ConfigMap
+      name: pac-webhook-config-leader-election
+      namespace: tekton-pipelines
+    patch: |
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: pac-webhook-config-leader-election
+        namespace: tekton-pipelines
+      data:
+        lease-duration: "180s"
+        renew-deadline: "120s"
+        retry-period: "60s"
+  - target:
+      kind: ConfigMap
+      name: config-leader-election-resolvers
+      namespace: tekton-pipelines-resolvers
+    patch: |
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: config-leader-election-resolvers
+        namespace: tekton-pipelines-resolvers
+      data:
+        lease-duration: "180s"
+        renew-deadline: "120s"
+        retry-period: "60s"
