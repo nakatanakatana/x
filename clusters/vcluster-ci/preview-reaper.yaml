@@ -53,46 +53,145 @@ spec:
                   kubectl() {
                     command kubectl --tls-server-name="vcluster.app.svc.cluster.local" "$@"
                   }
-                  b64url() {
-                    openssl base64 -e -A | tr '+/' '-_' | tr -d '='
-                  }
-                  app_id=$(tr -d '\r\n' < /var/run/github-app/app_id)
-                  now=$(date +%s)
-                  header=$(printf '{"alg":"RS256","typ":"JWT"}' | b64url)
-                  payload=$(printf '{"iat":%d,"exp":%d,"iss":"%s"}' "$((now - 60))" "$((now + 540))" "$app_id" | b64url)
-                  sig=$(printf '%s.%s' "$header" "$payload" | openssl dgst -sha256 -sign /var/run/github-app/private_key | b64url)
-                  jwt="${header}.${payload}.${sig}"
 
-                  for ns in $(kubectl get ns -l preview.nakatanakatana.app/enabled=true -o jsonpath='{.items[*].metadata.name}'); do
-                    repo=$(kubectl get ns "$ns" -o jsonpath='{.metadata.annotations.preview\.nakatanakatana\.app/repo}')
-                    pr=$(kubectl get ns "$ns" -o jsonpath='{.metadata.annotations.preview\.nakatanakatana\.app/pr}')
-                    if [ -z "$repo" ] || [ -z "$pr" ]; then
-                      continue
-                    fi
-                    inst_json=$(curl -fsSL -H "Authorization: Bearer ${jwt}" -H "Accept: application/vnd.github+json" "https://api.github.com/repos/${repo}/installation" || true)
-                    inst_id=$(printf '%s' "$inst_json" | tr '{},' '\n' | sed -n 's/^[[:space:]]*"id"[[:space:]]*:[[:space:]]*\([0-9][0-9]*\)[[:space:]]*$/\1/p' | head -n 1)
-                    if [ -z "$inst_id" ]; then
-                      echo "warning: failed to resolve GitHub App installation for ${repo} (namespace ${ns})" >&2
-                      continue
-                    fi
-                    token_json=$(curl -fsSL -X POST -H "Authorization: Bearer ${jwt}" -H "Accept: application/vnd.github+json" "https://api.github.com/app/installations/${inst_id}/access_tokens" || true)
-                    token=$(printf '%s' "$token_json" | tr '{},' '\n' | sed -n 's/^[[:space:]]*"token"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n 1)
-                    if [ -z "$token" ]; then
-                      echo "warning: failed to mint installation token for ${repo} (namespace ${ns})" >&2
-                      continue
-                    fi
-                    resp=$(curl -fsSL -H "Authorization: Bearer ${token}" -H "Accept: application/vnd.github+json" "https://api.github.com/repos/${repo}/pulls/${pr}" || true)
-                    if [ -z "$resp" ]; then
-                      echo "warning: failed to query GitHub PR ${repo}#${pr} for namespace ${ns}" >&2
-                      continue
-                    fi
-                    is_open=$(printf '%s' "$resp" | grep -c '"state":[[:space:]]*"open"' || true)
-                    has_label=$(printf '%s' "$resp" | grep -c '"name":[[:space:]]*"preview"' || true)
-                    if [ "$is_open" -eq 0 ] || [ "$has_label" -eq 0 ]; then
-                      kubectl delete httproute -n preview-system "$ns" --ignore-not-found
-                      kubectl delete ns "$ns" --ignore-not-found
-                    fi
+                  ns_list=$(kubectl get ns -l preview.nakatanakatana.app/enabled=true -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.metadata.annotations.preview\.nakatanakatana\.app/repo}{"\t"}{.metadata.annotations.preview\.nakatanakatana\.app/pr}{"\n"}{end}')
+                  if [ -z "$ns_list" ]; then
+                    exit 0
+                  fi
+
+                  rc=0
+                  targets=$(printf '%s\n' "$ns_list" | python3 - <<'EOF'
+                  import base64
+                  import hashlib
+                  import json
+                  import re
+                  import sys
+                  import time
+                  import urllib.error
+                  import urllib.request
+
+                  def b64url(data: bytes) -> str:
+                      return base64.urlsafe_b64encode(data).rstrip(b"=").decode("ascii")
+
+                  def read_der_tlv(buf: bytes, offset: int):
+                      tag = buf[offset]
+                      offset += 1
+                      length = buf[offset]
+                      offset += 1
+                      if length & 0x80:
+                          num_bytes = length & 0x7F
+                          length = int.from_bytes(buf[offset : offset + num_bytes], "big")
+                          offset += num_bytes
+                      return tag, buf[offset : offset + length], offset + length
+
+                  def parse_rsa_private_key(pem_text: str):
+                      m = re.search(
+                          r"-----BEGIN (?:RSA )?PRIVATE KEY-----(.*?)-----END (?:RSA )?PRIVATE KEY-----",
+                          pem_text,
+                          re.S,
+                      )
+                      if not m:
+                          raise ValueError("Unsupported PEM private key format")
+                      der = base64.b64decode(re.sub(r"\s+", "", m.group(1)))
+                      if "BEGIN PRIVATE KEY" in m.group(0):
+                          tag, seq, _ = read_der_tlv(der, 0)
+                          if tag != 0x30:
+                              raise ValueError("Invalid PKCS#8 outer sequence")
+                          _, _, off = read_der_tlv(seq, 0)
+                          _, _, off = read_der_tlv(seq, off)
+                          tag, der, _ = read_der_tlv(seq, off)
+                          if tag != 0x04:
+                              raise ValueError("Invalid PKCS#8 privateKey octet string")
+                      tag, seq, _ = read_der_tlv(der, 0)
+                      if tag != 0x30:
+                          raise ValueError("Invalid PKCS#1 sequence")
+                      off = 0
+                      ints = []
+                      for _ in range(4):
+                          tag, val, off = read_der_tlv(seq, off)
+                          if tag != 0x02:
+                              raise ValueError("Expected INTEGER in RSAPrivateKey")
+                          ints.append(int.from_bytes(val, "big"))
+                      return ints[1], ints[3]
+
+                  def sign_rs256(signing_input: bytes, n: int, d: int) -> bytes:
+                      digest = hashlib.sha256(signing_input).digest()
+                      digest_info = (
+                          b"\x30\x31\x30\x0d\x06\x09\x60\x86\x48\x01\x65\x03\x04\x02\x01\x05\x00\x04\x20"
+                          + digest
+                      )
+                      k = (n.bit_length() + 7) // 8
+                      ps_len = k - len(digest_info) - 3
+                      if ps_len < 8:
+                          raise ValueError("RSA key too short")
+                      em = b"\x00\x01" + (b"\xff" * ps_len) + b"\x00" + digest_info
+                      s = pow(int.from_bytes(em, "big"), d, n)
+                      return s.to_bytes(k, "big")
+
+                  def gh_api(url: str, token: str, method: str = "GET"):
+                      req = urllib.request.Request(
+                          url,
+                          method=method,
+                          headers={
+                              "Authorization": f"Bearer {token}",
+                              "Accept": "application/vnd.github+json",
+                              "User-Agent": "preview-reaper",
+                          },
+                      )
+                      with urllib.request.urlopen(req, timeout=30) as resp:
+                          return json.loads(resp.read().decode("utf-8"))
+
+                  with open("/var/run/github-app/app_id", "r", encoding="utf-8") as f:
+                      app_id = f.read().strip()
+                  with open("/var/run/github-app/private_key", "r", encoding="utf-8") as f:
+                      n, d = parse_rsa_private_key(f.read())
+
+                  now = int(time.time())
+                  header = b64url(json.dumps({"alg": "RS256", "typ": "JWT"}, separators=(",", ":")).encode())
+                  payload = b64url(json.dumps({"iat": now - 60, "exp": now + 540, "iss": app_id}, separators=(",", ":")).encode())
+                  signing_input = f"{header}.{payload}".encode("ascii")
+                  jwt = f"{header}.{payload}.{b64url(sign_rs256(signing_input, n, d))}"
+
+                  tokens = {}
+                  had_error = False
+                  for line in sys.stdin:
+                      line = line.rstrip("\n")
+                      if not line:
+                          continue
+                      parts = line.split("\t")
+                      if len(parts) != 3:
+                          continue
+                      ns, repo, pr = parts
+                      if not repo or not pr:
+                          continue
+                      try:
+                          if repo not in tokens:
+                              inst = gh_api(f"https://api.github.com/repos/{repo}/installation", jwt)
+                              inst_id = inst["id"]
+                              tok_resp = gh_api(f"https://api.github.com/app/installations/{inst_id}/access_tokens", jwt, method="POST")
+                              tokens[repo] = tok_resp["token"]
+                          pr_data = gh_api(f"https://api.github.com/repos/{repo}/pulls/{pr}", tokens[repo])
+                      except (urllib.error.URLError, KeyError, json.JSONDecodeError) as e:
+                          print(f"error: failed to query GitHub PR {repo}#{pr} for namespace {ns}: {e}", file=sys.stderr)
+                          had_error = True
+                          continue
+
+                      is_open = pr_data.get("state") == "open"
+                      has_label = any(lbl.get("name") == "preview" for lbl in pr_data.get("labels", []))
+                      if not is_open or not has_label:
+                          print(ns)
+
+                  if had_error:
+                      sys.exit(1)
+                  EOF
+                  ) || rc=$?
+
+                  for ns in $targets; do
+                    kubectl delete httproute -n preview-system "$ns" --ignore-not-found
+                    kubectl delete ns "$ns" --ignore-not-found
                   done
+
+                  exit "$rc"
           volumes:
             - name: vcluster-app-kubeconfig
               secret:
