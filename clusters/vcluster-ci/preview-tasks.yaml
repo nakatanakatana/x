@@ -76,8 +76,11 @@ spec:
       script: |
         #!/bin/sh
         set -eu
+        cp /var/run/vcluster-app/config /tmp/kubeconfig
+        sed -i 's|server: https://.*|server: https://vcluster-app.tekton-workspace.svc.cluster.local:443|' /tmp/kubeconfig
+        export KUBECONFIG=/tmp/kubeconfig
         kubectl() {
-          command kubectl --server="https://vcluster-app.tekton-workspace.svc.cluster.local:443" --tls-server-name="vcluster.app.svc.cluster.local" "$@"
+          command kubectl --tls-server-name="vcluster.app.svc.cluster.local" "$@"
         }
         NS="$(params.APP_NAME)-pr-$(params.PR_NUMBER)"
         HOST="${NS}.preview.nakatanakatana.app"
@@ -235,8 +238,11 @@ spec:
       script: |
         #!/bin/sh
         set -eu
+        cp /var/run/vcluster-app/config /tmp/kubeconfig
+        sed -i 's|server: https://.*|server: https://vcluster-app.tekton-workspace.svc.cluster.local:443|' /tmp/kubeconfig
+        export KUBECONFIG=/tmp/kubeconfig
         kubectl() {
-          command kubectl --server="https://vcluster-app.tekton-workspace.svc.cluster.local:443" --tls-server-name="vcluster.app.svc.cluster.local" "$@"
+          command kubectl --tls-server-name="vcluster.app.svc.cluster.local" "$@"
         }
         NS="$(params.APP_NAME)-pr-$(params.PR_NUMBER)"
         kubectl delete httproute -n preview-system "${NS}" --ignore-not-found
