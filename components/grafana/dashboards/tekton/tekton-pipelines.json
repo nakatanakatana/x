@@ -1,0 +1,1036 @@
+{
+  "uid": "tekton-pipelines",
+  "title": "Tekton Pipelines",
+  "tags": ["tekton", "ci", "pipelines"],
+  "timeSettings": {
+    "from": "now-24h",
+    "to": "now",
+    "timezone": "browser",
+    "autoRefresh": "1m"
+  },
+  "links": [],
+  "variables": [
+    {
+      "kind": "QueryVariable",
+      "spec": {
+        "name": "exported_namespace",
+        "label": "Namespace",
+        "multi": true,
+        "includeAll": true,
+        "allValue": ".*",
+        "refresh": "onTimeRangeChanged",
+        "query": {
+          "kind": "DataQuery",
+          "group": "prometheus",
+          "datasource": {"name": "local-mimir"},
+          "spec": {
+            "expr": "label_values(tekton_pipelines_controller_pipelinerun_duration_seconds_count, exported_namespace)"
+          }
+        }
+      }
+    },
+    {
+      "kind": "QueryVariable",
+      "spec": {
+        "name": "pipeline",
+        "label": "Pipeline",
+        "multi": true,
+        "includeAll": true,
+        "allValue": ".*",
+        "refresh": "onTimeRangeChanged",
+        "query": {
+          "kind": "DataQuery",
+          "group": "prometheus",
+          "datasource": {"name": "local-mimir"},
+          "spec": {
+            "expr": "label_values(tekton_pipelines_controller_pipelinerun_duration_seconds_count{exported_namespace=~\"${exported_namespace:regex}\"}, pipeline)"
+          }
+        }
+      }
+    }
+  ],
+  "elements": {
+    "p1": {
+      "kind": "Panel",
+      "spec": {
+        "id": 1,
+        "title": "Running PipelineRuns",
+        "vizConfig": {
+          "kind": "VizConfig",
+          "group": "stat",
+          "spec": {
+            "fieldConfig": {
+              "defaults": {"decimals": 0, "unit": "none"},
+              "overrides": []
+            },
+            "options": {}
+          }
+        },
+        "data": {
+          "kind": "QueryGroup",
+          "spec": {
+            "queries": [
+              {
+                "kind": "PanelQuery",
+                "spec": {
+                  "refId": "A",
+                  "query": {
+                    "kind": "DataQuery",
+                    "group": "prometheus",
+                    "datasource": {"name": "local-mimir"},
+                    "spec": {
+                      "expr": "sum(tekton_pipelines_controller_running_pipelineruns) or vector(0)",
+                      "instant": true
+                    }
+                  }
+                }
+              }
+            ],
+            "transformations": []
+          }
+        }
+      }
+    },
+    "p2": {
+      "kind": "Panel",
+      "spec": {
+        "id": 2,
+        "title": "Running TaskRuns",
+        "vizConfig": {
+          "kind": "VizConfig",
+          "group": "stat",
+          "spec": {
+            "fieldConfig": {
+              "defaults": {"decimals": 0, "unit": "none"},
+              "overrides": []
+            },
+            "options": {}
+          }
+        },
+        "data": {
+          "kind": "QueryGroup",
+          "spec": {
+            "queries": [
+              {
+                "kind": "PanelQuery",
+                "spec": {
+                  "refId": "A",
+                  "query": {
+                    "kind": "DataQuery",
+                    "group": "prometheus",
+                    "datasource": {"name": "local-mimir"},
+                    "spec": {
+                      "expr": "sum(tekton_pipelines_controller_running_taskruns) or vector(0)",
+                      "instant": true
+                    }
+                  }
+                }
+              }
+            ],
+            "transformations": []
+          }
+        }
+      }
+    },
+    "p3": {
+      "kind": "Panel",
+      "spec": {
+        "id": 3,
+        "title": "PipelineRuns Succeeded",
+        "vizConfig": {
+          "kind": "VizConfig",
+          "group": "stat",
+          "spec": {
+            "fieldConfig": {
+              "defaults": {
+                "color": {"mode": "fixed", "fixedColor": "green"},
+                "decimals": 0,
+                "unit": "none"
+              },
+              "overrides": []
+            },
+            "options": {}
+          }
+        },
+        "data": {
+          "kind": "QueryGroup",
+          "spec": {
+            "queries": [
+              {
+                "kind": "PanelQuery",
+                "spec": {
+                  "refId": "A",
+                  "query": {
+                    "kind": "DataQuery",
+                    "group": "prometheus",
+                    "datasource": {"name": "local-mimir"},
+                    "spec": {
+                      "expr": "sum(increase(tekton_pipelines_controller_pipelinerun_duration_seconds_count{exported_namespace=~\"${exported_namespace:regex}\", pipeline=~\"${pipeline:regex}\", status=\"success\"}[$__range])) or vector(0)",
+                      "instant": true
+                    }
+                  }
+                }
+              }
+            ],
+            "transformations": []
+          }
+        }
+      }
+    },
+    "p4": {
+      "kind": "Panel",
+      "spec": {
+        "id": 4,
+        "title": "PipelineRuns Failed",
+        "vizConfig": {
+          "kind": "VizConfig",
+          "group": "stat",
+          "spec": {
+            "fieldConfig": {
+              "defaults": {
+                "color": {"mode": "fixed", "fixedColor": "red"},
+                "decimals": 0,
+                "unit": "none"
+              },
+              "overrides": []
+            },
+            "options": {}
+          }
+        },
+        "data": {
+          "kind": "QueryGroup",
+          "spec": {
+            "queries": [
+              {
+                "kind": "PanelQuery",
+                "spec": {
+                  "refId": "A",
+                  "query": {
+                    "kind": "DataQuery",
+                    "group": "prometheus",
+                    "datasource": {"name": "local-mimir"},
+                    "spec": {
+                      "expr": "sum(increase(tekton_pipelines_controller_pipelinerun_duration_seconds_count{exported_namespace=~\"${exported_namespace:regex}\", pipeline=~\"${pipeline:regex}\", status=\"failed\"}[$__range])) or vector(0)",
+                      "instant": true
+                    }
+                  }
+                }
+              }
+            ],
+            "transformations": []
+          }
+        }
+      }
+    },
+    "p5": {
+      "kind": "Panel",
+      "spec": {
+        "id": 5,
+        "title": "PipelineRuns Summary (Count & Duration)",
+        "vizConfig": {
+          "kind": "VizConfig",
+          "group": "table",
+          "spec": {
+            "fieldConfig": {
+              "defaults": {"custom": {"align": "auto"}},
+              "overrides": [
+                {
+                  "matcher": {"id": "byName", "options": "Runs"},
+                  "properties": [{"id": "decimals", "value": 0}]
+                },
+                {
+                  "matcher": {"id": "byName", "options": "Avg Duration (s)"},
+                  "properties": [
+                    {"id": "unit", "value": "s"},
+                    {"id": "decimals", "value": 1}
+                  ]
+                },
+                {
+                  "matcher": {"id": "byName", "options": "p95 Duration (s)"},
+                  "properties": [
+                    {"id": "unit", "value": "s"},
+                    {"id": "decimals", "value": 1}
+                  ]
+                },
+                {
+                  "matcher": {"id": "byName", "options": "Status"},
+                  "properties": [
+                    {
+                      "id": "mappings",
+                      "value": [
+                        {
+                          "type": "value",
+                          "options": {
+                            "success": {"color": "green", "text": "success"},
+                            "failed": {"color": "red", "text": "failed"}
+                          }
+                        }
+                      ]
+                    },
+                    {"id": "custom.cellOptions", "value": {"type": "color-text"}}
+                  ]
+                }
+              ]
+            },
+            "options": {}
+          }
+        },
+        "data": {
+          "kind": "QueryGroup",
+          "spec": {
+            "queries": [
+              {
+                "kind": "PanelQuery",
+                "spec": {
+                  "refId": "A",
+                  "query": {
+                    "kind": "DataQuery",
+                    "group": "prometheus",
+                    "datasource": {"name": "local-mimir"},
+                    "spec": {
+                      "expr": "sum by (exported_namespace, pipeline, status) (increase(tekton_pipelines_controller_pipelinerun_duration_seconds_count{exported_namespace=~\"${exported_namespace:regex}\", pipeline=~\"${pipeline:regex}\"}[$__range]))",
+                      "format": "table",
+                      "instant": true
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "PanelQuery",
+                "spec": {
+                  "refId": "B",
+                  "query": {
+                    "kind": "DataQuery",
+                    "group": "prometheus",
+                    "datasource": {"name": "local-mimir"},
+                    "spec": {
+                      "expr": "sum by (exported_namespace, pipeline, status) (increase(tekton_pipelines_controller_pipelinerun_duration_seconds_sum{exported_namespace=~\"${exported_namespace:regex}\", pipeline=~\"${pipeline:regex}\"}[$__range])) / sum by (exported_namespace, pipeline, status) (increase(tekton_pipelines_controller_pipelinerun_duration_seconds_count{exported_namespace=~\"${exported_namespace:regex}\", pipeline=~\"${pipeline:regex}\"}[$__range]))",
+                      "format": "table",
+                      "instant": true
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "PanelQuery",
+                "spec": {
+                  "refId": "C",
+                  "query": {
+                    "kind": "DataQuery",
+                    "group": "prometheus",
+                    "datasource": {"name": "local-mimir"},
+                    "spec": {
+                      "expr": "histogram_quantile(0.95, sum by (exported_namespace, pipeline, status, le) (rate(tekton_pipelines_controller_pipelinerun_duration_seconds_bucket{exported_namespace=~\"${exported_namespace:regex}\", pipeline=~\"${pipeline:regex}\"}[$__range])))",
+                      "format": "table",
+                      "instant": true
+                    }
+                  }
+                }
+              }
+            ],
+            "transformations": [
+              {"kind": "merge", "spec": {"id": "merge", "options": {}}},
+              {
+                "kind": "organize",
+                "spec": {
+                  "id": "organize",
+                  "options": {
+                    "excludeByName": {"Time": true},
+                    "indexByName": {
+                      "exported_namespace": 0,
+                      "pipeline": 1,
+                      "status": 2,
+                      "Value #A": 3,
+                      "Value #B": 4,
+                      "Value #C": 5
+                    },
+                    "renameByName": {
+                      "exported_namespace": "Namespace",
+                      "pipeline": "Pipeline",
+                      "status": "Status",
+                      "Value #A": "Runs",
+                      "Value #B": "Avg Duration (s)",
+                      "Value #C": "p95 Duration (s)"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    "p6": {
+      "kind": "Panel",
+      "spec": {
+        "id": 6,
+        "title": "TaskRuns Summary (Count & Duration)",
+        "vizConfig": {
+          "kind": "VizConfig",
+          "group": "table",
+          "spec": {
+            "fieldConfig": {
+              "defaults": {"custom": {"align": "auto"}},
+              "overrides": [
+                {
+                  "matcher": {"id": "byName", "options": "Runs"},
+                  "properties": [{"id": "decimals", "value": 0}]
+                },
+                {
+                  "matcher": {"id": "byName", "options": "Avg Duration (s)"},
+                  "properties": [
+                    {"id": "unit", "value": "s"},
+                    {"id": "decimals", "value": 1}
+                  ]
+                },
+                {
+                  "matcher": {"id": "byName", "options": "p95 Duration (s)"},
+                  "properties": [
+                    {"id": "unit", "value": "s"},
+                    {"id": "decimals", "value": 1}
+                  ]
+                },
+                {
+                  "matcher": {"id": "byName", "options": "Status"},
+                  "properties": [
+                    {
+                      "id": "mappings",
+                      "value": [
+                        {
+                          "type": "value",
+                          "options": {
+                            "success": {"color": "green", "text": "success"},
+                            "failed": {"color": "red", "text": "failed"}
+                          }
+                        }
+                      ]
+                    },
+                    {"id": "custom.cellOptions", "value": {"type": "color-text"}}
+                  ]
+                }
+              ]
+            },
+            "options": {}
+          }
+        },
+        "data": {
+          "kind": "QueryGroup",
+          "spec": {
+            "queries": [
+              {
+                "kind": "PanelQuery",
+                "spec": {
+                  "refId": "A",
+                  "query": {
+                    "kind": "DataQuery",
+                    "group": "prometheus",
+                    "datasource": {"name": "local-mimir"},
+                    "spec": {
+                      "expr": "sum by (exported_namespace, pipeline, task, status) (increase(tekton_pipelines_controller_pipelinerun_taskrun_duration_seconds_count{exported_namespace=~\"${exported_namespace:regex}\", pipeline=~\"${pipeline:regex}\"}[$__range]))",
+                      "format": "table",
+                      "instant": true
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "PanelQuery",
+                "spec": {
+                  "refId": "B",
+                  "query": {
+                    "kind": "DataQuery",
+                    "group": "prometheus",
+                    "datasource": {"name": "local-mimir"},
+                    "spec": {
+                      "expr": "sum by (exported_namespace, pipeline, task, status) (increase(tekton_pipelines_controller_pipelinerun_taskrun_duration_seconds_sum{exported_namespace=~\"${exported_namespace:regex}\", pipeline=~\"${pipeline:regex}\"}[$__range])) / sum by (exported_namespace, pipeline, task, status) (increase(tekton_pipelines_controller_pipelinerun_taskrun_duration_seconds_count{exported_namespace=~\"${exported_namespace:regex}\", pipeline=~\"${pipeline:regex}\"}[$__range]))",
+                      "format": "table",
+                      "instant": true
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "PanelQuery",
+                "spec": {
+                  "refId": "C",
+                  "query": {
+                    "kind": "DataQuery",
+                    "group": "prometheus",
+                    "datasource": {"name": "local-mimir"},
+                    "spec": {
+                      "expr": "histogram_quantile(0.95, sum by (exported_namespace, pipeline, task, status, le) (rate(tekton_pipelines_controller_pipelinerun_taskrun_duration_seconds_bucket{exported_namespace=~\"${exported_namespace:regex}\", pipeline=~\"${pipeline:regex}\"}[$__range])))",
+                      "format": "table",
+                      "instant": true
+                    }
+                  }
+                }
+              }
+            ],
+            "transformations": [
+              {"kind": "merge", "spec": {"id": "merge", "options": {}}},
+              {
+                "kind": "organize",
+                "spec": {
+                  "id": "organize",
+                  "options": {
+                    "excludeByName": {"Time": true},
+                    "indexByName": {
+                      "exported_namespace": 0,
+                      "pipeline": 1,
+                      "task": 2,
+                      "status": 3,
+                      "Value #A": 4,
+                      "Value #B": 5,
+                      "Value #C": 6
+                    },
+                    "renameByName": {
+                      "exported_namespace": "Namespace",
+                      "pipeline": "Pipeline",
+                      "task": "Task",
+                      "status": "Status",
+                      "Value #A": "Runs",
+                      "Value #B": "Avg Duration (s)",
+                      "Value #C": "p95 Duration (s)"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    "p7": {
+      "kind": "Panel",
+      "spec": {
+        "id": 7,
+        "title": "PipelineRun Outcomes Over Time",
+        "vizConfig": {
+          "kind": "VizConfig",
+          "group": "timeseries",
+          "spec": {
+            "fieldConfig": {
+              "defaults": {
+                "unit": "none",
+                "custom": {"drawStyle": "bars", "stacking": {"mode": "normal"}}
+              },
+              "overrides": [
+                {
+                  "matcher": {"id": "byRegexp", "options": ".*\\(success\\)"},
+                  "properties": [
+                    {"id": "color", "value": {"mode": "fixed", "fixedColor": "green"}}
+                  ]
+                },
+                {
+                  "matcher": {"id": "byRegexp", "options": ".*\\(failed\\)"},
+                  "properties": [
+                    {"id": "color", "value": {"mode": "fixed", "fixedColor": "red"}}
+                  ]
+                }
+              ]
+            },
+            "options": {}
+          }
+        },
+        "data": {
+          "kind": "QueryGroup",
+          "spec": {
+            "queries": [
+              {
+                "kind": "PanelQuery",
+                "spec": {
+                  "refId": "A",
+                  "query": {
+                    "kind": "DataQuery",
+                    "group": "prometheus",
+                    "datasource": {"name": "local-mimir"},
+                    "spec": {
+                      "expr": "sum by (pipeline, status) (increase(tekton_pipelines_controller_pipelinerun_duration_seconds_count{exported_namespace=~\"${exported_namespace:regex}\", pipeline=~\"${pipeline:regex}\"}[5m]))",
+                      "legendFormat": "{{pipeline}} ({{status}})",
+                      "range": true
+                    }
+                  }
+                }
+              }
+            ],
+            "queryOptions": {"minInterval": "5m"},
+            "transformations": []
+          }
+        }
+      }
+    },
+    "p8": {
+      "kind": "Panel",
+      "spec": {
+        "id": 8,
+        "title": "TaskRun Average Duration Over Time",
+        "vizConfig": {
+          "kind": "VizConfig",
+          "group": "timeseries",
+          "spec": {
+            "fieldConfig": {
+              "defaults": {
+                "unit": "s",
+                "custom": {"showPoints": "always", "pointSize": 6}
+              },
+              "overrides": []
+            },
+            "options": {}
+          }
+        },
+        "data": {
+          "kind": "QueryGroup",
+          "spec": {
+            "queries": [
+              {
+                "kind": "PanelQuery",
+                "spec": {
+                  "refId": "A",
+                  "query": {
+                    "kind": "DataQuery",
+                    "group": "prometheus",
+                    "datasource": {"name": "local-mimir"},
+                    "spec": {
+                      "expr": "sum by (task) (rate(tekton_pipelines_controller_pipelinerun_taskrun_duration_seconds_sum{exported_namespace=~\"${exported_namespace:regex}\", pipeline=~\"${pipeline:regex}\"}[5m])) / sum by (task) (rate(tekton_pipelines_controller_pipelinerun_taskrun_duration_seconds_count{exported_namespace=~\"${exported_namespace:regex}\", pipeline=~\"${pipeline:regex}\"}[5m]))",
+                      "legendFormat": "{{task}}",
+                      "range": true
+                    }
+                  }
+                }
+              }
+            ],
+            "queryOptions": {"minInterval": "5m"},
+            "transformations": []
+          }
+        }
+      }
+    },
+    "p9": {
+      "kind": "Panel",
+      "spec": {
+        "id": 9,
+        "title": "Tekton / Pipelines-as-Code Logs",
+        "vizConfig": {
+          "kind": "VizConfig",
+          "group": "logs",
+          "spec": {
+            "fieldConfig": {"defaults": {}, "overrides": []},
+            "options": {}
+          }
+        },
+        "data": {
+          "kind": "QueryGroup",
+          "spec": {
+            "queries": [
+              {
+                "kind": "PanelQuery",
+                "spec": {
+                  "refId": "A",
+                  "query": {
+                    "kind": "DataQuery",
+                    "group": "loki",
+                    "datasource": {"name": "local-loki"},
+                    "spec": {
+                      "expr": "{namespace=\"ci\", pod=~\".*tekton.*|.*pipelines-as-code.*|.*preview-deploy.*\"}",
+                      "queryType": "range",
+                      "maxLines": 200
+                    }
+                  }
+                }
+              }
+            ],
+            "transformations": []
+          }
+        }
+      }
+    },
+    "p10": {
+      "kind": "Panel",
+      "spec": {
+        "id": 10,
+        "title": "PipelineRun Execution History",
+        "vizConfig": {
+          "kind": "VizConfig",
+          "group": "table",
+          "spec": {
+            "fieldConfig": {
+              "defaults": {"custom": {"align": "auto"}},
+              "overrides": [
+                {
+                  "matcher": {"id": "byName", "options": "Succeeded"},
+                  "properties": [
+                    {
+                      "id": "mappings",
+                      "value": [
+                        {
+                          "type": "value",
+                          "options": {
+                            "True": {"color": "green", "text": "True"},
+                            "False": {"color": "red", "text": "False"}
+                          }
+                        }
+                      ]
+                    },
+                    {"id": "custom.cellOptions", "value": {"type": "color-text"}},
+                    {"id": "custom.width", "value": 100}
+                  ]
+                }
+              ]
+            },
+            "options": {
+              "sortBy": [{"desc": true, "displayName": "Completed At"}]
+            }
+          }
+        },
+        "data": {
+          "kind": "QueryGroup",
+          "spec": {
+            "queries": [
+              {
+                "kind": "PanelQuery",
+                "spec": {
+                  "refId": "A",
+                  "query": {
+                    "kind": "DataQuery",
+                    "group": "loki",
+                    "datasource": {"name": "local-loki"},
+                    "spec": {
+                      "expr": "{namespace=\"ci\", container=\"tekton-pipelines-controller\"} |= \"status is being set to &{Succeeded \" != \"Succeeded Unknown\" | json | knative_dev_key =~ \"(${exported_namespace:regex})/.*\" | knative_dev_key =~ \"[^/]+/(${pipeline:regex}).*\" | line_format \"{{.message}}\" | regexp `^PipelineRun (?P<run>\\S+) status is being set to &\\{Succeeded (?P<status>\\S+)\\s+\\{[^\\}]+\\}\\s+(?P<reason>\\S+)\\s+(?P<details>.+)\\}$` | keep knative_dev_key, status, reason, details",
+                      "queryType": "range",
+                      "maxLines": 200
+                    }
+                  }
+                }
+              }
+            ],
+            "transformations": [
+              {
+                "kind": "extractFields",
+                "spec": {
+                  "id": "extractFields",
+                  "options": {"format": "json", "source": "labels"}
+                }
+              },
+              {
+                "kind": "organize",
+                "spec": {
+                  "id": "organize",
+                  "options": {
+                    "excludeByName": {
+                      "Line": true,
+                      "id": true,
+                      "labels": true,
+                      "tsNs": true
+                    },
+                    "indexByName": {
+                      "Time": 0,
+                      "knative_dev_key": 1,
+                      "status": 2,
+                      "reason": 3,
+                      "details": 4
+                    },
+                    "renameByName": {
+                      "Time": "Completed At",
+                      "knative_dev_key": "PipelineRun",
+                      "status": "Succeeded",
+                      "reason": "Reason",
+                      "details": "Details"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    "p11": {
+      "kind": "Panel",
+      "spec": {
+        "id": 11,
+        "title": "TaskRun Execution History",
+        "vizConfig": {
+          "kind": "VizConfig",
+          "group": "table",
+          "spec": {
+            "fieldConfig": {
+              "defaults": {"custom": {"align": "auto"}},
+              "overrides": [
+                {
+                  "matcher": {"id": "byName", "options": "Succeeded"},
+                  "properties": [
+                    {
+                      "id": "mappings",
+                      "value": [
+                        {
+                          "type": "value",
+                          "options": {
+                            "True": {"color": "green", "text": "True"},
+                            "False": {"color": "red", "text": "False"}
+                          }
+                        }
+                      ]
+                    },
+                    {"id": "custom.cellOptions", "value": {"type": "color-text"}},
+                    {"id": "custom.width", "value": 100}
+                  ]
+                }
+              ]
+            },
+            "options": {
+              "sortBy": [{"desc": true, "displayName": "Completed At"}]
+            }
+          }
+        },
+        "data": {
+          "kind": "QueryGroup",
+          "spec": {
+            "queries": [
+              {
+                "kind": "PanelQuery",
+                "spec": {
+                  "refId": "A",
+                  "query": {
+                    "kind": "DataQuery",
+                    "group": "loki",
+                    "datasource": {"name": "local-loki"},
+                    "spec": {
+                      "expr": "{namespace=\"ci\", container=\"tekton-pipelines-controller\"} |= \"Successfully reconciled taskrun \" | json | knative_dev_key =~ \"(${exported_namespace:regex})/.*\" | knative_dev_key =~ \"[^/]+/(${pipeline:regex}).*\" | message =~ `.*Status:\"(True|False)\".*` | line_format \"{{.message}}\" | regexp `^Successfully reconciled taskrun (?P<run>[^/]+)/(?P<run_namespace>\\S+) with status: &apis\\.Condition\\{Type:\"Succeeded\", Status:\"(?P<status>[^\"]+)\",.*Reason:\"(?P<reason>[^\"]+)\", Message:\"(?P<details>.+)\"\\}$` | keep knative_dev_key, status, reason, details",
+                      "queryType": "range",
+                      "maxLines": 200
+                    }
+                  }
+                }
+              }
+            ],
+            "transformations": [
+              {
+                "kind": "extractFields",
+                "spec": {
+                  "id": "extractFields",
+                  "options": {"format": "json", "source": "labels"}
+                }
+              },
+              {
+                "kind": "organize",
+                "spec": {
+                  "id": "organize",
+                  "options": {
+                    "excludeByName": {
+                      "Line": true,
+                      "id": true,
+                      "labels": true,
+                      "tsNs": true
+                    },
+                    "indexByName": {
+                      "Time": 0,
+                      "knative_dev_key": 1,
+                      "status": 2,
+                      "reason": 3,
+                      "details": 4
+                    },
+                    "renameByName": {
+                      "Time": "Completed At",
+                      "knative_dev_key": "TaskRun",
+                      "status": "Succeeded",
+                      "reason": "Reason",
+                      "details": "Details"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    "p12": {
+      "kind": "Panel",
+      "spec": {
+        "id": 12,
+        "title": "TaskRuns Succeeded",
+        "vizConfig": {
+          "kind": "VizConfig",
+          "group": "stat",
+          "spec": {
+            "fieldConfig": {
+              "defaults": {
+                "color": {"mode": "fixed", "fixedColor": "green"},
+                "decimals": 0,
+                "unit": "none"
+              },
+              "overrides": []
+            },
+            "options": {}
+          }
+        },
+        "data": {
+          "kind": "QueryGroup",
+          "spec": {
+            "queries": [
+              {
+                "kind": "PanelQuery",
+                "spec": {
+                  "refId": "A",
+                  "query": {
+                    "kind": "DataQuery",
+                    "group": "prometheus",
+                    "datasource": {"name": "local-mimir"},
+                    "spec": {
+                      "expr": "sum(increase(tekton_pipelines_controller_pipelinerun_taskrun_duration_seconds_count{exported_namespace=~\"${exported_namespace:regex}\", pipeline=~\"${pipeline:regex}\", status=\"success\"}[$__range])) or vector(0)",
+                      "instant": true
+                    }
+                  }
+                }
+              }
+            ],
+            "transformations": []
+          }
+        }
+      }
+    },
+    "p13": {
+      "kind": "Panel",
+      "spec": {
+        "id": 13,
+        "title": "TaskRuns Failed",
+        "vizConfig": {
+          "kind": "VizConfig",
+          "group": "stat",
+          "spec": {
+            "fieldConfig": {
+              "defaults": {
+                "color": {"mode": "fixed", "fixedColor": "red"},
+                "decimals": 0,
+                "unit": "none"
+              },
+              "overrides": []
+            },
+            "options": {}
+          }
+        },
+        "data": {
+          "kind": "QueryGroup",
+          "spec": {
+            "queries": [
+              {
+                "kind": "PanelQuery",
+                "spec": {
+                  "refId": "A",
+                  "query": {
+                    "kind": "DataQuery",
+                    "group": "prometheus",
+                    "datasource": {"name": "local-mimir"},
+                    "spec": {
+                      "expr": "sum(increase(tekton_pipelines_controller_pipelinerun_taskrun_duration_seconds_count{exported_namespace=~\"${exported_namespace:regex}\", pipeline=~\"${pipeline:regex}\", status=\"failed\"}[$__range])) or vector(0)",
+                      "instant": true
+                    }
+                  }
+                }
+              }
+            ],
+            "transformations": []
+          }
+        }
+      }
+    }
+  },
+  "layout": {
+    "kind": "TabsLayout",
+    "spec": {
+      "tabs": [
+        {
+          "kind": "TabsLayoutTab",
+          "spec": {
+            "title": "Pipeline",
+            "layout": {
+              "kind": "GridLayout",
+              "spec": {
+                "items": [
+                  {
+                    "kind": "GridLayoutItem",
+                    "spec": {"x": 0, "y": 0, "width": 8, "height": 4, "element": {"kind": "ElementReference", "name": "p1"}}
+                  },
+                  {
+                    "kind": "GridLayoutItem",
+                    "spec": {"x": 8, "y": 0, "width": 8, "height": 4, "element": {"kind": "ElementReference", "name": "p3"}}
+                  },
+                  {
+                    "kind": "GridLayoutItem",
+                    "spec": {"x": 16, "y": 0, "width": 8, "height": 4, "element": {"kind": "ElementReference", "name": "p4"}}
+                  },
+                  {
+                    "kind": "GridLayoutItem",
+                    "spec": {"x": 0, "y": 4, "width": 24, "height": 9, "element": {"kind": "ElementReference", "name": "p5"}}
+                  },
+                  {
+                    "kind": "GridLayoutItem",
+                    "spec": {"x": 0, "y": 13, "width": 24, "height": 8, "element": {"kind": "ElementReference", "name": "p7"}}
+                  },
+                  {
+                    "kind": "GridLayoutItem",
+                    "spec": {"x": 0, "y": 21, "width": 24, "height": 16, "element": {"kind": "ElementReference", "name": "p10"}}
+                  }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "kind": "TabsLayoutTab",
+          "spec": {
+            "title": "Task",
+            "layout": {
+              "kind": "GridLayout",
+              "spec": {
+                "items": [
+                  {
+                    "kind": "GridLayoutItem",
+                    "spec": {"x": 0, "y": 0, "width": 8, "height": 4, "element": {"kind": "ElementReference", "name": "p2"}}
+                  },
+                  {
+                    "kind": "GridLayoutItem",
+                    "spec": {"x": 8, "y": 0, "width": 8, "height": 4, "element": {"kind": "ElementReference", "name": "p12"}}
+                  },
+                  {
+                    "kind": "GridLayoutItem",
+                    "spec": {"x": 16, "y": 0, "width": 8, "height": 4, "element": {"kind": "ElementReference", "name": "p13"}}
+                  },
+                  {
+                    "kind": "GridLayoutItem",
+                    "spec": {"x": 0, "y": 4, "width": 24, "height": 10, "element": {"kind": "ElementReference", "name": "p6"}}
+                  },
+                  {
+                    "kind": "GridLayoutItem",
+                    "spec": {"x": 0, "y": 14, "width": 24, "height": 8, "element": {"kind": "ElementReference", "name": "p8"}}
+                  },
+                  {
+                    "kind": "GridLayoutItem",
+                    "spec": {"x": 0, "y": 22, "width": 24, "height": 16, "element": {"kind": "ElementReference", "name": "p11"}}
+                  }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "kind": "TabsLayoutTab",
+          "spec": {
+            "title": "Logs",
+            "layout": {
+              "kind": "GridLayout",
+              "spec": {
+                "items": [
+                  {
+                    "kind": "GridLayoutItem",
+                    "spec": {"x": 0, "y": 0, "width": 24, "height": 16, "element": {"kind": "ElementReference", "name": "p9"}}
+                  }
+                ]
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}
