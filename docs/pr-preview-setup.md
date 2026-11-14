@@ -122,7 +122,7 @@ metadata:
       body.action in ["labeled", "synchronize", "reopened"] &&
       body.pull_request.head.repo.full_name == body.repository.full_name &&
       body.pull_request.labels.exists(l, l.name == "preview")
-    pipelinesascode.tekton.dev/task: "[preview-build-push, preview-deploy]"
+    pipelinesascode.tekton.dev/task: "git-clone"
     pipelinesascode.tekton.dev/max-keep-runs: "3"
 spec:
   params:
@@ -210,7 +210,6 @@ metadata:
       event == "pull_request" &&
       (body.action == "closed" || (body.action == "unlabeled" && body.label.name == "preview")) &&
       body.pull_request.head.repo.full_name == body.repository.full_name
-    pipelinesascode.tekton.dev/task: "[preview-cleanup]"
     pipelinesascode.tekton.dev/max-keep-runs: "3"
 spec:
   pipelineSpec:
@@ -246,7 +245,7 @@ metadata:
       body.action in ["labeled", "synchronize", "reopened"] &&
       body.pull_request.head.repo.full_name == body.repository.full_name &&
       body.pull_request.labels.exists(l, l.name == "preview")
-    pipelinesascode.tekton.dev/task: "[preview-build-push, preview-deploy]"
+    pipelinesascode.tekton.dev/task: "git-clone"
     pipelinesascode.tekton.dev/max-keep-runs: "3"
 spec:
   params:
@@ -382,7 +381,6 @@ metadata:
       event == "pull_request" &&
       (body.action == "closed" || (body.action == "unlabeled" && body.label.name == "preview")) &&
       body.pull_request.head.repo.full_name == body.repository.full_name
-    pipelinesascode.tekton.dev/task: "[preview-cleanup]"
     pipelinesascode.tekton.dev/max-keep-runs: "3"
 spec:
   pipelineSpec:
