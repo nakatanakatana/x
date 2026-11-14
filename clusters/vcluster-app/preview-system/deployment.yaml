@@ -32,7 +32,9 @@ spec:
             - --redirect-url=https://preview-auth.nakatanakatana.app/oauth2/callback
             - --cookie-domain=.nakatanakatana.app
             - --whitelist-domain=.nakatanakatana.app
+            - --whitelist-domain=*.nakatanakatana.app
             - --email-domain=*
+            - --insecure-oidc-allow-unverified-email=true
             - --http-address=127.0.0.1:4180
             - --upstream=static://202
             - --reverse-proxy=true
