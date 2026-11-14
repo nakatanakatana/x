@@ -122,7 +122,7 @@ metadata:
       body.action in ["labeled", "synchronize", "reopened"] &&
       body.pull_request.head.repo.full_name == body.repository.full_name &&
       body.pull_request.labels.exists(l, l.name == "preview")
-    pipelinesascode.tekton.dev/task: "[preview-build-push, preview-deploy]"
+    pipelinesascode.tekton.dev/task: "git-clone"
     pipelinesascode.tekton.dev/max-keep-runs: "3"
 spec:
   params:
@@ -152,7 +152,14 @@ spec:
         runAfter:
           - fetch-repository
         taskRef:
-          name: preview-build-push
+          resolver: cluster
+          params:
+            - name: kind
+              value: task
+            - name: name
+              value: preview-build-push
+            - name: namespace
+              value: tekton-workspace
         workspaces:
           - name: source
             workspace: source
@@ -168,7 +175,14 @@ spec:
         runAfter:
           - build-push
         taskRef:
-          name: preview-deploy
+          resolver: cluster
+          params:
+            - name: kind
+              value: task
+            - name: name
+              value: preview-deploy
+            - name: namespace
+              value: tekton-workspace
         workspaces:
           - name: source
             workspace: source
@@ -210,14 +224,20 @@ metadata:
       event == "pull_request" &&
       (body.action == "closed" || (body.action == "unlabeled" && body.label.name == "preview")) &&
       body.pull_request.head.repo.full_name == body.repository.full_name
-    pipelinesascode.tekton.dev/task: "[preview-cleanup]"
     pipelinesascode.tekton.dev/max-keep-runs: "3"
 spec:
   pipelineSpec:
     tasks:
       - name: cleanup
         taskRef:
-          name: preview-cleanup
+          resolver: cluster
+          params:
+            - name: kind
+              value: task
+            - name: name
+              value: preview-cleanup
+            - name: namespace
+              value: tekton-workspace
         params:
           - name: APP_NAME
             value: feed-reader
@@ -246,7 +266,7 @@ metadata:
       body.action in ["labeled", "synchronize", "reopened"] &&
       body.pull_request.head.repo.full_name == body.repository.full_name &&
       body.pull_request.labels.exists(l, l.name == "preview")
-    pipelinesascode.tekton.dev/task: "[preview-build-push, preview-deploy]"
+    pipelinesascode.tekton.dev/task: "git-clone"
     pipelinesascode.tekton.dev/max-keep-runs: "3"
 spec:
   params:
@@ -279,7 +299,14 @@ spec:
         runAfter:
           - fetch-repository
         taskRef:
-          name: preview-build-push
+          resolver: cluster
+          params:
+            - name: kind
+              value: task
+            - name: name
+              value: preview-build-push
+            - name: namespace
+              value: tekton-workspace
         workspaces:
           - name: source
             workspace: source
@@ -299,7 +326,14 @@ spec:
         runAfter:
           - build-push-http-tool
         taskRef:
-          name: preview-deploy
+          resolver: cluster
+          params:
+            - name: kind
+              value: task
+            - name: name
+              value: preview-deploy
+            - name: namespace
+              value: tekton-workspace
         workspaces:
           - name: source
             workspace: source
@@ -324,7 +358,14 @@ spec:
         runAfter:
           - fetch-repository
         taskRef:
-          name: preview-build-push
+          resolver: cluster
+          params:
+            - name: kind
+              value: task
+            - name: name
+              value: preview-build-push
+            - name: namespace
+              value: tekton-workspace
         workspaces:
           - name: source
             workspace: source
@@ -344,7 +385,14 @@ spec:
         runAfter:
           - build-push-worker
         taskRef:
-          name: preview-deploy
+          resolver: cluster
+          params:
+            - name: kind
+              value: task
+            - name: name
+              value: preview-deploy
+            - name: namespace
+              value: tekton-workspace
         workspaces:
           - name: source
             workspace: source
@@ -382,14 +430,20 @@ metadata:
       event == "pull_request" &&
       (body.action == "closed" || (body.action == "unlabeled" && body.label.name == "preview")) &&
       body.pull_request.head.repo.full_name == body.repository.full_name
-    pipelinesascode.tekton.dev/task: "[preview-cleanup]"
     pipelinesascode.tekton.dev/max-keep-runs: "3"
 spec:
   pipelineSpec:
     tasks:
       - name: cleanup-http-tool
         taskRef:
-          name: preview-cleanup
+          resolver: cluster
+          params:
+            - name: kind
+              value: task
+            - name: name
+              value: preview-cleanup
+            - name: namespace
+              value: tekton-workspace
         params:
           - name: APP_NAME
             value: mytools-http-tool
@@ -398,7 +452,14 @@ spec:
 
       - name: cleanup-worker
         taskRef:
-          name: preview-cleanup
+          resolver: cluster
+          params:
+            - name: kind
+              value: task
+            - name: name
+              value: preview-cleanup
+            - name: namespace
+              value: tekton-workspace
         params:
           - name: APP_NAME
             value: mytools-worker
