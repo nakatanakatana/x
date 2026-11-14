@@ -56,7 +56,7 @@ spec:
   replica:
     type: s3
     s3:
-      endpoint: http://storage-clusterip.tailscale.svc.cluster.local:8010
+      endpoint: http://storage.preview-system.svc.cluster.local:8010
       bucket: feed-reader
       path: feed-reader.db
       credentials:

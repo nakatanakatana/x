@@ -36,6 +36,8 @@ spec:
                     to: nostr/storage
                   - from: tailscale/storage-clusterip
                     to: feed-reader/storage
+                  - from: tailscale/storage-clusterip
+                    to: preview-system/storage
                   - from: rook-ceph/rook-ceph-rgw-celld
                     to: celld/rgw
             sync:
