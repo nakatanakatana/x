@@ -46,6 +46,9 @@ spec:
               args:
                 - |
                   set -eu
+                  kubectl() {
+                    command kubectl --server="https://vcluster-app.tekton-workspace.svc.cluster.local:443" --tls-server-name="vcluster.app.svc.cluster.local" "$@"
+                  }
                   b64url() {
                     openssl base64 -e -A | tr '+/' '-_' | tr -d '='
                   }
