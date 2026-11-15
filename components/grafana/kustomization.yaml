@@ -22,7 +22,6 @@ configMapGenerator:
   - name: grafana-dashboards-general
     files:
       - dashboards/general/clusters.json
-      - dashboards/general/local-observability.json
     options:
       disableNameSuffixHash: true
       labels:
