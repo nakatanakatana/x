@@ -56,11 +56,11 @@ spec:
 
                   ns_list=$(kubectl get ns -l preview.nakatanakatana.app/enabled=true -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.metadata.annotations.preview\.nakatanakatana\.app/repo}{"\t"}{.metadata.annotations.preview\.nakatanakatana\.app/pr}{"\n"}{end}')
                   if [ -z "$ns_list" ]; then
+                    echo "info: no preview namespaces found" >&2
                     exit 0
                   fi
 
-                  rc=0
-                  targets=$(printf '%s\n' "$ns_list" | python3 - <<'EOF'
+                  cat <<'EOF' > /tmp/reaper.py
                   import base64
                   import hashlib
                   import json
@@ -160,9 +160,11 @@ spec:
                           continue
                       parts = line.split("\t")
                       if len(parts) != 3:
+                          print(f"warning: skipping malformed namespace line: {line!r}", file=sys.stderr)
                           continue
                       ns, repo, pr = parts
                       if not repo or not pr:
+                          print(f"warning: skipping namespace {ns}: missing repo or pr annotation (repo={repo!r}, pr={pr!r})", file=sys.stderr)
                           continue
                       try:
                           if repo not in tokens:
@@ -176,17 +178,23 @@ spec:
                           had_error = True
                           continue
 
-                      is_open = pr_data.get("state") == "open"
+                      state = pr_data.get("state")
+                      is_open = state == "open"
                       has_label = any(lbl.get("name") == "preview" for lbl in pr_data.get("labels", []))
+                      print(f"info: checked {ns} ({repo}#{pr}): state={state}, has_preview_label={has_label}", file=sys.stderr)
                       if not is_open or not has_label:
+                          print(f"info: marking {ns} for deletion", file=sys.stderr)
                           print(ns)
 
                   if had_error:
                       sys.exit(1)
                   EOF
-                  ) || rc=$?
+
+                  rc=0
+                  targets=$(printf '%s\n' "$ns_list" | python3 /tmp/reaper.py) || rc=$?
 
                   for ns in $targets; do
+                    echo "info: deleting preview resources for $ns" >&2
                     kubectl delete httproute -n preview-system "$ns" --ignore-not-found
                     kubectl delete ns "$ns" --ignore-not-found
                   done
