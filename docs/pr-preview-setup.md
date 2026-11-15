@@ -479,6 +479,7 @@ spec:
    - Removing the label triggers immediate environment teardown.
 3. **Automatic Orphan Cleanup**:
    - If a webhook event fails to deliver (e.g. during cluster network disruption), the `preview-reaper` CronJob running hourly cleans up any leftover namespace or HTTPRoute whose PR is no longer open or labeled `preview`.
+   - **Known Limitation (`pull_request` `closed` events)**: In Pipelines-as-Code (`v0.54.0`), `pull_request` `closed` (merge/close) webhook events do not evaluate `.tekton/` PipelineRuns (`no pipelinerun found for repository`), so `.tekton/preview-cleanup.yaml` is not triggered on PR merge/close. Cleanup for closed or merged PRs relies on the hourly `preview-reaper` CronJob (whereas removing the `preview` label while the PR is open triggers `preview-cleanup` immediately via `unlabeled`).
 4. **Database Safety**:
    - SQLite replicas injected with `LITESTREAM_INJECT: "feed-reader-db-preview"` run in restore-only mode.
    - Database writes are held in memory/`emptyDir` ephemeral storage and are never replicated back to production S3 storage.
