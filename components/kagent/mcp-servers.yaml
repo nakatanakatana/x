@@ -1,0 +1,63 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: home-cluster-viewer-kubeconfig
+  namespace: kagent
+data:
+  config: |
+    apiVersion: v1
+    kind: Config
+    clusters:
+      - name: home
+        cluster:
+          server: https://home-kubernetes.kagent.svc.cluster.local:443
+          certificate-authority: /var/run/secrets/home-cluster/ca.crt
+    contexts:
+      - name: home
+        context:
+          cluster: home
+          user: kagent-home-viewer
+    current-context: home
+    users:
+      - name: kagent-home-viewer
+        user:
+          tokenFile: /var/run/secrets/home-cluster/token
+---
+apiVersion: kagent.dev/v1alpha2
+kind: RemoteMCPServer
+metadata:
+  name: grafana-mcp
+  namespace: kagent
+spec:
+  description: "Grafana MCP server for querying Prometheus metrics, Loki logs, Tempo traces, and dashboards"
+  protocol: STREAMABLE_HTTP
+  url: "http://grafana-mcp.kagent.svc.cluster.local:8000/"
+  timeout: 30s
+  sseReadTimeout: 5m0s
+  terminateOnClose: true
+---
+apiVersion: kagent.dev/v1alpha2
+kind: RemoteMCPServer
+metadata:
+  name: kagent-tools-app
+  namespace: kagent
+spec:
+  description: "Kubernetes and Helm tool server targeting vcluster-app workloads"
+  protocol: STREAMABLE_HTTP
+  url: "http://kagent-tools-app.kagent.svc.cluster.local:8084/mcp"
+  timeout: 30s
+  sseReadTimeout: 5m0s
+  terminateOnClose: true
+---
+apiVersion: kagent.dev/v1alpha2
+kind: RemoteMCPServer
+metadata:
+  name: kagent-tools-home-ro
+  namespace: kagent
+spec:
+  description: "Read-only Kubernetes tool server targeting the host cluster (home)"
+  protocol: STREAMABLE_HTTP
+  url: "http://kagent-tools-home-ro.kagent.svc.cluster.local:8084/mcp"
+  timeout: 30s
+  sseReadTimeout: 5m0s
+  terminateOnClose: true

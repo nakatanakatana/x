@@ -82,13 +82,16 @@ spec:
             - -t
             - streamable-http
             - -address
-            - 127.0.0.1:8000
+            - 0.0.0.0:8000
             - --endpoint-path=/
             - --allowed-hosts=*
             - --disable-incident
             - --disable-oncall
             - --disable-pyroscope
             - --disable-asserts
+          ports:
+            - containerPort: 8000
+              name: mcp
           env:
             - name: GRAFANA_URL
               value: http://grafana.monitoring.svc.cluster.local
@@ -161,3 +164,18 @@ spec:
                 name: grafana-mcp
                 port:
                   number: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: grafana-mcp-internal
+  namespace: monitoring
+spec:
+  type: ClusterIP
+  selector:
+    app: grafana-mcp
+  ports:
+    - name: mcp
+      protocol: TCP
+      port: 8000
+      targetPort: 8000

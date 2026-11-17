@@ -1,0 +1,82 @@
+apiVersion: kagent.dev/v1alpha2
+kind: Agent
+metadata:
+  name: observability-agent
+  namespace: kagent
+spec:
+  description: "Observability and read-only host cluster diagnostics agent"
+  type: Declarative
+  declarative:
+    modelConfig: observability-agent-model
+    systemMessage: |
+      You are the Kubernetes and Grafana Observability assistant for the home cluster and virtual clusters.
+      Use grafana-mcp tools to query Prometheus metrics, Loki logs, Tempo traces, and Grafana dashboards.
+      Use kagent-tools-home-ro in read-only mode to inspect host cluster resources, events, and pod statuses.
+    tools:
+      - type: McpServer
+        mcpServer:
+          apiGroup: kagent.dev
+          kind: RemoteMCPServer
+          name: grafana-mcp
+          toolNames:
+            - list_datasources
+            - query_prometheus
+            - list_prometheus_metric_names
+            - list_prometheus_label_names
+            - list_prometheus_label_values
+            - query_loki_logs
+            - query_loki_stats
+            - list_loki_label_names
+            - list_loki_label_values
+            - search_dashboards
+            - get_dashboard_by_uid
+            - alerting_rules_read
+      - type: McpServer
+        mcpServer:
+          apiGroup: kagent.dev
+          kind: RemoteMCPServer
+          name: kagent-tools-home-ro
+          toolNames:
+            - k8s_get_resources
+            - k8s_describe_resource
+            - k8s_get_pod_logs
+            - k8s_get_events
+            - k8s_get_cluster_configuration
+---
+apiVersion: kagent.dev/v1alpha2
+kind: Agent
+metadata:
+  name: app-cluster-agent
+  namespace: kagent
+spec:
+  description: "Application cluster (vcluster-app) operations and automation agent"
+  type: Declarative
+  declarative:
+    modelConfig: app-cluster-agent-model
+    systemMessage: |
+      You are the operations and automation agent for vcluster-app workloads (including feed-reader, celld, nostr, and preview-system).
+      Use kagent-tools-app to inspect and manage Kubernetes resources in vcluster-app, and grafana-mcp to verify application logs, metrics, and traces.
+    tools:
+      - type: McpServer
+        mcpServer:
+          apiGroup: kagent.dev
+          kind: RemoteMCPServer
+          name: kagent-tools-app
+          toolNames:
+            - k8s_get_resources
+            - k8s_describe_resource
+            - k8s_get_pod_logs
+            - k8s_get_events
+            - k8s_apply_manifest
+            - k8s_patch_resource
+            - k8s_delete_resource
+      - type: McpServer
+        mcpServer:
+          apiGroup: kagent.dev
+          kind: RemoteMCPServer
+          name: grafana-mcp
+          toolNames:
+            - query_prometheus
+            - query_loki_logs
+            - search_dashboards
+            - get_dashboard_by_uid

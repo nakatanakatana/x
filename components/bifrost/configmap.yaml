@@ -10,18 +10,21 @@ data:
       "version": 1,
       "source_of_truth": "config.json",
       "client": {
-        "enforce_auth_on_inference": false
+        "enforce_auth_on_inference": false,
+        "header_filter_config": {
+          "allowlist": ["x-opencode-session"]
+        }
       },
       "providers": {
         "openai": {
           "enabled": true,
           "network_config": {
-            "base_url": "https://token-plan.ap-southeast-1.maas.aliyuncs.com/compatible-mode"
+            "base_url": "https://opencode.ai/inference/go"
           },
           "keys": [
             {
-              "name": "primary",
-              "value": "env.QWEN_API_KEY",
+              "name": "opencode-go",
+              "value": "env.OPENCODE_API_KEY",
               "models": ["*"]
             }
           ]

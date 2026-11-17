@@ -3534,12 +3534,39 @@ func TestGrafanaMCPManifestPolicy(t *testing.T) {
 		t.Fatal("Deployment/monitoring/grafana-mcp not found")
 	})
 
+	t.Run("mcp-grafana listens on 0.0.0.0:8000 for internal and sidecar access", func(t *testing.T) {
+		for _, resource := range resources {
+			if resource.Document["kind"] != "Deployment" ||
+				resourceName(resource.Document) != "grafana-mcp" ||
+				resourceNamespace(resource.Document) != "monitoring" {
+				continue
+			}
+			podSpec := resource.Document["spec"].(map[string]any)["template"].(map[string]any)["spec"].(map[string]any)
+			for _, rawContainer := range podSpec["containers"].([]any) {
+				container := rawContainer.(map[string]any)
+				if container["name"] != "mcp-grafana" {
+					continue
+				}
+				args := container["args"].([]any)
+				for i := 0; i < len(args)-1; i++ {
+					if args[i] == "-address" && args[i+1] == "0.0.0.0:8000" {
+						return
+					}
+				}
+				t.Fatalf("mcp-grafana args = %v, want -address 0.0.0.0:8000", args)
+			}
+			t.Fatal("mcp-grafana container not found in Deployment/grafana-mcp")
+		}
+		t.Fatal("Deployment/monitoring/grafana-mcp not found")
+	})
+
 	for _, tc := range []struct {
 		kind string
 		name string
 	}{
 		{kind: "Deployment", name: "grafana-mcp"},
 		{kind: "Service", name: "grafana-mcp"},
+		{kind: "Service", name: "grafana-mcp-internal"},
 		{kind: "Ingress", name: "grafana-mcp"},
 	} {
 		t.Run("renders "+tc.kind+"/"+tc.name, func(t *testing.T) {
@@ -3557,4 +3584,257 @@ func TestGrafanaMCPManifestPolicy(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestBifrostOpenCodeGoManifestPolicy(t *testing.T) {
+	evaluator := newTestPolicyEvaluator(t)
+
+	bifrostResources := mustRenderPolicyResources(t, "components/bifrost")
+	assertPolicyPasses(t, evaluator, PolicyInput{
+		Resources: bifrostResources,
+	})
+
+	t.Run("bifrost configmap targets opencode go with OPENCODE_API_KEY", func(t *testing.T) {
+		for _, resource := range bifrostResources {
+			if resource.Document["kind"] != "ConfigMap" ||
+				resourceName(resource.Document) != "bifrost-config" ||
+				resourceNamespace(resource.Document) != "proxy" {
+				continue
+			}
+			data, ok := resource.Document["data"].(map[string]any)
+			if !ok {
+				t.Fatal("ConfigMap/bifrost-config missing data field")
+			}
+			configJSON, _ := data["config.json"].(string)
+			if !strings.Contains(configJSON, "https://opencode.ai/inference/go") {
+				t.Fatalf("bifrost config.json = %q, want base_url https://opencode.ai/inference/go", configJSON)
+			}
+			if !strings.Contains(configJSON, "env.OPENCODE_API_KEY") {
+				t.Fatalf("bifrost config.json = %q, want key value env.OPENCODE_API_KEY", configJSON)
+			}
+			if strings.Contains(configJSON, "QWEN_API_KEY") || strings.Contains(configJSON, "aliyuncs.com") {
+				t.Fatalf("bifrost config.json still references retired Qwen Cloud settings: %q", configJSON)
+			}
+			if !strings.Contains(configJSON, "x-opencode-session") {
+				t.Fatalf("bifrost config.json missing x-opencode-session allowlist: %q", configJSON)
+			}
+			return
+		}
+		t.Fatal("ConfigMap/proxy/bifrost-config not found")
+	})
+
+	t.Run("bifrost external secret maps OPENCODE_API_KEY from 1password", func(t *testing.T) {
+		esResources, err := loadPolicyResources(filepath.Join("..", "clusters", "home", "configs", "external-secrets", "bifrost.yaml"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(esResources) != 1 {
+			t.Fatalf("expected 1 document in bifrost.yaml, got %d", len(esResources))
+		}
+		doc := esResources[0].Document
+		spec, _ := doc["spec"].(map[string]any)
+		dataEntries, _ := spec["data"].([]any)
+		if len(dataEntries) != 1 {
+			t.Fatalf("expected 1 data entry in ExternalSecret/bifrost-secret, got %d", len(dataEntries))
+		}
+		entry, _ := dataEntries[0].(map[string]any)
+		if entry["secretKey"] != "OPENCODE_API_KEY" {
+			t.Fatalf("secretKey = %v, want OPENCODE_API_KEY", entry["secretKey"])
+		}
+		remoteRef, _ := entry["remoteRef"].(map[string]any)
+		if remoteRef["key"] != "bifrost/OPENCODE_API_KEY" {
+			t.Fatalf("remoteRef.key = %v, want bifrost/OPENCODE_API_KEY", remoteRef["key"])
+		}
+	})
+}
+
+func TestKagentComponentManifestPolicy(t *testing.T) {
+	evaluator := newTestPolicyEvaluator(t)
+
+	resources := mustRenderPolicyResources(t, "clusters/vcluster-agent")
+	assertPolicyPasses(t, evaluator, PolicyInput{
+		Resources: resources,
+	})
+
+	t.Run("renders required ModelConfigs pointing to bifrost", func(t *testing.T) {
+		wantModels := map[string]string{
+			"deepseek-v4-1-flash":        "deepseek-v4.1-flash",
+			"muse-spark-1-3-contributor": "muse-spark-1.3-contributor",
+			"qwen3-8-flash":              "qwen3.8-flash",
+			"observability-agent-model":  "deepseek-v4.1-flash",
+			"app-cluster-agent-model":    "deepseek-v4.1-flash",
+		}
+		wantSessionHeaders := map[string]string{
+			"deepseek-v4-1-flash":        "kagent-default",
+			"muse-spark-1-3-contributor": "kagent-default",
+			"qwen3-8-flash":              "kagent-default",
+			"observability-agent-model":  "kagent-observability-agent",
+			"app-cluster-agent-model":    "kagent-app-cluster-agent",
+		}
+		foundModels := make(map[string]string)
+		for _, resource := range resources {
+			if resource.Document["kind"] != "ModelConfig" ||
+				resourceNamespace(resource.Document) != "kagent" {
+				continue
+			}
+			name := resourceName(resource.Document)
+			spec, _ := resource.Document["spec"].(map[string]any)
+			if spec["provider"] != "OpenAI" {
+				t.Fatalf("ModelConfig/%s provider = %v, want OpenAI", name, spec["provider"])
+			}
+			if spec["apiKeySecret"] != "kagent-bifrost-auth" || spec["apiKeySecretKey"] != "OPENAI_API_KEY" {
+				t.Fatalf("ModelConfig/%s secret ref = %v/%v, want kagent-bifrost-auth/OPENAI_API_KEY", name, spec["apiKeySecret"], spec["apiKeySecretKey"])
+			}
+			defaultHeaders, _ := spec["defaultHeaders"].(map[string]any)
+			if wantSession, ok := wantSessionHeaders[name]; ok {
+				if defaultHeaders["x-bf-eh-x-opencode-session"] != wantSession {
+					t.Fatalf("ModelConfig/%s defaultHeaders[x-bf-eh-x-opencode-session] = %v, want %q", name, defaultHeaders["x-bf-eh-x-opencode-session"], wantSession)
+				}
+			}
+			openAI, _ := spec["openAI"].(map[string]any)
+			if openAI["baseUrl"] != "http://bifrost.proxy.svc.cluster.local:8080/openai/v1" {
+				t.Fatalf("ModelConfig/%s openAI.baseUrl = %v, want http://bifrost.proxy.svc.cluster.local:8080/openai/v1", name, openAI["baseUrl"])
+			}
+			model, _ := spec["model"].(string)
+			foundModels[name] = model
+		}
+		for wantName, wantModel := range wantModels {
+			if gotModel, ok := foundModels[wantName]; !ok || gotModel != wantModel {
+				t.Fatalf("ModelConfig/%s model = %q (exists=%v), want %q", wantName, gotModel, ok, wantModel)
+			}
+		}
+	})
+
+	t.Run("renders RemoteMCPServers and initial Agents", func(t *testing.T) {
+		for _, tc := range []struct {
+			kind      string
+			namespace string
+			name      string
+		}{
+			{kind: "Namespace", namespace: "", name: "kagent"},
+			{kind: "ConfigMap", namespace: "kagent", name: "home-cluster-viewer-kubeconfig"},
+			{kind: "RemoteMCPServer", namespace: "kagent", name: "grafana-mcp"},
+			{kind: "RemoteMCPServer", namespace: "kagent", name: "kagent-tools-app"},
+			{kind: "RemoteMCPServer", namespace: "kagent", name: "kagent-tools-home-ro"},
+			{kind: "Agent", namespace: "kagent", name: "observability-agent"},
+			{kind: "Agent", namespace: "kagent", name: "app-cluster-agent"},
+			{kind: "Ingress", namespace: "kagent", name: "kagent"},
+		} {
+			found := false
+			for _, resource := range resources {
+				if resource.Document["kind"] == tc.kind &&
+					resourceName(resource.Document) == tc.name &&
+					resourceNamespace(resource.Document) == tc.namespace {
+					found = true
+					break
+				}
+			}
+			if !found {
+				t.Fatalf("expected %s/%s/%s in clusters/vcluster-agent render", tc.kind, tc.namespace, tc.name)
+			}
+		}
+	})
+}
+
+func TestVClusterAgentKagentHostResources(t *testing.T) {
+	evaluator := newTestPolicyEvaluator(t)
+
+	vclusterDocs, err := loadPolicyResources(filepath.Join("..", "clusters", "home", "resources", "vcluster-agent.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	kagentHostDocs, err := loadPolicyResources(filepath.Join("..", "clusters", "home", "resources", "vcluster-agent-kagent.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	syncDocs, err := loadPolicyResources(filepath.Join("..", "clusters", "home", "resources", "vcluster-agent-sync.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	clusterResourcesDocs, err := loadPolicyResources(filepath.Join("..", "clusters", "home", "controllers", "_next.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	allDocs := append(append([]PolicyResource{}, vclusterDocs...), kagentHostDocs...)
+	allDocs = append(allDocs, syncDocs...)
+	allDocs = append(allDocs, clusterResourcesDocs...)
+	assertPolicyPasses(t, evaluator, PolicyInput{
+		Resources: allDocs,
+	})
+
+	t.Run("vcluster-agent-sync depends on cluster-resources and cluster-resources health-checks kagent HelmReleases", func(t *testing.T) {
+		syncRaw, err := os.ReadFile(filepath.Join("..", "clusters", "home", "resources", "vcluster-agent-sync.yaml"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(string(syncRaw), "name: cluster-resources") {
+			t.Fatal("vcluster-agent-sync.yaml must depend on cluster-resources in flux-system")
+		}
+		nextRaw, err := os.ReadFile(filepath.Join("..", "clusters", "home", "controllers", "_next.yaml"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, expected := range []string{"name: kagent-crds", "name: kagent"} {
+			if !strings.Contains(string(nextRaw), expected) {
+				t.Fatalf("clusters/home/controllers/_next.yaml missing healthCheck %q", expected)
+			}
+		}
+	})
+
+	t.Run("vcluster-agent replicates grafana-mcp, vcluster-app, and home kubernetes services and syncs secrets", func(t *testing.T) {
+		raw, err := os.ReadFile(filepath.Join("..", "clusters", "home", "resources", "vcluster-agent.yaml"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		content := string(raw)
+		for _, expected := range []string{
+			"from: monitoring/grafana-mcp-internal",
+			"to: kagent/grafana-mcp",
+			"from: app/vcluster",
+			"to: app/vcluster",
+			"from: default/kubernetes",
+			"to: kagent/home-kubernetes",
+			"\"agent/bifrost-secret\": \"proxy/bifrost-secret\"",
+			"\"app/vc-vcluster\": \"kagent/vcluster-app-kubeconfig\"",
+			"\"agent/kagent-home-viewer-token\": \"kagent/home-cluster-viewer-token\"",
+		} {
+			if !strings.Contains(content, expected) {
+				t.Fatalf("vcluster-agent.yaml missing %q", expected)
+			}
+		}
+	})
+
+	t.Run("vcluster-agent-kagent defines read-only RBAC and remote HelmReleases", func(t *testing.T) {
+		wantResources := []struct {
+			kind      string
+			namespace string
+			name      string
+		}{
+			{kind: "ServiceAccount", namespace: "agent", name: "kagent-home-viewer"},
+			{kind: "ClusterRoleBinding", namespace: "", name: "kagent-home-viewer"},
+			{kind: "Secret", namespace: "agent", name: "kagent-home-viewer-token"},
+			{kind: "OCIRepository", namespace: "agent", name: "kagent-crds"},
+			{kind: "OCIRepository", namespace: "agent", name: "kagent"},
+			{kind: "OCIRepository", namespace: "agent", name: "kagent-tools"},
+			{kind: "HelmRelease", namespace: "agent", name: "kagent-crds"},
+			{kind: "HelmRelease", namespace: "agent", name: "kagent"},
+			{kind: "HelmRelease", namespace: "agent", name: "kagent-tools-app"},
+			{kind: "HelmRelease", namespace: "agent", name: "kagent-tools-home-ro"},
+		}
+		for _, want := range wantResources {
+			found := false
+			for _, res := range kagentHostDocs {
+				if res.Document["kind"] == want.kind &&
+					resourceName(res.Document) == want.name &&
+					resourceNamespace(res.Document) == want.namespace {
+					found = true
+					break
+				}
+			}
+			if !found {
+				t.Fatalf("expected %s/%s/%s in vcluster-agent-kagent.yaml", want.kind, want.namespace, want.name)
+			}
+		}
+	})
 }

@@ -1,0 +1,24 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: kagent
+  namespace: kagent
+  annotations:
+    tailscale.com/hostname: "kagent"
+    tailscale.com/proxy-class: "avoid-slow-nodes"
+spec:
+  ingressClassName: tailscale
+  tls:
+    - hosts:
+        - kagent
+  rules:
+    - host: kagent
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: kagent-ui
+                port:
+                  number: 8080

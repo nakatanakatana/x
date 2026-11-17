@@ -27,6 +27,22 @@ spec:
                   tailscale.com/hostname: "vcluster-agent"
             exportKubeConfig:
               server: "https://vcluster.agent.svc.cluster.local:443"
+            policies:
+              resourceQuota:
+                quota:
+                  requests.cpu: 4
+                  requests.memory: 20Gi
+                  count/pods: 40
+                  count/services: 30
+            networking:
+              replicateServices:
+                fromHost:
+                  - from: monitoring/grafana-mcp-internal
+                    to: kagent/grafana-mcp
+                  - from: app/vcluster
+                    to: app/vcluster
+                  - from: default/kubernetes
+                    to: kagent/home-kubernetes
             sync:
               fromHost:
                 secrets:
@@ -34,3 +50,5 @@ spec:
                   mappings:
                     byName:
                       "agent/bifrost-secret": "proxy/bifrost-secret"
+                      "app/vc-vcluster": "kagent/vcluster-app-kubeconfig"
+                      "agent/kagent-home-viewer-token": "kagent/home-cluster-viewer-token"

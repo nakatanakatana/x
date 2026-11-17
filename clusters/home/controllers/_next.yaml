@@ -33,4 +33,12 @@ spec:
       kind: Litestream
       name: nostr-bridge-db
       namespace: app
-  timeout: 5m
+    - apiVersion: helm.toolkit.fluxcd.io/v2
+      kind: HelmRelease
+      name: kagent-crds
+      namespace: agent
+    - apiVersion: helm.toolkit.fluxcd.io/v2
+      kind: HelmRelease
+      name: kagent
+      namespace: agent
+  timeout: 15m
