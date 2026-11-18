@@ -12,9 +12,6 @@ spec:
     name: bifrost-secret
     creationPolicy: Owner
   data:
-    - secretKey: QWEN_API_KEY
+    - secretKey: OPENCODE_API_KEY
       remoteRef:
-        key: bifrost/QWEN_API_KEY
-    - secretKey: QWEN_BASE_URL
-      remoteRef:
-        key: bifrost/QWEN_BASE_URL
+        key: bifrost/OPENCODE_API_KEY
