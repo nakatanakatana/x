@@ -15,6 +15,14 @@ data:
           "allowlist": ["x-opencode-session"]
         }
       },
+      "governance": {
+        "auth_config": {
+          "is_enabled": true,
+          "admin_username": "env.BIFROST_ADMIN_USERNAME",
+          "admin_password": "env.BIFROST_ADMIN_PASSWORD",
+          "disable_auth_on_inference": true
+        }
+      },
       "providers": {
         "openai": {
           "enabled": true,

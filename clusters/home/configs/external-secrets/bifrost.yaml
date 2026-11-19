@@ -15,3 +15,9 @@ spec:
     - secretKey: OPENCODE_API_KEY
       remoteRef:
         key: bifrost/OPENCODE_API_KEY
+    - secretKey: BIFROST_ADMIN_USERNAME
+      remoteRef:
+        key: bifrost/BIFROST_ADMIN_USERNAME
+    - secretKey: BIFROST_ADMIN_PASSWORD
+      remoteRef:
+        key: bifrost/BIFROST_ADMIN_PASSWORD
