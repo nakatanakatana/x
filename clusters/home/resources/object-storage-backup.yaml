@@ -61,7 +61,6 @@ data:
     }
 
     failed_sources=0
-    backup celld:celld pcloud:s3-backups/celld /tmp/celld-files || failed_sources=1
     backup feedreader:feed-reader pcloud:s3-backups/feed-reader /tmp/feed-reader-files || failed_sources=1
     backup nostr:nostr pcloud:s3-backups/nostr /tmp/nostr-files || failed_sources=1
     if [ "${failed_sources}" -ne 0 ]; then
@@ -132,26 +131,6 @@ spec:
                   value: /tmp/.config
                 - name: XDG_CACHE_HOME
                   value: /tmp/.cache
-                - name: RCLONE_CONFIG_CELLD_TYPE
-                  value: s3
-                - name: RCLONE_CONFIG_CELLD_PROVIDER
-                  value: Other
-                - name: RCLONE_CONFIG_CELLD_ENDPOINT
-                  value: http://rook-ceph-rgw-celld.rook-ceph.svc.cluster.local:80
-                - name: RCLONE_CONFIG_CELLD_REGION
-                  value: us-east-1
-                - name: RCLONE_CONFIG_CELLD_FORCE_PATH_STYLE
-                  value: "true"
-                - name: RCLONE_CONFIG_CELLD_ACCESS_KEY_ID
-                  valueFrom:
-                    secretKeyRef:
-                      name: celld-storage
-                      key: AWS_ACCESS_KEY_ID
-                - name: RCLONE_CONFIG_CELLD_SECRET_ACCESS_KEY
-                  valueFrom:
-                    secretKeyRef:
-                      name: celld-storage
-                      key: AWS_SECRET_ACCESS_KEY
                 - name: RCLONE_CONFIG_FEEDREADER_TYPE
                   value: s3
                 - name: RCLONE_CONFIG_FEEDREADER_PROVIDER

@@ -14,7 +14,6 @@ The job reads only these sources. Every source remote uses `provider=Other`,
 
 | Source | Endpoint | Bucket | Secret key mapping | Destination prefix |
 | --- | --- | --- | --- | --- |
-| Ceph RGW | `http://rook-ceph-rgw-celld.rook-ceph.svc.cluster.local:80` | `celld` | `Secret/app/celld-storage`: `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` | `s3-backups/celld/` |
 | S3-compatible storage | `http://storage-clusterip.tailscale.svc.cluster.local:8010` | `feed-reader` | `Secret/app/feed-reader-storage`: `access_key`, `access_secret` | `s3-backups/feed-reader/` |
 | S3-compatible storage | `http://storage-clusterip.tailscale.svc.cluster.local:8010` | `nostr` | `Secret/app/nostr-storage`: `access-key-id`, `secret-access-key` | `s3-backups/nostr/` |
 
@@ -177,7 +176,7 @@ ephemeral-storage limit of 1Gi. Estimate the combined listing size during the
 dry run before enabling the schedule; increase both limits together if the
 source object count could approach that capacity.
 The script logs each source listing as
-`source=<remote> listing_objects=<count> listing_bytes=<bytes>`; record all three
+`source=<remote> listing_objects=<count> listing_bytes=<bytes>`; record all
 values from the dry-run Job logs and compare them with the expected source object
 counts before enabling the schedule. If a later dry-run listing drops
 unexpectedly from the recorded baseline, keep the schedule suspended and
@@ -240,10 +239,10 @@ the following validation against the actual in-cluster gateway and leave the
 CronJob suspended if any step fails.
 
 1. Upload a uniquely named temporary object to one source, for example under
-   `backup-validation/<timestamp>` in `celld`. Run a manual non-dry-run Job,
+   `backup-validation/<timestamp>` in `feed-reader`. Run a manual non-dry-run Job,
    wait for completion, then read the object through
    `http://gateway.pcloud-s3.svc.cluster.local:8080` from
-   `s3-backups/celld/backup-validation/<timestamp>`. Compare the readback with
+   `s3-backups/feed-reader/backup-validation/<timestamp>`. Compare the readback with
    the uploaded content.
 2. Wait for the Job's built-in 10-second gateway write-back window and confirm
    the Job log contains its `rclone check`. Read the same destination object
@@ -260,7 +259,7 @@ CronJob suspended if any step fails.
    manual non-dry-run Job and verify that the active destination object no
    longer appears under its destination prefix after the 10-second window.
 4. Restore by reading or copying the required object from the corresponding
-   destination prefix (`s3-backups/celld/`, `s3-backups/feed-reader/`, or
+   destination prefix (`s3-backups/feed-reader/` or
    `s3-backups/nostr/`) through the pCloud S3 gateway into a separate recovery
    location. Read the recovered object and compare its checksum or contents
    before returning it to a source.
@@ -297,7 +296,7 @@ export RCLONE_CONFIG_PCLOUD_SECRET_ACCESS_KEY="$(
 )"
 ```
 
-Then deliberately make the `celld` source listing fail by pointing only the
+Then deliberately make the `feed-reader` source listing fail by pointing only the
 manual Job at an unreachable loopback endpoint. This preserves the exact
 configured endpoint in the restore function. As with the dry run, the trap
 restores the temporary setting and keeps both Flux reconciliation and the
@@ -309,7 +308,7 @@ block.
 ```bash
 set -euo pipefail
 
-validation_object='s3-backups/celld/<known-existing-key>'
+validation_object='s3-backups/feed-reader/<known-existing-key>'
 rclone cat "pcloud:${validation_object}" > /tmp/object-storage-backup-before
 sha256sum /tmp/object-storage-backup-before
 
@@ -343,7 +342,7 @@ wait_for_job() {
 restore_failure_validation() {
   status=$?
   kubectl -n app set env cronjob/object-storage-backup \
-    RCLONE_CONFIG_CELLD_ENDPOINT=http://rook-ceph-rgw-celld.rook-ceph.svc.cluster.local:80 \
+    RCLONE_CONFIG_FEEDREADER_ENDPOINT=http://storage-clusterip.tailscale.svc.cluster.local:8010 \
     OBJECT_STORAGE_BACKUP_DRY_RUN=false || true
   kubectl -n app patch cronjob object-storage-backup \
     --type merge -p '{"spec":{"suspend":true}}' || true
@@ -355,7 +354,7 @@ flux suspend kustomization cluster-resources -n flux-system
 kubectl -n app patch cronjob object-storage-backup \
   --type merge -p '{"spec":{"suspend":true}}'
 kubectl -n app set env cronjob/object-storage-backup \
-  RCLONE_CONFIG_CELLD_ENDPOINT=http://127.0.0.1:1 \
+  RCLONE_CONFIG_FEEDREADER_ENDPOINT=http://127.0.0.1:1 \
   OBJECT_STORAGE_BACKUP_DRY_RUN=true
 test "$(kubectl -n app get cronjob object-storage-backup \
   -o jsonpath='{.spec.jobTemplate.spec.template.spec.containers[0].env[?(@.name=="OBJECT_STORAGE_BACKUP_DRY_RUN")].value}')" = true
@@ -373,10 +372,10 @@ cmp /tmp/object-storage-backup-before /tmp/object-storage-backup-after
 sha256sum /tmp/object-storage-backup-after
 
 kubectl -n app set env cronjob/object-storage-backup \
-  RCLONE_CONFIG_CELLD_ENDPOINT=http://rook-ceph-rgw-celld.rook-ceph.svc.cluster.local:80 \
+  RCLONE_CONFIG_FEEDREADER_ENDPOINT=http://storage-clusterip.tailscale.svc.cluster.local:8010 \
   OBJECT_STORAGE_BACKUP_DRY_RUN=false
 test "$(kubectl -n app get cronjob object-storage-backup \
-  -o jsonpath='{.spec.jobTemplate.spec.template.spec.containers[0].env[?(@.name=="RCLONE_CONFIG_CELLD_ENDPOINT")].value}')" = http://rook-ceph-rgw-celld.rook-ceph.svc.cluster.local:80
+  -o jsonpath='{.spec.jobTemplate.spec.template.spec.containers[0].env[?(@.name=="RCLONE_CONFIG_FEEDREADER_ENDPOINT")].value}')" = http://storage-clusterip.tailscale.svc.cluster.local:8010
 test "$(kubectl -n app get cronjob object-storage-backup \
   -o jsonpath='{.spec.jobTemplate.spec.template.spec.containers[0].env[?(@.name=="OBJECT_STORAGE_BACKUP_DRY_RUN")].value}')" = false
 trap - EXIT
@@ -385,7 +384,7 @@ printf '%s\n' 'The manual Job failed as expected and the existing destination ob
 
 If the operations shell is killed before its `EXIT` trap runs, do not resume
 Flux. Read back `OBJECT_STORAGE_BACKUP_DRY_RUN`,
-`RCLONE_CONFIG_CELLD_ENDPOINT`, and `spec.suspend`, then restore the original
+`RCLONE_CONFIG_FEEDREADER_ENDPOINT`, and `spec.suspend`, then restore the original
 endpoint, set dry-run to `false`, and keep the CronJob suspended before
 continuing validation.
 

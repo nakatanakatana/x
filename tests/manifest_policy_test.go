@@ -536,34 +536,32 @@ func TestCommonPolicies(t *testing.T) {
 	})
 }
 
-func TestCelldSemanticPolicies(t *testing.T) {
+func TestCephRGWSemanticPolicies(t *testing.T) {
 	evaluator := newTestPolicyEvaluator(t)
 
-	runtimeResources := mustRenderPolicyResources(t, "clusters/vcluster-app")
 	storageResources := mustLoadCanonicalPolicyResources(t, "clusters/home/configs/ceph-rgw-celld.yaml")
-	vclusterResources := mustLoadCanonicalPolicyResources(t, "clusters/home/resources/vcluster-app.yaml")
 	baseInput := PolicyInput{
-		Resources: appendPolicyResources(runtimeResources, storageResources, vclusterResources),
-		Context:   policyContextWithFullContract("celld"),
+		Resources: storageResources,
+		Context:   policyContextWithFullContract("ceph-rgw"),
 	}
 
 	assertPolicyPasses(t, evaluator, baseInput)
 
-	t.Run("rejects an empty full celld contract", func(t *testing.T) {
+	t.Run("rejects an empty full ceph-rgw contract", func(t *testing.T) {
 		assertPolicyFails(t, evaluator, PolicyInput{
-			Context: policyContextWithFullContract("celld"),
-		}, "celld-must-include-runtime-resources")
+			Context: policyContextWithFullContract("ceph-rgw"),
+		}, "ceph-rgw-must-include-storage-resources")
 	})
 
-	t.Run("rejects resources from an unrelated render", func(t *testing.T) {
+	t.Run("rejects resources from an unrelated source", func(t *testing.T) {
 		mutated := replaceAllResourceSources(baseInput.Resources, "render:unrelated")
 		assertPolicyFails(t, evaluator, PolicyInput{
 			Resources: mutated,
 			Context:   baseInput.Context,
-		}, "celld-must-include-runtime-resources")
+		}, "ceph-rgw-must-include-storage-resources")
 	})
 
-	t.Run("requires every celld runtime and storage resource", func(t *testing.T) {
+	t.Run("requires every shared Ceph RGW storage resource", func(t *testing.T) {
 		cases := []struct {
 			name       string
 			kind       string
@@ -571,16 +569,8 @@ func TestCelldSemanticPolicies(t *testing.T) {
 			resource   string
 			policyName string
 		}{
-			{name: "namespace", kind: "Namespace", resource: "celld", policyName: "celld-must-include-runtime-resources"},
-			{name: "statefulset", kind: "StatefulSet", namespace: "celld", resource: "celld", policyName: "celld-must-include-runtime-resources"},
-			{name: "peer service", kind: "Service", namespace: "celld", resource: "celld-internal", policyName: "celld-must-include-runtime-resources"},
-			{name: "client service", kind: "Service", namespace: "celld", resource: "celld", policyName: "celld-must-include-runtime-resources"},
-			{name: "pdb", kind: "PodDisruptionBudget", namespace: "celld", resource: "celld", policyName: "celld-must-include-runtime-resources"},
-			{name: "ingress", kind: "Ingress", namespace: "celld", resource: "celld", policyName: "celld-must-include-runtime-resources"},
-			{name: "object store", kind: "CephObjectStore", namespace: "rook-ceph", resource: "celld", policyName: "celld-must-include-storage-resources"},
-			{name: "storage class", kind: "StorageClass", resource: "celld-rgw", policyName: "celld-must-include-storage-resources"},
-			{name: "bucket claim", kind: "ObjectBucketClaim", namespace: "app", resource: "celld-storage", policyName: "celld-must-include-storage-resources"},
-			{name: "vcluster mapping", kind: "Kustomization", namespace: "flux-system", resource: "vcluster-app", policyName: "celld-must-include-vcluster-mapping"},
+			{name: "object store", kind: "CephObjectStore", namespace: "rook-ceph", resource: "celld", policyName: "ceph-rgw-must-include-storage-resources"},
+			{name: "storage class", kind: "StorageClass", resource: "celld-rgw", policyName: "ceph-rgw-must-include-storage-resources"},
 		}
 		for _, tc := range cases {
 			t.Run(tc.name, func(t *testing.T) {
@@ -588,41 +578,6 @@ func TestCelldSemanticPolicies(t *testing.T) {
 				assertPolicyFails(t, evaluator, PolicyInput{Resources: mutated, Context: baseInput.Context}, tc.policyName)
 			})
 		}
-	})
-
-	t.Run("requires the client Service", func(t *testing.T) {
-		mutated := removeResourceByName(baseInput.Resources, "Service", "celld", "celld")
-		assertPolicyFails(t, evaluator, PolicyInput{Resources: mutated, Context: baseInput.Context}, "celld-must-include-runtime-resources")
-	})
-
-	t.Run("requires the retained bucket claim", func(t *testing.T) {
-		mutated := removeResourceByName(baseInput.Resources, "ObjectBucketClaim", "app", "celld-storage")
-		assertPolicyFails(t, evaluator, PolicyInput{Resources: mutated, Context: baseInput.Context}, "celld-must-include-storage-resources")
-	})
-
-	t.Run("rejects a broken runtime bucket argument", func(t *testing.T) {
-		mutated := replaceResource(baseInput.Resources, "StatefulSet", "celld", "celld", func(resource PolicyResource) PolicyResource {
-			document := cloneMap(resource.Document)
-			spec := document["spec"].(map[string]any)
-			template := spec["template"].(map[string]any)
-			podSpec := template["spec"].(map[string]any)
-			containers := cloneSlice(podSpec["containers"].([]any))
-			container := cloneMap(containers[0].(map[string]any))
-			args := cloneSlice(container["args"].([]any))
-			args[1] = "s3://wrong-bucket"
-			container["args"] = args
-			containers[0] = container
-			podSpec["containers"] = containers
-			template["spec"] = podSpec
-			spec["template"] = template
-			document["spec"] = spec
-			resource.Document = document
-			return resource
-		})
-		assertPolicyFails(t, evaluator, PolicyInput{
-			Resources: mutated,
-			Context:   policyContextWithFullContract("celld"),
-		}, "celld-statefulset-must-match-runtime-contract")
 	})
 
 	t.Run("rejects an unretained RGW object store", func(t *testing.T) {
@@ -634,7 +589,7 @@ func TestCelldSemanticPolicies(t *testing.T) {
 			resource.Document = document
 			return resource
 		})
-		assertPolicyFails(t, evaluator, PolicyInput{Resources: mutated, Context: baseInput.Context}, "celld-rgw-must-preserve-replicated-storage")
+		assertPolicyFails(t, evaluator, PolicyInput{Resources: mutated, Context: baseInput.Context}, "ceph-rgw-must-preserve-replicated-storage")
 	})
 
 	t.Run("rejects a non-retained RGW bucket class", func(t *testing.T) {
@@ -644,337 +599,7 @@ func TestCelldSemanticPolicies(t *testing.T) {
 			resource.Document = document
 			return resource
 		})
-		assertPolicyFails(t, evaluator, PolicyInput{Resources: mutated, Context: baseInput.Context}, "celld-rgw-must-retain-bucket")
-	})
-
-	t.Run("rejects an incorrectly named bucket claim", func(t *testing.T) {
-		mutated := replaceResource(baseInput.Resources, "ObjectBucketClaim", "app", "celld-storage", func(resource PolicyResource) PolicyResource {
-			document := cloneMap(resource.Document)
-			spec := cloneMap(document["spec"].(map[string]any))
-			spec["bucketName"] = "other-bucket"
-			document["spec"] = spec
-			resource.Document = document
-			return resource
-		})
-		assertPolicyFails(t, evaluator, PolicyInput{Resources: mutated, Context: baseInput.Context}, "celld-rgw-must-retain-bucket")
-	})
-
-	t.Run("rejects an RGW mapping to another virtual namespace", func(t *testing.T) {
-		mutated := replaceResource(baseInput.Resources, "Kustomization", "flux-system", "vcluster-app", func(resource PolicyResource) PolicyResource {
-			document := cloneMap(resource.Document)
-			spec := cloneMap(document["spec"].(map[string]any))
-			patches := cloneSlice(spec["patches"].([]any))
-			patch := cloneMap(patches[0].(map[string]any))
-			patch["patch"] = strings.Replace(patch["patch"].(string), "to: celld/rgw", "to: other/rgw", 1)
-			patches[0] = patch
-			spec["patches"] = patches
-			document["spec"] = spec
-			resource.Document = document
-			return resource
-		})
-		assertPolicyFails(t, evaluator, PolicyInput{Resources: mutated, Context: baseInput.Context}, "celld-vcluster-must-map-private-storage")
-	})
-
-	t.Run("rejects an additional RGW Service mapping", func(t *testing.T) {
-		mutated := replaceResource(baseInput.Resources, "Kustomization", "flux-system", "vcluster-app", func(resource PolicyResource) PolicyResource {
-			document := cloneMap(resource.Document)
-			spec := cloneMap(document["spec"].(map[string]any))
-			patches := cloneSlice(spec["patches"].([]any))
-			patch := cloneMap(patches[0].(map[string]any))
-			patchText := patch["patch"].(string)
-			patch["patch"] = strings.Replace(patchText,
-				"to: celld/rgw",
-				"to: celld/rgw\n                  - from: rook-ceph/rook-ceph-rgw-celld\n                    to: other/rgw",
-				1)
-			patches[0] = patch
-			spec["patches"] = patches
-			document["spec"] = spec
-			resource.Document = document
-			return resource
-		})
-		assertPolicyFails(t, evaluator, PolicyInput{Resources: mutated, Context: baseInput.Context}, "celld-vcluster-must-map-private-storage")
-	})
-
-	t.Run("rejects credentials from another Secret", func(t *testing.T) {
-		mutated := replaceResource(baseInput.Resources, "StatefulSet", "celld", "celld", func(resource PolicyResource) PolicyResource {
-			document := cloneMap(resource.Document)
-			spec := cloneMap(document["spec"].(map[string]any))
-			template := cloneMap(spec["template"].(map[string]any))
-			podSpec := cloneMap(template["spec"].(map[string]any))
-			containers := cloneSlice(podSpec["containers"].([]any))
-			container := cloneMap(containers[0].(map[string]any))
-			env := cloneSlice(container["env"].([]any))
-			for index, value := range env {
-				entry := cloneMap(value.(map[string]any))
-				if entry["name"] == "AWS_ACCESS_KEY_ID" {
-					valueFrom := cloneMap(entry["valueFrom"].(map[string]any))
-					secretKeyRef := cloneMap(valueFrom["secretKeyRef"].(map[string]any))
-					secretKeyRef["name"] = "other-secret"
-					valueFrom["secretKeyRef"] = secretKeyRef
-					entry["valueFrom"] = valueFrom
-				}
-				env[index] = entry
-			}
-			container["env"] = env
-			containers[0] = container
-			podSpec["containers"] = containers
-			template["spec"] = podSpec
-			spec["template"] = template
-			document["spec"] = spec
-			resource.Document = document
-			return resource
-		})
-		assertPolicyFails(t, evaluator, PolicyInput{Resources: mutated, Context: baseInput.Context}, "celld-statefulset-must-match-runtime-contract")
-	})
-
-	t.Run("rejects a missing pod identity environment", func(t *testing.T) {
-		mutated := replaceResource(baseInput.Resources, "StatefulSet", "celld", "celld", func(resource PolicyResource) PolicyResource {
-			document := cloneMap(resource.Document)
-			spec := cloneMap(document["spec"].(map[string]any))
-			template := cloneMap(spec["template"].(map[string]any))
-			podSpec := cloneMap(template["spec"].(map[string]any))
-			containers := cloneSlice(podSpec["containers"].([]any))
-			container := cloneMap(containers[0].(map[string]any))
-			env := cloneSlice(container["env"].([]any))
-			filtered := make([]any, 0, len(env))
-			for _, value := range env {
-				if value.(map[string]any)["name"] != "POD_NAME" {
-					filtered = append(filtered, value)
-				}
-			}
-			container["env"] = filtered
-			containers[0] = container
-			podSpec["containers"] = containers
-			template["spec"] = podSpec
-			spec["template"] = template
-			document["spec"] = spec
-			resource.Document = document
-			return resource
-		})
-		assertPolicyFails(t, evaluator, PolicyInput{Resources: mutated, Context: baseInput.Context}, "celld-statefulset-must-match-runtime-contract")
-	})
-
-	t.Run("rejects a non-celld image", func(t *testing.T) {
-		mutated := replaceResource(baseInput.Resources, "StatefulSet", "celld", "celld", func(resource PolicyResource) PolicyResource {
-			document := cloneMap(resource.Document)
-			spec := cloneMap(document["spec"].(map[string]any))
-			template := cloneMap(spec["template"].(map[string]any))
-			podSpec := cloneMap(template["spec"].(map[string]any))
-			containers := cloneSlice(podSpec["containers"].([]any))
-			container := cloneMap(containers[0].(map[string]any))
-			container["image"] = "ghcr.io/example/other@sha256:76225bc06f15d1de90901e32aae52cb81c800e19800e695dc2774625610c22d2"
-			containers[0] = container
-			podSpec["containers"] = containers
-			template["spec"] = podSpec
-			spec["template"] = template
-			document["spec"] = spec
-			resource.Document = document
-			return resource
-		})
-		assertPolicyFails(t, evaluator, PolicyInput{Resources: mutated, Context: baseInput.Context}, "celld-statefulset-must-match-runtime-contract")
-	})
-
-	t.Run("rejects an unrestricted pod", func(t *testing.T) {
-		mutated := replaceResource(baseInput.Resources, "StatefulSet", "celld", "celld", func(resource PolicyResource) PolicyResource {
-			document := cloneMap(resource.Document)
-			spec := cloneMap(document["spec"].(map[string]any))
-			template := cloneMap(spec["template"].(map[string]any))
-			podSpec := cloneMap(template["spec"].(map[string]any))
-			podSpec["automountServiceAccountToken"] = true
-			template["spec"] = podSpec
-			spec["template"] = template
-			document["spec"] = spec
-			resource.Document = document
-			return resource
-		})
-		assertPolicyFails(t, evaluator, PolicyInput{Resources: mutated, Context: baseInput.Context}, "celld-statefulset-must-use-restricted-security")
-	})
-
-	t.Run("rejects privileged containers", func(t *testing.T) {
-		mutated := replaceResource(baseInput.Resources, "StatefulSet", "celld", "celld", func(resource PolicyResource) PolicyResource {
-			document := cloneMap(resource.Document)
-			spec := cloneMap(document["spec"].(map[string]any))
-			template := cloneMap(spec["template"].(map[string]any))
-			podSpec := cloneMap(template["spec"].(map[string]any))
-			containers := cloneSlice(podSpec["containers"].([]any))
-			container := cloneMap(containers[0].(map[string]any))
-			securityContext := cloneMap(container["securityContext"].(map[string]any))
-			securityContext["privileged"] = true
-			container["securityContext"] = securityContext
-			containers[0] = container
-			podSpec["containers"] = containers
-			template["spec"] = podSpec
-			spec["template"] = template
-			document["spec"] = spec
-			resource.Document = document
-			return resource
-		})
-		assertPolicyFails(t, evaluator, PolicyInput{Resources: mutated, Context: baseInput.Context}, "celld-statefulset-must-use-restricted-security")
-	})
-
-	t.Run("rejects a state PVC with another storage class", func(t *testing.T) {
-		mutated := replaceResource(baseInput.Resources, "StatefulSet", "celld", "celld", func(resource PolicyResource) PolicyResource {
-			document := cloneMap(resource.Document)
-			spec := cloneMap(document["spec"].(map[string]any))
-			templates := cloneSlice(spec["volumeClaimTemplates"].([]any))
-			template := cloneMap(templates[0].(map[string]any))
-			volumeSpec := cloneMap(template["spec"].(map[string]any))
-			volumeSpec["storageClassName"] = "other"
-			template["spec"] = volumeSpec
-			templates[0] = template
-			spec["volumeClaimTemplates"] = templates
-			document["spec"] = spec
-			resource.Document = document
-			return resource
-		})
-		assertPolicyFails(t, evaluator, PolicyInput{Resources: mutated, Context: baseInput.Context}, "celld-statefulset-must-use-state-storage")
-	})
-
-	t.Run("rejects a peer service exposing the client port", func(t *testing.T) {
-		mutated := replaceResource(baseInput.Resources, "Service", "celld", "celld-internal", func(resource PolicyResource) PolicyResource {
-			document := cloneMap(resource.Document)
-			spec := cloneMap(document["spec"].(map[string]any))
-			ports := cloneSlice(spec["ports"].([]any))
-			port := cloneMap(ports[0].(map[string]any))
-			port["port"] = 8080
-			ports[0] = port
-			spec["ports"] = ports
-			document["spec"] = spec
-			resource.Document = document
-			return resource
-		})
-		assertPolicyFails(t, evaluator, PolicyInput{Resources: mutated, Context: baseInput.Context}, "celld-services-must-separate-client-and-peer-ports")
-	})
-
-	t.Run("rejects a client service exposing the peer port", func(t *testing.T) {
-		mutated := replaceResource(baseInput.Resources, "Service", "celld", "celld", func(resource PolicyResource) PolicyResource {
-			document := cloneMap(resource.Document)
-			spec := cloneMap(document["spec"].(map[string]any))
-			ports := cloneSlice(spec["ports"].([]any))
-			port := cloneMap(ports[0].(map[string]any))
-			port["port"] = 8081
-			ports[0] = port
-			spec["ports"] = ports
-			document["spec"] = spec
-			resource.Document = document
-			return resource
-		})
-		assertPolicyFails(t, evaluator, PolicyInput{Resources: mutated, Context: baseInput.Context}, "celld-services-must-separate-client-and-peer-ports")
-	})
-
-	t.Run("rejects a quorum-breaking disruption budget", func(t *testing.T) {
-		mutated := replaceResource(baseInput.Resources, "PodDisruptionBudget", "celld", "celld", func(resource PolicyResource) PolicyResource {
-			document := cloneMap(resource.Document)
-			spec := cloneMap(document["spec"].(map[string]any))
-			spec["minAvailable"] = 1
-			document["spec"] = spec
-			resource.Document = document
-			return resource
-		})
-		assertPolicyFails(t, evaluator, PolicyInput{Resources: mutated, Context: baseInput.Context}, "celld-pdb-must-preserve-quorum")
-	})
-
-	t.Run("rejects a non-Tailscale client ingress", func(t *testing.T) {
-		mutated := replaceResource(baseInput.Resources, "Ingress", "celld", "celld", func(resource PolicyResource) PolicyResource {
-			document := cloneMap(resource.Document)
-			spec := cloneMap(document["spec"].(map[string]any))
-			spec["ingressClassName"] = "nginx"
-			document["spec"] = spec
-			resource.Document = document
-			return resource
-		})
-		assertPolicyFails(t, evaluator, PolicyInput{Resources: mutated, Context: baseInput.Context}, "celld-ingress-must-be-tailnet-only")
-	})
-
-	t.Run("rejects an ingress default backend", func(t *testing.T) {
-		mutated := replaceResource(baseInput.Resources, "Ingress", "celld", "celld", func(resource PolicyResource) PolicyResource {
-			document := cloneMap(resource.Document)
-			spec := cloneMap(document["spec"].(map[string]any))
-			spec["defaultBackend"] = map[string]any{
-				"service": map[string]any{
-					"name": "celld",
-					"port": map[string]any{"number": 8081},
-				},
-			}
-			document["spec"] = spec
-			resource.Document = document
-			return resource
-		})
-		assertPolicyFails(t, evaluator, PolicyInput{Resources: mutated, Context: baseInput.Context}, "celld-ingress-must-be-tailnet-only")
-	})
-
-	t.Run("rejects an ingress without Tailscale TLS", func(t *testing.T) {
-		mutated := replaceResource(baseInput.Resources, "Ingress", "celld", "celld", func(resource PolicyResource) PolicyResource {
-			document := cloneMap(resource.Document)
-			spec := cloneMap(document["spec"].(map[string]any))
-			delete(spec, "tls")
-			document["spec"] = spec
-			resource.Document = document
-			return resource
-		})
-		assertPolicyFails(t, evaluator, PolicyInput{Resources: mutated, Context: baseInput.Context}, "celld-ingress-must-be-tailnet-only")
-	})
-
-	t.Run("rejects a host-bound celld ingress rule", func(t *testing.T) {
-		mutated := replaceResource(baseInput.Resources, "Ingress", "celld", "celld", func(resource PolicyResource) PolicyResource {
-			document := cloneMap(resource.Document)
-			spec := cloneMap(document["spec"].(map[string]any))
-			rules := cloneSlice(spec["rules"].([]any))
-			rule := cloneMap(rules[0].(map[string]any))
-			rule["host"] = "celld"
-			rules[0] = rule
-			spec["rules"] = rules
-			document["spec"] = spec
-			resource.Document = document
-			return resource
-		})
-		assertPolicyFails(t, evaluator, PolicyInput{Resources: mutated, Context: baseInput.Context}, "celld-ingress-must-be-tailnet-only")
-	})
-
-	t.Run("rejects an additional celld Service", func(t *testing.T) {
-		mutated := appendPolicyResources(baseInput.Resources, []PolicyResource{{
-			Source:   "render:clusters/vcluster-app",
-			Document: serviceDocument("celld-extra", "celld", "ClusterIP"),
-		}})
-		assertPolicyFails(t, evaluator, PolicyInput{Resources: mutated, Context: baseInput.Context}, "celld-exposure-must-use-approved-resources")
-	})
-
-	t.Run("rejects an additional celld Ingress", func(t *testing.T) {
-		mutated := appendPolicyResources(baseInput.Resources, []PolicyResource{{
-			Source:   "render:clusters/vcluster-app",
-			Document: ingressDocument("celld-extra", "celld", "celld"),
-		}})
-		assertPolicyFails(t, evaluator, PolicyInput{Resources: mutated, Context: baseInput.Context}, "celld-exposure-must-use-approved-resources")
-	})
-
-	t.Run("rejects an additional celld HTTPRoute", func(t *testing.T) {
-		mutated := appendPolicyResources(baseInput.Resources, []PolicyResource{{
-			Source: "render:clusters/vcluster-app",
-			Document: map[string]any{
-				"apiVersion": "gateway.networking.k8s.io/v1",
-				"kind":       "HTTPRoute",
-				"metadata": map[string]any{
-					"name":      "celld-extra",
-					"namespace": "celld",
-				},
-			},
-		}})
-		assertPolicyFails(t, evaluator, PolicyInput{Resources: mutated, Context: baseInput.Context}, "celld-exposure-must-use-approved-resources")
-	})
-
-	t.Run("rejects an additional celld Gateway", func(t *testing.T) {
-		mutated := appendPolicyResources(baseInput.Resources, []PolicyResource{{
-			Source: "render:clusters/vcluster-app",
-			Document: map[string]any{
-				"apiVersion": "gateway.networking.k8s.io/v1",
-				"kind":       "Gateway",
-				"metadata": map[string]any{
-					"name":      "celld-extra",
-					"namespace": "celld",
-				},
-			},
-		}})
-		assertPolicyFails(t, evaluator, PolicyInput{Resources: mutated, Context: baseInput.Context}, "celld-exposure-must-use-approved-resources")
+		assertPolicyFails(t, evaluator, PolicyInput{Resources: mutated, Context: baseInput.Context}, "ceph-rgw-must-retain-bucket")
 	})
 }
 
@@ -1790,10 +1415,8 @@ func TestObjectStorageBackup(t *testing.T) {
 		t.Fatal("ConfigMap/app/object-storage-backup-script data.backup.sh must be a string")
 	}
 	for _, required := range []string{
-		"celld:celld",
 		"feedreader:feed-reader",
 		"nostr:nostr",
-		"pcloud:s3-backups/celld",
 		"pcloud:s3-backups/feed-reader",
 		"pcloud:s3-backups/nostr",
 		"rclone mkdir --dry-run pcloud:s3-backups",
@@ -1801,7 +1424,6 @@ func TestObjectStorageBackup(t *testing.T) {
 		"rclone sync --checksum --delete-after --delete-excluded --max-delete 1000 --max-delete-size 10GiB --files-from-raw \"${listing}\"",
 		`if ! rclone check "${source}" "${destination}" --checksum --files-from-raw "${listing}" --one-way; then`,
 		"failed_sources=0",
-		`backup celld:celld pcloud:s3-backups/celld /tmp/celld-files || failed_sources=1`,
 		`backup feedreader:feed-reader pcloud:s3-backups/feed-reader /tmp/feed-reader-files || failed_sources=1`,
 		`backup nostr:nostr pcloud:s3-backups/nostr /tmp/nostr-files || failed_sources=1`,
 		`if [ "${failed_sources}" -ne 0 ]; then`,
@@ -1817,7 +1439,7 @@ func TestObjectStorageBackup(t *testing.T) {
 			t.Fatalf("backup script must not contain %q", forbidden)
 		}
 	}
-	backupLines := make([]string, 0, 3)
+	backupLines := make([]string, 0, 2)
 	syncLines := make([]string, 0, 2)
 	for _, line := range strings.Split(script, "\n") {
 		trimmed := strings.TrimSpace(line)
@@ -1829,7 +1451,6 @@ func TestObjectStorageBackup(t *testing.T) {
 		}
 	}
 	wantBackupLines := []string{
-		"backup celld:celld pcloud:s3-backups/celld /tmp/celld-files || failed_sources=1",
 		"backup feedreader:feed-reader pcloud:s3-backups/feed-reader /tmp/feed-reader-files || failed_sources=1",
 		"backup nostr:nostr pcloud:s3-backups/nostr /tmp/nostr-files || failed_sources=1",
 	}
@@ -1997,8 +1618,6 @@ func TestObjectStorageBackup(t *testing.T) {
 	}
 
 	expectedSecretRefs := map[string]string{
-		"RCLONE_CONFIG_CELLD_ACCESS_KEY_ID":          "celld-storage/AWS_ACCESS_KEY_ID",
-		"RCLONE_CONFIG_CELLD_SECRET_ACCESS_KEY":      "celld-storage/AWS_SECRET_ACCESS_KEY",
 		"RCLONE_CONFIG_FEEDREADER_ACCESS_KEY_ID":     "feed-reader-storage/access_key",
 		"RCLONE_CONFIG_FEEDREADER_SECRET_ACCESS_KEY": "feed-reader-storage/access_secret",
 		"RCLONE_CONFIG_NOSTR_ACCESS_KEY_ID":          "nostr-storage/access-key-id",
@@ -2045,7 +1664,6 @@ func TestObjectStorageBackup(t *testing.T) {
 		}
 	}
 	expectedEndpoints := map[string]string{
-		"RCLONE_CONFIG_CELLD_ENDPOINT":      "http://rook-ceph-rgw-celld.rook-ceph.svc.cluster.local:80",
 		"RCLONE_CONFIG_FEEDREADER_ENDPOINT": "http://storage-clusterip.tailscale.svc.cluster.local:8010",
 		"RCLONE_CONFIG_NOSTR_ENDPOINT":      "http://storage-clusterip.tailscale.svc.cluster.local:8010",
 		"RCLONE_CONFIG_PCLOUD_ENDPOINT":     "http://gateway.pcloud-s3.svc.cluster.local:8080",
@@ -2097,7 +1715,7 @@ case "$1" in
     ;;
   lsf)
     source="$4"
-    if [ "$source" = "celld:celld" ]; then
+    if [ "$source" = "feedreader:feed-reader" ]; then
       exit 1
     fi
     printf '%s\n' known-key
@@ -2130,12 +1748,12 @@ esac
 		t.Fatal(err)
 	}
 	logText := string(log)
-	for _, destination := range []string{"feedreader:feed-reader", "nostr:nostr"} {
+	for _, destination := range []string{"nostr:nostr"} {
 		if !strings.Contains(logText, destination) {
 			t.Fatalf("backup script did not continue to %s after the first source failed: %s", destination, logText)
 		}
 	}
-	if strings.Contains(logText, "celld:celld") {
+	if strings.Contains(logText, "feedreader:feed-reader") {
 		t.Fatalf("backup script synchronized the failed source: %s", logText)
 	}
 }
@@ -2160,7 +1778,7 @@ case "$1" in
     ;;
   lsf)
     source="$4"
-    if [ "$source" = "celld:celld" ]; then
+    if [ "$source" = "feedreader:feed-reader" ]; then
       exit 0
     fi
     printf '%s\n' known-key
@@ -2193,12 +1811,12 @@ esac
 		t.Fatal(err)
 	}
 	logText := string(log)
-	for _, destination := range []string{"feedreader:feed-reader", "nostr:nostr"} {
+	for _, destination := range []string{"nostr:nostr"} {
 		if !strings.Contains(logText, destination) {
 			t.Fatalf("backup script did not continue to %s after an empty source failed: %s", destination, logText)
 		}
 	}
-	if strings.Contains(logText, "celld:celld") {
+	if strings.Contains(logText, "feedreader:feed-reader") {
 		t.Fatalf("backup script synchronized the empty source: %s", logText)
 	}
 }
@@ -2244,8 +1862,8 @@ esac
 	if err != nil {
 		t.Fatalf("dry-run backup failed: %v\n%s", err, output)
 	}
-	if !strings.Contains(string(output), "source=celld:celld listing_objects=1 listing_bytes=10") {
-		t.Fatalf("backup script did not log the celld listing size: %s", output)
+	if !strings.Contains(string(output), "source=feedreader:feed-reader listing_objects=1 listing_bytes=10") {
+		t.Fatalf("backup script did not log the feed-reader listing size: %s", output)
 	}
 }
 
@@ -2303,10 +1921,10 @@ esac
 		t.Fatal(err)
 	}
 	logText := string(log)
-	if strings.Count(logText, "--files-from") != 3 || strings.Count(logText, "--one-way") != 3 {
-		t.Fatalf("non-dry-run backup did not check all three source listings: %s", logText)
+	if strings.Count(logText, "--files-from") != 2 || strings.Count(logText, "--one-way") != 2 {
+		t.Fatalf("non-dry-run backup did not check both source listings: %s", logText)
 	}
-	for _, source := range []string{"celld:celld", "feedreader:feed-reader", "nostr:nostr"} {
+	for _, source := range []string{"feedreader:feed-reader", "nostr:nostr"} {
 		if !strings.Contains(logText, source) {
 			t.Fatalf("non-dry-run backup did not check %s: %s", source, logText)
 		}

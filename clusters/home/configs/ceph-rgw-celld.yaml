@@ -29,12 +29,3 @@ parameters:
   objectStoreNamespace: rook-ceph
   region: us-east-1
 reclaimPolicy: Retain
----
-apiVersion: objectbucket.io/v1alpha1
-kind: ObjectBucketClaim
-metadata:
-  name: celld-storage
-  namespace: app
-spec:
-  bucketName: celld
-  storageClassName: celld-rgw
