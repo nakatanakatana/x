@@ -3,5 +3,16 @@ kind: Kustomization
 resources:
   - namespace.yaml
   - ingress.yaml
+  - user-quota-template.yaml
 components:
   - ../../components/bifrost
+  - ../../components/agent-sandbox
+patches:
+  - target:
+      kind: ResourceQuota
+      name: user-sandbox-quota
+      namespace: proxy
+    patch: |-
+      - op: replace
+        path: /metadata/namespace
+        value: default

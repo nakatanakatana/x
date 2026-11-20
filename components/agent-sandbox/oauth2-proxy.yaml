@@ -1,0 +1,103 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: oauth2-proxy
+  namespace: agent-sandbox-system
+  labels:
+    app.kubernetes.io/name: agent-sandbox
+    app.kubernetes.io/component: oauth2-proxy
+    app.kubernetes.io/part-of: agent-sandbox
+spec:
+  ports:
+    - name: http
+      port: 4180
+      targetPort: 4180
+  selector:
+    app.kubernetes.io/name: agent-sandbox
+    app.kubernetes.io/component: oauth2-proxy
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: oauth2-proxy
+  namespace: agent-sandbox-system
+  labels:
+    app.kubernetes.io/name: agent-sandbox
+    app.kubernetes.io/component: oauth2-proxy
+    app.kubernetes.io/part-of: agent-sandbox
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: agent-sandbox
+      app.kubernetes.io/component: oauth2-proxy
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: agent-sandbox
+        app.kubernetes.io/component: oauth2-proxy
+        app.kubernetes.io/part-of: agent-sandbox
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: oauth2-proxy
+          image: quay.io/oauth2-proxy/oauth2-proxy:v7.6.0
+          args:
+            - --provider=oidc
+            - --oidc-issuer-url=https://id.nakatanakatana.app
+            - --upstream=http://sandbox-router.agent-sandbox-system.svc.cluster.local:8080
+            - --http-address=0.0.0.0:4180
+            - --set-xauthrequest=true
+            - --pass-user-headers=true
+            - --email-domain=*
+            - --cookie-secure=true
+            - --reverse-proxy=true
+          env:
+            - name: OAUTH2_PROXY_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: agent-sandbox-oauth-secret
+                  key: client-id
+            - name: OAUTH2_PROXY_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: agent-sandbox-oauth-secret
+                  key: client-secret
+            - name: OAUTH2_PROXY_COOKIE_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: agent-sandbox-oauth-secret
+                  key: cookie-secret
+          ports:
+            - containerPort: 4180
+              name: http
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+          livenessProbe:
+            httpGet:
+              path: /ping
+              port: 4180
+            initialDelaySeconds: 3
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /ping
+              port: 4180
+            initialDelaySeconds: 3
+            periodSeconds: 10
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            runAsNonRoot: true
+            seccompProfile:
+              type: RuntimeDefault
