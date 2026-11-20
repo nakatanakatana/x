@@ -19,7 +19,7 @@ jobs:
       - name: Test manifest policies
         run: go test ./...
       - name: Setup Flux CLI
-        uses: fluxcd/flux2/action@v2.10.0
+        uses: fluxcd/flux2/action@v2.10.1
         with:
           version: '2.10.0'
       - name: Prepare Flux build temp directory
