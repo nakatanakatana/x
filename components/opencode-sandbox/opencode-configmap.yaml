@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: opencode-config
+  namespace: sandbox
+data:
+  opencode.json: |
+    {
+      "$schema": "https://opencode.ai/config.json",
+      "provider": {
+        "openai": {
+          "options": {
+            "baseURL": "http://bifrost.proxy.svc.cluster.local:8080/v1",
+            "apiKey": "unused-proxied-by-bifrost"
+          }
+        }
+      }
+    }
