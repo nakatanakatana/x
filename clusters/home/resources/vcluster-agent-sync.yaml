@@ -19,3 +19,4 @@ spec:
   dependsOn:
     - name: vcluster-agent
       namespace: flux-system
+    - name: vcluster-agent-sandbox-controller-sync

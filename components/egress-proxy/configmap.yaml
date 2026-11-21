@@ -1,0 +1,210 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: egress-proxy-config
+  namespace: proxy
+data:
+  addon.py: |
+    import base64
+    from datetime import datetime, timezone
+    import json
+    import os
+    from mitmproxy import http
+
+    ALLOWED_HOSTS = frozenset(
+        {
+            "github.com",
+            "api.github.com",
+            "objects.githubusercontent.com",
+            "raw.githubusercontent.com",
+            "proxy.golang.org",
+            "sum.golang.org",
+            "storage.googleapis.com",
+            "registry.npmjs.org",
+            "pypi.org",
+            "files.pythonhosted.org",
+            "crates.io",
+            "static.crates.io",
+            "index.crates.io",
+        }
+    )
+
+    GITHUB_AUTH_HOSTS = frozenset({"github.com", "api.github.com"})
+
+
+    def _normalize_host(host: str | None) -> str:
+        return (host or "").strip().lower().rstrip(".")
+
+
+    def _normalize_host_header(host_header: str | None) -> str:
+        value = (host_header or "").strip()
+        if not value:
+            return ""
+        if value.startswith("["):
+            end = value.find("]")
+            if end != -1:
+                value = value[1:end]
+        elif ":" in value:
+            value = value.rsplit(":", 1)[0]
+        return _normalize_host(value)
+
+
+    def _client_ip(flow: http.HTTPFlow) -> str:
+        peer = flow.client_conn.peername
+        if peer and len(peer) >= 1:
+            return str(peer[0])
+        return ""
+
+
+    def _audit_log(
+        *,
+        client_ip: str,
+        host: str,
+        method: str,
+        action: str,
+        status: int,
+    ) -> None:
+        record = {
+            "ts": datetime.now(timezone.utc).isoformat(),
+            "component": "egress-proxy",
+            "client_ip": client_ip,
+            "host": host,
+            "method": method,
+            "action": action,
+            "status": status,
+        }
+        print(json.dumps(record, separators=(",", ":")), flush=True)
+
+
+    def _deny(flow: http.HTTPFlow, host: str, message: bytes) -> None:
+        flow.response = http.Response.make(
+            403,
+            message,
+            {"Content-Type": "text/plain"},
+        )
+        flow.metadata["egress_logged"] = True
+        _audit_log(
+            client_ip=_client_ip(flow),
+            host=host,
+            method=flow.request.method,
+            action="deny",
+            status=403,
+        )
+
+
+    def _fail_closed(flow: http.HTTPFlow) -> None:
+        host = ""
+        method = ""
+        client_ip = ""
+        try:
+            host = _normalize_host(flow.request.host)
+        except Exception:
+            pass
+        try:
+            method = str(flow.request.method or "")
+        except Exception:
+            pass
+        try:
+            client_ip = _client_ip(flow)
+        except Exception:
+            pass
+        flow.response = http.Response.make(
+            500,
+            b"Internal Proxy Error\n",
+            {"Content-Type": "text/plain"},
+        )
+        flow.metadata["egress_logged"] = True
+        _audit_log(
+            client_ip=client_ip,
+            host=host,
+            method=method,
+            action="error",
+            status=500,
+        )
+
+
+    class EgressProxyAddon:
+        def http_connect(self, flow: http.HTTPFlow) -> None:
+            try:
+                host = _normalize_host(flow.request.host)
+                if host not in ALLOWED_HOSTS:
+                    _deny(flow, host, b"Forbidden: host not allowed\n")
+                    return
+                if flow.request.port != 443:
+                    _deny(flow, host, b"Forbidden: port not allowed\n")
+                    return
+            except Exception:
+                _fail_closed(flow)
+
+        def request(self, flow: http.HTTPFlow) -> None:
+            try:
+                host = _normalize_host(flow.request.host)
+                if host not in ALLOWED_HOSTS:
+                    _deny(flow, host, b"Forbidden: host not allowed\n")
+                    return
+
+                host_header = flow.request.host_header
+                if host_header:
+                    normalized_header = _normalize_host_header(host_header)
+                    if normalized_header != host:
+                        _deny(flow, host, b"Forbidden: host header mismatch\n")
+                        return
+
+                if host in GITHUB_AUTH_HOSTS and (
+                    flow.request.scheme != "https" or flow.request.port != 443
+                ):
+                    _deny(flow, host, b"Forbidden: HTTPS on port 443 required\n")
+                    return
+
+                token = os.environ.get("GITHUB_TOKEN", "").strip()
+                if (
+                    token
+                    and flow.request.scheme == "https"
+                    and flow.request.port == 443
+                ):
+                    if host == "api.github.com":
+                        flow.request.headers["Authorization"] = f"Bearer {token}"
+                    elif host == "github.com":
+                        encoded = base64.b64encode(
+                            f"x-access-token:{token}".encode("utf-8")
+                        ).decode("ascii")
+                        flow.request.headers["Authorization"] = f"Basic {encoded}"
+
+                flow.metadata["egress_action"] = "allow"
+                flow.metadata["egress_host"] = host
+            except Exception:
+                _fail_closed(flow)
+
+        def response(self, flow: http.HTTPFlow) -> None:
+            if flow.metadata.get("egress_logged"):
+                return
+            flow.metadata["egress_logged"] = True
+            host = flow.metadata.get("egress_host") or _normalize_host(
+                flow.request.host
+            )
+            status = flow.response.status_code if flow.response else 0
+            _audit_log(
+                client_ip=_client_ip(flow),
+                host=host,
+                method=flow.request.method,
+                action=flow.metadata.get("egress_action", "allow"),
+                status=status,
+            )
+
+        def error(self, flow: http.HTTPFlow) -> None:
+            if flow.metadata.get("egress_logged"):
+                return
+            flow.metadata["egress_logged"] = True
+            host = flow.metadata.get("egress_host") or _normalize_host(
+                flow.request.host
+            )
+            _audit_log(
+                client_ip=_client_ip(flow),
+                host=host,
+                method=flow.request.method,
+                action=flow.metadata.get("egress_action", "allow"),
+                status=502,
+            )
+
+
+    addons = [EgressProxyAddon()]

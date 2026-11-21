@@ -27,10 +27,24 @@ spec:
                   tailscale.com/hostname: "vcluster-agent"
             exportKubeConfig:
               server: "https://vcluster.agent.svc.cluster.local:443"
+            policies:
+              resourceQuota:
+                quota:
+                  requests.cpu: 8
+                  requests.memory: 32Gi
+                  limits.cpu: 24
+                  limits.memory: 48Gi
+                  count/pods: 40
             sync:
+              toHost:
+                networkPolicies:
+                  enabled: true
               fromHost:
                 secrets:
                   enabled: true
                   mappings:
                     byName:
                       "agent/bifrost-secret": "proxy/bifrost-secret"
+                      "agent/egress-proxy-secret": "proxy/egress-proxy-secret"
+                      "agent/egress-proxy-ca-public": "sandbox/egress-proxy-ca-public"
+                      "agent/opencode-server-auth": "sandbox/opencode-server-auth"
