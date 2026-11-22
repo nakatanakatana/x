@@ -39,7 +39,13 @@ spec:
               toHost:
                 networkPolicies:
                   enabled: true
+                volumeSnapshots:
+                  enabled: true
+                volumeSnapshotContents:
+                  enabled: true
               fromHost:
+                volumeSnapshotClasses:
+                  enabled: true
                 secrets:
                   enabled: true
                   mappings:

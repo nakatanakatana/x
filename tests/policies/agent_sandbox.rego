@@ -301,6 +301,106 @@ violations contains violation if {
 	}
 }
 
+violations contains violation if {
+	agent_sandbox_scope
+	resource := input.resources[_]
+	sandbox_warmpool(resource.document)
+	template_name := sandbox_warmpool_template_ref_name(resource.document)
+	not sandbox_template_exists(resource_namespace(resource.document), template_name)
+
+	violation := {
+		"policy": "sandbox-warmpool-must-reference-existing-template",
+		"resource": resource_ref(resource.document),
+		"path": "spec.sandboxTemplateRef.name",
+		"message": sprintf("SandboxWarmPool must reference an existing SandboxTemplate in namespace %s (got %q)", [resource_namespace(resource.document), template_name]),
+	}
+}
+
+violations contains violation if {
+	resource := input.resources[_]
+	object.get(resource.document, "kind", "") == "ClusterRoleBinding"
+	subject := object.get(resource.document, "subjects", [])[index]
+	sandbox_control_service_account_subject(subject)
+
+	violation := {
+		"policy": "sandbox-control-rbac-must-be-namespace-scoped",
+		"resource": resource_ref(resource.document),
+		"path": sprintf("subjects[%d]", [index]),
+		"message": "ServiceAccount/sandbox-control must not be bound via a ClusterRoleBinding",
+	}
+}
+
+violations contains violation if {
+	resource := input.resources[_]
+	object.get(resource.document, "kind", "") == "RoleBinding"
+	resource_namespace(resource.document) != "sandbox"
+	subject := object.get(resource.document, "subjects", [])[index]
+	sandbox_control_service_account_subject(subject)
+
+	violation := {
+		"policy": "sandbox-control-rbac-must-be-namespace-scoped",
+		"resource": resource_ref(resource.document),
+		"path": sprintf("subjects[%d]", [index]),
+		"message": "RoleBinding for ServiceAccount/sandbox-control must be in namespace sandbox",
+	}
+}
+
+violations contains violation if {
+	resource := input.resources[_]
+	sandbox_control_role(resource.document)
+	rule := object.get(resource.document, "rules", [])[rule_index]
+	forbidden := object.get(rule, "resources", [])[_]
+	forbidden in {"secrets", "configmaps", "*"}
+
+	violation := {
+		"policy": "sandbox-control-rbac-must-be-namespace-scoped",
+		"resource": resource_ref(resource.document),
+		"path": sprintf("rules[%d].resources", [rule_index]),
+		"message": sprintf("Role for sandbox-control must not grant access to %q", [forbidden]),
+	}
+}
+
+violations contains violation if {
+	resource := input.resources[_]
+	sandbox_control_role(resource.document)
+	rule := object.get(resource.document, "rules", [])[rule_index]
+	object.get(rule, "apiGroups", [])[_] == "*"
+
+	violation := {
+		"policy": "sandbox-control-rbac-must-be-namespace-scoped",
+		"resource": resource_ref(resource.document),
+		"path": sprintf("rules[%d].apiGroups", [rule_index]),
+		"message": "Role for sandbox-control must not use wildcard apiGroups",
+	}
+}
+
+violations contains violation if {
+	resource := input.resources[_]
+	sandbox_control_role(resource.document)
+	rule := object.get(resource.document, "rules", [])[rule_index]
+	object.get(rule, "verbs", [])[_] == "*"
+
+	violation := {
+		"policy": "sandbox-control-rbac-must-be-namespace-scoped",
+		"resource": resource_ref(resource.document),
+		"path": sprintf("rules[%d].verbs", [rule_index]),
+		"message": "Role for sandbox-control must not use wildcard verbs",
+	}
+}
+
+violations contains violation if {
+	resource := input.resources[_]
+	sandbox_persistent_template(resource.document)
+	not sandbox_persistent_template_has_ceph_workspace_vct(resource.document)
+
+	violation := {
+		"policy": "sandbox-persistent-template-must-use-ceph-block",
+		"resource": resource_ref(resource.document),
+		"path": "spec.volumeClaimTemplates",
+		"message": "SandboxTemplate/opencode-persistent must define a workspace volumeClaimTemplate with storageClassName rook-ceph-block and ReadWriteOnce access mode",
+	}
+}
+
 agent_sandbox_scope if {
 	object.get(object.get(input, "context", {}), "policyScope", "") == "agent-sandbox"
 }
@@ -349,4 +449,58 @@ egress_proxy_deployment(document) if {
 egress_proxy_deployment_exists if {
 	resource := input.resources[_]
 	egress_proxy_deployment(resource.document)
+}
+
+sandbox_warmpool(document) if {
+	object.get(document, "kind", "") == "SandboxWarmPool"
+}
+
+sandbox_warmpool_template_ref_name(document) := object.get(
+	object.get(object.get(document, "spec", {}), "sandboxTemplateRef", {}),
+	"name",
+	"",
+)
+
+sandbox_template_exists(namespace, name) if {
+	name != ""
+	resource := input.resources[_]
+	sandbox_template(resource.document)
+	resource_namespace(resource.document) == namespace
+	resource_name(resource.document) == name
+}
+
+sandbox_control_service_account_subject(subject) if {
+	object.get(subject, "kind", "") == "ServiceAccount"
+	object.get(subject, "name", "") == "sandbox-control"
+}
+
+sandbox_control_role(document) if {
+	object.get(document, "kind", "") == "Role"
+	resource_name(document) == "sandbox-control"
+}
+
+sandbox_control_role(document) if {
+	object.get(document, "kind", "") == "Role"
+	binding := input.resources[_].document
+	object.get(binding, "kind", "") == "RoleBinding"
+	resource_namespace(binding) == resource_namespace(document)
+	role_ref := object.get(binding, "roleRef", {})
+	object.get(role_ref, "kind", "") == "Role"
+	object.get(role_ref, "name", "") == resource_name(document)
+	subject := object.get(binding, "subjects", [])[_]
+	sandbox_control_service_account_subject(subject)
+}
+
+sandbox_persistent_template(document) if {
+	sandbox_template(document)
+	resource_namespace(document) == "sandbox"
+	resource_name(document) == "opencode-persistent"
+}
+
+sandbox_persistent_template_has_ceph_workspace_vct(document) if {
+	vct := object.get(object.get(document, "spec", {}), "volumeClaimTemplates", [])[_]
+	object.get(object.get(vct, "metadata", {}), "name", "") == "workspace"
+	vct_spec := object.get(vct, "spec", {})
+	object.get(vct_spec, "storageClassName", "") == "rook-ceph-block"
+	object.get(vct_spec, "accessModes", [])[_] == "ReadWriteOnce"
 }

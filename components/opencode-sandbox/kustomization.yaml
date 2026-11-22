@@ -5,3 +5,5 @@ resources:
   - opencode-configmap.yaml
   - networkpolicy.yaml
   - sandbox-template.yaml
+  - sandbox-template-persistent.yaml
+  - warmpool.yaml
