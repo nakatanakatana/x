@@ -6,3 +6,19 @@ resources:
 images:
   - name: registry.k8s.io/agent-sandbox/sandbox-router-go
     newTag: v1.0.12@sha256:d7e49efcb745dc8158b1e654d5acfb4f2bf252831a7b922f9c7ae4732977ff4b
+patches:
+  - target:
+      kind: NetworkPolicy
+      name: sandbox-router
+      namespace: agent-sandbox-system
+    patch: |
+      - op: add
+        path: /spec/egress/0/ports/-
+        value:
+          port: 1053
+          protocol: UDP
+      - op: add
+        path: /spec/egress/0/ports/-
+        value:
+          port: 1053
+          protocol: TCP
