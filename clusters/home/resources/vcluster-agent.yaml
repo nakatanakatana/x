@@ -10,6 +10,8 @@ spec:
     name: flux-system
   targetNamespace: agent
   path: "components/vcluster/base"
+  dependsOn:
+    - name: snapshot-controller
   prune: true
   timeout: 1m
   patches:
