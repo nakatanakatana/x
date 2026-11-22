@@ -4,6 +4,7 @@ metadata:
   name: opencode-ephemeral
   namespace: sandbox
 spec:
+  networkPolicyManagement: Unmanaged
   podTemplate:
     metadata:
       labels:
