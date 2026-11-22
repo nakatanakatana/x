@@ -1,0 +1,24 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: sandbox-control
+  namespace: agent-sandbox-system
+  annotations:
+    tailscale.com/hostname: "sandbox-control"
+    tailscale.com/proxy-class: "avoid-slow-nodes"
+spec:
+  ingressClassName: tailscale
+  tls:
+    - hosts:
+        - sandbox-control
+  rules:
+    - host: sandbox-control
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: sandbox-control
+                port:
+                  number: 8080

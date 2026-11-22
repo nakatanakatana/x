@@ -5,3 +5,6 @@ resources:
   - ingress.yaml
 components:
   - ../../components/bifrost
+  - ../../components/egress-proxy
+  - ../../components/opencode-sandbox
+  - ../../components/sandbox-control

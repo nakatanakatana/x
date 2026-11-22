@@ -1,0 +1,169 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: egress-proxy
+  namespace: proxy
+  labels:
+    app: egress-proxy
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: egress-proxy
+  template:
+    metadata:
+      labels:
+        app: egress-proxy
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: network
+                    operator: NotIn
+                    values:
+                      - slow
+      initContainers:
+        - name: prepare-ca
+          image: docker.io/mitmproxy/mitmproxy:12.3.1@sha256:2711066c855659b5af8b1dbb84494ed3eff69b42ece439c60b4fe09a2db829d4
+          command:
+            - /bin/sh
+            - -ec
+            - |
+              { cat /ca-secret/PROXY_CA_KEY; printf '\n'; cat /ca-secret/PROXY_CA_CERT; } > /mitmproxy-ca/mitmproxy-ca.pem
+              cp /ca-secret/PROXY_CA_CERT /mitmproxy-ca/mitmproxy-ca-cert.pem
+              chmod 600 /mitmproxy-ca/mitmproxy-ca.pem
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              cpu: 100m
+              memory: 64Mi
+          volumeMounts:
+            - name: ca-secret
+              mountPath: /ca-secret
+              readOnly: true
+            - name: mitmproxy-ca
+              mountPath: /mitmproxy-ca
+      containers:
+        - name: egress-proxy
+          image: docker.io/mitmproxy/mitmproxy:12.3.1@sha256:2711066c855659b5af8b1dbb84494ed3eff69b42ece439c60b4fe09a2db829d4
+          command:
+            - mitmdump
+          args:
+            - --listen-host
+            - 0.0.0.0
+            - --listen-port
+            - "3128"
+            - --set
+            - confdir=/mitmproxy-ca
+            - --set
+            - flow_detail=0
+            - -s
+            - /etc/egress-proxy/addon.py
+          ports:
+            - containerPort: 3128
+              name: proxy
+            - containerPort: 3129
+              name: admin
+          env:
+            - name: HOME
+              value: "/tmp"
+            - name: PYTHONDONTWRITEBYTECODE
+              value: "1"
+            - name: GITHUB_APP_ID
+              valueFrom:
+                secretKeyRef:
+                  name: egress-proxy-secret
+                  key: GITHUB_APP_ID
+            - name: GITHUB_APP_INSTALLATION_ID
+              valueFrom:
+                secretKeyRef:
+                  name: egress-proxy-secret
+                  key: GITHUB_APP_INSTALLATION_ID
+            - name: GITHUB_APP_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: egress-proxy-secret
+                  key: GITHUB_APP_CLIENT_ID
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          readinessProbe:
+            tcpSocket:
+              port: proxy
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 3
+          livenessProbe:
+            tcpSocket:
+              port: proxy
+            initialDelaySeconds: 15
+            periodSeconds: 20
+            timeoutSeconds: 2
+            failureThreshold: 3
+          volumeMounts:
+            - name: addon-config
+              mountPath: /etc/egress-proxy
+              readOnly: true
+            - name: mitmproxy-ca
+              mountPath: /mitmproxy-ca
+              readOnly: true
+            - name: github-app-key
+              mountPath: /etc/egress-proxy-github
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: addon-config
+          configMap:
+            name: egress-proxy-config
+        - name: ca-secret
+          secret:
+            secretName: egress-proxy-secret
+            items:
+              - key: PROXY_CA_CERT
+                path: PROXY_CA_CERT
+              - key: PROXY_CA_KEY
+                path: PROXY_CA_KEY
+        - name: github-app-key
+          secret:
+            secretName: egress-proxy-secret
+            defaultMode: 0440
+            items:
+              - key: GITHUB_APP_PRIVATE_KEY
+                path: private-key.pem
+        - name: mitmproxy-ca
+          emptyDir:
+            medium: Memory
+            sizeLimit: 1Mi
+        - name: tmp
+          emptyDir:
+            sizeLimit: 64Mi

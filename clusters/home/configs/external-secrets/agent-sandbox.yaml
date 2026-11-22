@@ -1,0 +1,86 @@
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: egress-proxy-secret
+  namespace: agent
+spec:
+  refreshInterval: 12h47m
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: 1password-sdk
+  target:
+    name: egress-proxy-secret
+    creationPolicy: Owner
+  data:
+    - secretKey: GITHUB_APP_ID
+      remoteRef:
+        key: agent-sandbox/GITHUB_APP_ID
+    - secretKey: GITHUB_APP_INSTALLATION_ID
+      remoteRef:
+        key: agent-sandbox/GITHUB_APP_INSTALLATION_ID
+    - secretKey: GITHUB_APP_PRIVATE_KEY
+      remoteRef:
+        key: agent-sandbox/GITHUB_APP_PRIVATE_KEY
+    - secretKey: GITHUB_APP_CLIENT_ID
+      remoteRef:
+        key: agent-sandbox/GITHUB_APP_CLIENT_ID
+    - secretKey: PROXY_CA_CERT
+      remoteRef:
+        key: agent-sandbox/PROXY_CA_CERT
+    - secretKey: PROXY_CA_KEY
+      remoteRef:
+        key: agent-sandbox/PROXY_CA_KEY
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: egress-proxy-ca-public
+  namespace: agent
+spec:
+  refreshInterval: 13h19m
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: 1password-sdk
+  target:
+    name: egress-proxy-ca-public
+    creationPolicy: Owner
+  data:
+    - secretKey: ca.crt
+      remoteRef:
+        key: agent-sandbox/PROXY_CA_CERT
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: opencode-server-auth
+  namespace: agent
+spec:
+  refreshInterval: 13h51m
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: 1password-sdk
+  target:
+    name: opencode-server-auth
+    creationPolicy: Owner
+  data:
+    - secretKey: OPENCODE_SERVER_PASSWORD
+      remoteRef:
+        key: agent-sandbox/OPENCODE_SERVER_PASSWORD
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: sandbox-control-secret
+  namespace: agent
+spec:
+  refreshInterval: 14h23m
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: 1password-sdk
+  target:
+    name: sandbox-control-secret
+    creationPolicy: Owner
+  data:
+    - secretKey: GITHUB_APP_CLIENT_ID
+      remoteRef:
+        key: agent-sandbox/GITHUB_APP_CLIENT_ID

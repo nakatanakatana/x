@@ -1,0 +1,27 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: egress-proxy
+  namespace: proxy
+spec:
+  type: ClusterIP
+  selector:
+    app: egress-proxy
+  ports:
+    - name: proxy
+      port: 3128
+      targetPort: proxy
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: egress-proxy-admin
+  namespace: proxy
+spec:
+  type: ClusterIP
+  selector:
+    app: egress-proxy
+  ports:
+    - name: admin
+      port: 3129
+      targetPort: admin
