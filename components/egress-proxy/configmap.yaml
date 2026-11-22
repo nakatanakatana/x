@@ -7,8 +7,17 @@ data:
   addon.py: |
     import base64
     from datetime import datetime, timezone
+    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
     import json
+    import math
     import os
+    import threading
+    import time
+    from urllib import error as urllib_error
+    from urllib import parse as urllib_parse
+    from urllib import request as urllib_request
+    from cryptography.hazmat.primitives import hashes, serialization
+    from cryptography.hazmat.primitives.asymmetric import padding
     from mitmproxy import http
 
     ALLOWED_HOSTS = frozenset(
@@ -30,6 +39,12 @@ data:
     )
 
     GITHUB_AUTH_HOSTS = frozenset({"github.com", "api.github.com"})
+    DEFAULT_PRIVATE_KEY_FILE = "/etc/egress-proxy-github/private-key.pem"
+    DEFAULT_ADMIN_BIND = "0.0.0.0:3129"
+    DEFAULT_USER_TOKEN_TTL_SECONDS = 28800
+    USER_TOKEN_REFRESH_MARGIN_SECONDS = 60
+    INSTALL_TOKEN_REFRESH_MARGIN_SECONDS = 300
+    MAX_ADMIN_BODY_BYTES = 16384
 
 
     def _normalize_host(host: str | None) -> str:
@@ -74,6 +89,428 @@ data:
             "status": status,
         }
         print(json.dumps(record, separators=(",", ":")), flush=True)
+
+
+    def _event_log(*, event: str, mode: str = "", detail: str = "") -> None:
+        record = {
+            "ts": datetime.now(timezone.utc).isoformat(),
+            "component": "egress-proxy",
+            "event": event,
+        }
+        if mode:
+            record["mode"] = mode
+        if detail:
+            record["detail"] = detail
+        print(json.dumps(record, separators=(",", ":")), flush=True)
+
+
+    def _b64url_encode(data: bytes) -> str:
+        return base64.urlsafe_b64encode(data).rstrip(b"=").decode("ascii")
+
+
+    def _parse_iso8601_epoch(value: str) -> float:
+        normalized = value.strip()
+        if normalized.endswith("Z"):
+            normalized = normalized[:-1] + "+00:00"
+        dt = datetime.fromisoformat(normalized)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt.timestamp()
+
+
+    class GitHubTokenProvider:
+        def __init__(
+            self,
+            *,
+            app_id: str | None = None,
+            installation_id: str | None = None,
+            client_id: str | None = None,
+            private_key_file: str | None = None,
+            http_post=None,
+            now_fn=None,
+        ) -> None:
+            self._lock = threading.Lock()
+            self._app_id = (
+                os.environ.get("GITHUB_APP_ID", "") if app_id is None else app_id
+            ).strip()
+            self._installation_id = (
+                os.environ.get("GITHUB_APP_INSTALLATION_ID", "")
+                if installation_id is None
+                else installation_id
+            ).strip()
+            self._client_id = (
+                os.environ.get("GITHUB_APP_CLIENT_ID", "")
+                if client_id is None
+                else client_id
+            ).strip()
+            self._private_key_file = (
+                os.environ.get("GITHUB_APP_PRIVATE_KEY_FILE", DEFAULT_PRIVATE_KEY_FILE)
+                if private_key_file is None
+                else private_key_file
+            ).strip()
+            self._http_post = http_post or self._default_http_post
+            self._now = now_fn or time.time
+
+            # Mode 1: Browser OAuth / Device Flow user token in memory
+            self._user_access_token: str | None = None
+            self._user_expires_at: float | None = None
+            self._user_refresh_token: str | None = None
+
+            # Mode 2: Cached GitHub App Installation Token in memory
+            self._install_token: str | None = None
+            self._install_expires_at: float | None = None
+
+        @staticmethod
+        def _default_http_post(
+            url: str,
+            headers: dict[str, str],
+            body: bytes,
+            timeout: float = 10.0,
+        ) -> tuple[int, bytes]:
+            req = urllib_request.Request(
+                url=url,
+                data=body,
+                headers=headers,
+                method="POST",
+            )
+            try:
+                with urllib_request.urlopen(req, timeout=timeout) as resp:
+                    return int(resp.status), resp.read()
+            except urllib_error.HTTPError as exc:
+                payload = exc.read() if exc.fp is not None else b""
+                return int(exc.code), payload
+
+        def _is_app_configured(self) -> bool:
+            return bool(
+                self._app_id
+                and self._installation_id
+                and self._private_key_file
+                and os.path.isfile(self._private_key_file)
+            )
+
+        def _has_active_user_token_unlocked(self, now: float) -> bool:
+            if not self._user_access_token:
+                return False
+            if (
+                self._user_expires_at is not None
+                and now < self._user_expires_at - USER_TOKEN_REFRESH_MARGIN_SECONDS
+            ):
+                return True
+            return bool(self._user_refresh_token and self._client_id)
+
+        def _current_mode_unlocked(self, now: float) -> str:
+            if self._has_active_user_token_unlocked(now):
+                return "user_oauth"
+            if self._is_app_configured():
+                return "app_installation"
+            return "unconfigured"
+
+        def _clear_user_token_unlocked(self) -> None:
+            self._user_access_token = None
+            self._user_expires_at = None
+            self._user_refresh_token = None
+
+        def set_user_token(
+            self,
+            *,
+            access_token: str,
+            expires_in: float | int | None = None,
+            expires_at: float | int | None = None,
+            refresh_token: str | None = None,
+        ) -> dict[str, object]:
+            if (
+                not isinstance(access_token, str)
+                or not access_token
+                or any(
+                    ch.isspace() or ord(ch) < 32 or ord(ch) == 127
+                    for ch in access_token
+                )
+            ):
+                raise ValueError(
+                    "access_token must be a non-empty string without whitespace or control characters"
+                )
+            token = access_token
+
+            now = float(self._now())
+            if expires_at is not None:
+                if (
+                    isinstance(expires_at, bool)
+                    or not isinstance(expires_at, (int, float))
+                    or not math.isfinite(expires_at)
+                ):
+                    raise ValueError("expires_at must be a finite number")
+                computed_expires_at = float(expires_at)
+            elif expires_in is not None:
+                if (
+                    isinstance(expires_in, bool)
+                    or not isinstance(expires_in, (int, float))
+                    or not math.isfinite(expires_in)
+                    or expires_in <= 0
+                ):
+                    raise ValueError("expires_in must be a positive finite number")
+                computed_expires_at = now + float(expires_in)
+            else:
+                computed_expires_at = now + DEFAULT_USER_TOKEN_TTL_SECONDS
+
+            cleaned_refresh: str | None = None
+            if refresh_token is not None:
+                if not isinstance(refresh_token, str):
+                    raise ValueError("refresh_token must be a string")
+                cleaned_refresh = refresh_token.strip() or None
+
+            with self._lock:
+                self._user_access_token = token
+                self._user_expires_at = computed_expires_at
+                self._user_refresh_token = cleaned_refresh
+                expires_at_int = int(computed_expires_at)
+
+            _event_log(event="github_user_token_set", mode="user_oauth")
+            return {"mode": "user_oauth", "expires_at": expires_at_int}
+
+        def clear_user_token(self) -> dict[str, object]:
+            with self._lock:
+                self._clear_user_token_unlocked()
+                mode = self._current_mode_unlocked(float(self._now()))
+            _event_log(event="github_user_token_cleared", mode=mode)
+            return {"mode": mode}
+
+        def status(self) -> dict[str, object]:
+            with self._lock:
+                now = float(self._now())
+                mode = self._current_mode_unlocked(now)
+                user_expires_at = (
+                    int(self._user_expires_at)
+                    if self._user_access_token and self._user_expires_at is not None
+                    else None
+                )
+                return {
+                    "mode": mode,
+                    "user_token_expires_at": user_expires_at,
+                    "app_configured": self._is_app_configured(),
+                }
+
+        def _refresh_user_token_unlocked(self, now: float) -> str | None:
+            if not self._user_refresh_token or not self._client_id:
+                return None
+            form = urllib_parse.urlencode(
+                {
+                    "client_id": self._client_id,
+                    "grant_type": "refresh_token",
+                    "refresh_token": self._user_refresh_token,
+                }
+            ).encode("utf-8")
+            headers = {
+                "Accept": "application/json",
+                "Content-Type": "application/x-www-form-urlencoded",
+                "User-Agent": "egress-proxy",
+            }
+            try:
+                status_code, body = self._http_post(
+                    "https://github.com/login/oauth/access_token",
+                    headers,
+                    form,
+                )
+                if status_code < 200 or status_code >= 300:
+                    return None
+                data = json.loads(body.decode("utf-8"))
+            except Exception:
+                return None
+
+            new_token = str(data.get("access_token") or "").strip()
+            if not new_token or data.get("error"):
+                return None
+
+            raw_expires_in = data.get("expires_in", DEFAULT_USER_TOKEN_TTL_SECONDS)
+            try:
+                expires_in = float(raw_expires_in)
+            except (TypeError, ValueError):
+                expires_in = float(DEFAULT_USER_TOKEN_TTL_SECONDS)
+
+            new_refresh = str(data.get("refresh_token") or "").strip()
+            self._user_access_token = new_token
+            self._user_expires_at = now + expires_in
+            if new_refresh:
+                self._user_refresh_token = new_refresh
+            _event_log(event="github_user_token_refreshed", mode="user_oauth")
+            return new_token
+
+        def _generate_app_jwt(self, now: float) -> str:
+            with open(self._private_key_file, "rb") as pem_file:
+                private_key = serialization.load_pem_private_key(
+                    pem_file.read(),
+                    password=None,
+                )
+            iat = int(now) - 60
+            exp = int(now) + 540
+            header = {"alg": "RS256", "typ": "JWT"}
+            payload = {"iss": self._app_id, "iat": iat, "exp": exp}
+            header_b64 = _b64url_encode(
+                json.dumps(header, separators=(",", ":")).encode("utf-8")
+            )
+            payload_b64 = _b64url_encode(
+                json.dumps(payload, separators=(",", ":")).encode("utf-8")
+            )
+            signing_input = f"{header_b64}.{payload_b64}".encode("ascii")
+            signature = private_key.sign(
+                signing_input,
+                padding.PKCS1v15(),
+                hashes.SHA256(),
+            )
+            return f"{header_b64}.{payload_b64}.{_b64url_encode(signature)}"
+
+        def _fetch_installation_token_unlocked(self, now: float) -> str:
+            jwt_token = self._generate_app_jwt(now)
+            url = (
+                "https://api.github.com/app/installations/"
+                f"{self._installation_id}/access_tokens"
+            )
+            headers = {
+                "Authorization": f"Bearer {jwt_token}",
+                "Accept": "application/vnd.github+json",
+                "X-GitHub-Api-Version": "2022-11-28",
+                "User-Agent": "egress-proxy",
+            }
+            status_code, body = self._http_post(url, headers, b"")
+            if status_code < 200 or status_code >= 300:
+                raise RuntimeError(
+                    f"GitHub installation token request failed with status {status_code}"
+                )
+            data = json.loads(body.decode("utf-8"))
+            token = str(data.get("token") or "").strip()
+            expires_at_raw = str(data.get("expires_at") or "").strip()
+            if not token or not expires_at_raw:
+                raise RuntimeError("GitHub installation token response missing fields")
+
+            self._install_token = token
+            self._install_expires_at = _parse_iso8601_epoch(expires_at_raw)
+            _event_log(
+                event="github_installation_token_issued",
+                mode="app_installation",
+            )
+            return token
+
+        def get_token(self) -> str:
+            with self._lock:
+                now = float(self._now())
+
+                # Priority 1: Browser OAuth / Device Flow user token in memory
+                if self._user_access_token:
+                    if (
+                        self._user_expires_at is not None
+                        and now
+                        < self._user_expires_at - USER_TOKEN_REFRESH_MARGIN_SECONDS
+                    ):
+                        return self._user_access_token
+
+                    refreshed = self._refresh_user_token_unlocked(now)
+                    if refreshed:
+                        return refreshed
+
+                    self._clear_user_token_unlocked()
+                    _event_log(
+                        event="github_user_token_fallback",
+                        mode=(
+                            "app_installation"
+                            if self._is_app_configured()
+                            else "unconfigured"
+                        ),
+                    )
+
+                # Priority 2: GitHub App Installation Token auto-issuance
+                if (
+                    self._install_token
+                    and self._install_expires_at is not None
+                    and now
+                    < self._install_expires_at - INSTALL_TOKEN_REFRESH_MARGIN_SECONDS
+                ):
+                    return self._install_token
+
+                if not self._is_app_configured():
+                    return ""
+
+                return self._fetch_installation_token_unlocked(now)
+
+
+    def _parse_bind_address(bind: str) -> tuple[str, int]:
+        raw = bind.strip()
+        if ":" not in raw:
+            raise ValueError(f"Invalid bind address: {bind!r}")
+        host, port_str = raw.rsplit(":", 1)
+        return host or "0.0.0.0", int(port_str)
+
+
+    def create_admin_server(
+        provider: GitHubTokenProvider,
+        bind_address: tuple[str, int],
+    ) -> ThreadingHTTPServer:
+        class AdminRequestHandler(BaseHTTPRequestHandler):
+            def setup(self) -> None:
+                self.request.settimeout(5.0)
+                super().setup()
+
+            def log_message(self, format: str, *args) -> None:  # noqa: A002
+                return
+
+            def _send_json(self, status_code: int, payload: dict[str, object]) -> None:
+                body = json.dumps(payload, separators=(",", ":")).encode("utf-8")
+                self.send_response(status_code)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+
+            def do_GET(self) -> None:  # noqa: N802
+                if self.path == "/v1/github/status":
+                    self._send_json(200, provider.status())
+                    return
+                self._send_json(404, {"error": "not found"})
+
+            def do_PUT(self) -> None:  # noqa: N802
+                if self.path != "/v1/github/user-token":
+                    self._send_json(404, {"error": "not found"})
+                    return
+
+                content_length_raw = self.headers.get("Content-Length", "0")
+                try:
+                    content_length = int(content_length_raw)
+                except ValueError:
+                    self._send_json(400, {"error": "invalid Content-Length"})
+                    return
+                if content_length <= 0 or content_length > MAX_ADMIN_BODY_BYTES:
+                    self._send_json(400, {"error": "invalid request body size"})
+                    return
+
+                raw_body = self.rfile.read(content_length)
+                try:
+                    payload = json.loads(raw_body.decode("utf-8"))
+                except Exception:
+                    self._send_json(400, {"error": "invalid JSON body"})
+                    return
+
+                if not isinstance(payload, dict):
+                    self._send_json(400, {"error": "JSON body must be an object"})
+                    return
+
+                try:
+                    result = provider.set_user_token(
+                        access_token=payload.get("access_token", ""),
+                        expires_in=payload.get("expires_in"),
+                        expires_at=payload.get("expires_at"),
+                        refresh_token=payload.get("refresh_token"),
+                    )
+                except ValueError as exc:
+                    self._send_json(400, {"error": str(exc)})
+                    return
+
+                self._send_json(200, result)
+
+            def do_DELETE(self) -> None:  # noqa: N802
+                if self.path != "/v1/github/user-token":
+                    self._send_json(404, {"error": "not found"})
+                    return
+                self._send_json(200, provider.clear_user_token())
+
+        return ThreadingHTTPServer(bind_address, AdminRequestHandler)
 
 
     def _deny(flow: http.HTTPFlow, host: str, message: bytes) -> None:
@@ -124,6 +561,39 @@ data:
 
 
     class EgressProxyAddon:
+        def __init__(
+            self,
+            token_provider: GitHubTokenProvider | None = None,
+        ) -> None:
+            self._token_provider = token_provider or GitHubTokenProvider()
+            self._admin_server: ThreadingHTTPServer | None = None
+            self._admin_thread: threading.Thread | None = None
+
+        def running(self) -> None:
+            if self._admin_server is not None:
+                return
+            bind = os.environ.get("EGRESS_PROXY_ADMIN_BIND", DEFAULT_ADMIN_BIND).strip()
+            if not bind:
+                return
+            bind_address = _parse_bind_address(bind)
+            server = create_admin_server(self._token_provider, bind_address)
+            thread = threading.Thread(
+                target=server.serve_forever,
+                name="egress-proxy-admin",
+                daemon=True,
+            )
+            thread.start()
+            self._admin_server = server
+            self._admin_thread = thread
+            _event_log(event="admin_server_started")
+
+        def done(self) -> None:
+            if self._admin_server is not None:
+                self._admin_server.shutdown()
+                self._admin_server.server_close()
+                self._admin_server = None
+            self._admin_thread = None
+
         def http_connect(self, flow: http.HTTPFlow) -> None:
             try:
                 host = _normalize_host(flow.request.host)
@@ -156,19 +626,20 @@ data:
                     _deny(flow, host, b"Forbidden: HTTPS on port 443 required\n")
                     return
 
-                token = os.environ.get("GITHUB_TOKEN", "").strip()
                 if (
-                    token
+                    host in GITHUB_AUTH_HOSTS
                     and flow.request.scheme == "https"
                     and flow.request.port == 443
                 ):
-                    if host == "api.github.com":
-                        flow.request.headers["Authorization"] = f"Bearer {token}"
-                    elif host == "github.com":
-                        encoded = base64.b64encode(
-                            f"x-access-token:{token}".encode("utf-8")
-                        ).decode("ascii")
-                        flow.request.headers["Authorization"] = f"Basic {encoded}"
+                    token = self._token_provider.get_token()
+                    if token:
+                        if host == "api.github.com":
+                            flow.request.headers["Authorization"] = f"Bearer {token}"
+                        elif host == "github.com":
+                            encoded = base64.b64encode(
+                                f"x-access-token:{token}".encode("utf-8")
+                            ).decode("ascii")
+                            flow.request.headers["Authorization"] = f"Basic {encoded}"
 
                 flow.metadata["egress_action"] = "allow"
                 flow.metadata["egress_host"] = host

@@ -195,6 +195,34 @@ violations contains violation if {
 
 violations contains violation if {
 	agent_sandbox_scope
+	not egress_proxy_ingress_networkpolicy_exists
+
+	violation := {
+		"policy": "egress-proxy-admin-must-be-isolated",
+		"resource": "networking.k8s.io/NetworkPolicy/proxy/egress-proxy-ingress",
+		"path": "spec.ingress",
+		"message": "agent-sandbox manifests must include NetworkPolicy/egress-proxy-ingress in namespace proxy with Ingress policyType isolating admin port 3129",
+	}
+}
+
+violations contains violation if {
+	agent_sandbox_scope
+	resource := input.resources[_]
+	egress_proxy_ingress_networkpolicy(resource.document)
+	rule := object.get(object.get(resource.document, "spec", {}), "ingress", [])[rule_index]
+	ingress_rule_allows_admin_port(rule)
+	not ingress_rule_restricted_to_agent_sandbox_system(rule)
+
+	violation := {
+		"policy": "egress-proxy-admin-must-be-isolated",
+		"resource": resource_ref(resource.document),
+		"path": sprintf("spec.ingress[%d]", [rule_index]),
+		"message": "NetworkPolicy/egress-proxy-ingress must restrict port 3129 (and rules without explicit ports) strictly to namespace agent-sandbox-system",
+	}
+}
+
+violations contains violation if {
+	agent_sandbox_scope
 	resource := input.resources[_]
 	egress_proxy_deployment(resource.document)
 	pod := pod_spec(resource.document)
@@ -449,6 +477,60 @@ egress_proxy_deployment(document) if {
 egress_proxy_deployment_exists if {
 	resource := input.resources[_]
 	egress_proxy_deployment(resource.document)
+}
+
+egress_proxy_ingress_networkpolicy(document) if {
+	object.get(document, "kind", "") == "NetworkPolicy"
+	resource_namespace(document) == "proxy"
+	resource_name(document) == "egress-proxy-ingress"
+}
+
+egress_proxy_ingress_networkpolicy_exists if {
+	resource := input.resources[_]
+	document := resource.document
+	egress_proxy_ingress_networkpolicy(document)
+	spec := object.get(document, "spec", {})
+	object.get(object.get(object.get(spec, "podSelector", {}), "matchLabels", {}), "app", "") == "egress-proxy"
+	object.get(spec, "policyTypes", [])[_] == "Ingress"
+}
+
+ingress_rule_allows_admin_port(rule) if {
+	ports := object.get(rule, "ports", [])
+	count(ports) == 0
+}
+
+ingress_rule_allows_admin_port(rule) if {
+	port := object.get(rule, "ports", [])[_]
+	object.get(port, "port", null) == null
+}
+
+ingress_rule_allows_admin_port(rule) if {
+	port := object.get(rule, "ports", [])[_]
+	object.get(port, "port", null) in {3129, "admin"}
+}
+
+ingress_rule_allows_admin_port(rule) if {
+	port := object.get(rule, "ports", [])[_]
+	start := object.get(port, "port", 0)
+	end := object.get(port, "endPort", 0)
+	is_number(start)
+	is_number(end)
+	start <= 3129
+	3129 <= end
+}
+
+ingress_rule_restricted_to_agent_sandbox_system(rule) if {
+	peers := object.get(rule, "from", [])
+	count(peers) > 0
+	every peer in peers {
+		peer_is_agent_sandbox_system_namespace(peer)
+	}
+}
+
+peer_is_agent_sandbox_system_namespace(peer) if {
+	ns_selector := object.get(peer, "namespaceSelector", {})
+	match_labels := object.get(ns_selector, "matchLabels", {})
+	object.get(match_labels, "kubernetes.io/metadata.name", "") == "agent-sandbox-system"
 }
 
 sandbox_warmpool(document) if {

@@ -166,6 +166,121 @@ func TestAgentSandboxPolicies(t *testing.T) {
 			context: policyContext("agent-sandbox"),
 		},
 		{
+			name:       "rejects missing egress-proxy-ingress NetworkPolicy under agent-sandbox scope",
+			policyName: "egress-proxy-admin-must-be-isolated",
+			resources: []PolicyResource{
+				{
+					Source:   "tests/agent-sandbox/network-policy.yaml",
+					Document: validSandboxDefaultDenyNetworkPolicyDocument(),
+				},
+				{
+					Source:   "tests/agent-sandbox/egress-proxy.yaml",
+					Document: validEgressProxyDeploymentDocument(nil, nil),
+				},
+			},
+			context: policyContext("agent-sandbox"),
+		},
+		{
+			name:       "rejects egress-proxy-ingress NetworkPolicy exposing port 3129 to sandbox namespace",
+			policyName: "egress-proxy-admin-must-be-isolated",
+			resources: []PolicyResource{
+				{
+					Source:   "tests/agent-sandbox/network-policy.yaml",
+					Document: validSandboxDefaultDenyNetworkPolicyDocument(),
+				},
+				{
+					Source:   "tests/agent-sandbox/egress-proxy.yaml",
+					Document: validEgressProxyDeploymentDocument(nil, nil),
+				},
+				{
+					Source: "tests/agent-sandbox/egress-proxy-ingress.yaml",
+					Document: map[string]any{
+						"apiVersion": "networking.k8s.io/v1",
+						"kind":       "NetworkPolicy",
+						"metadata": map[string]any{
+							"name":      "egress-proxy-ingress",
+							"namespace": "proxy",
+						},
+						"spec": map[string]any{
+							"podSelector": map[string]any{
+								"matchLabels": map[string]any{
+									"app": "egress-proxy",
+								},
+							},
+							"policyTypes": []any{"Ingress"},
+							"ingress": []any{
+								map[string]any{
+									"from": []any{
+										map[string]any{
+											"namespaceSelector": map[string]any{
+												"matchLabels": map[string]any{
+													"kubernetes.io/metadata.name": "sandbox",
+												},
+											},
+										},
+									},
+									"ports": []any{
+										map[string]any{
+											"protocol": "TCP",
+											"port":     3129,
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			context: policyContext("agent-sandbox"),
+		},
+		{
+			name:       "rejects egress-proxy-ingress NetworkPolicy omitting ports for sandbox namespace",
+			policyName: "egress-proxy-admin-must-be-isolated",
+			resources: []PolicyResource{
+				{
+					Source:   "tests/agent-sandbox/network-policy.yaml",
+					Document: validSandboxDefaultDenyNetworkPolicyDocument(),
+				},
+				{
+					Source:   "tests/agent-sandbox/egress-proxy.yaml",
+					Document: validEgressProxyDeploymentDocument(nil, nil),
+				},
+				{
+					Source: "tests/agent-sandbox/egress-proxy-ingress.yaml",
+					Document: map[string]any{
+						"apiVersion": "networking.k8s.io/v1",
+						"kind":       "NetworkPolicy",
+						"metadata": map[string]any{
+							"name":      "egress-proxy-ingress",
+							"namespace": "proxy",
+						},
+						"spec": map[string]any{
+							"podSelector": map[string]any{
+								"matchLabels": map[string]any{
+									"app": "egress-proxy",
+								},
+							},
+							"policyTypes": []any{"Ingress"},
+							"ingress": []any{
+								map[string]any{
+									"from": []any{
+										map[string]any{
+											"namespaceSelector": map[string]any{
+												"matchLabels": map[string]any{
+													"kubernetes.io/metadata.name": "sandbox",
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			context: policyContext("agent-sandbox"),
+		},
+		{
 			name:       "rejects missing egress-proxy Deployment under agent-sandbox scope",
 			policyName: "egress-proxy-must-be-hardened",
 			resources: []PolicyResource{
