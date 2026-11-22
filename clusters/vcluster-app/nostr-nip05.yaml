@@ -20,7 +20,7 @@ spec:
     spec:
       containers:
       - name: nostr-nip05
-        image: ghcr.io/nakatanakatana/nip05:0.13.1@sha256:976e6804a42880047a7aae7395c9bb30ab4a8194e85f5be7c67f4a39d70e7211
+        image: ghcr.io/nakatanakatana/nip05:0.13.2@sha256:26c2c5c2ccd87f892114082aebd789bab49d5d5cc48eee45e8f15057b364dae8
         command: ["/app/nip05"]
         env:
         - name: NIP05_MAPPING
