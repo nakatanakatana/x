@@ -42,6 +42,7 @@ spec:
               { cat /ca-secret/PROXY_CA_KEY; printf '\n'; cat /ca-secret/PROXY_CA_CERT; } > /mitmproxy-ca/mitmproxy-ca.pem
               cp /ca-secret/PROXY_CA_CERT /mitmproxy-ca/mitmproxy-ca-cert.pem
               chmod 600 /mitmproxy-ca/mitmproxy-ca.pem
+              PYTHONDONTWRITEBYTECODE=1 python3 -c 'from pathlib import Path; from mitmproxy import certs; certs.CertStore.load_dhparam(Path("/mitmproxy-ca/mitmproxy-dhparam.pem"))'
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
@@ -51,10 +52,10 @@ spec:
           resources:
             requests:
               cpu: 10m
-              memory: 16Mi
+              memory: 32Mi
             limits:
               cpu: 100m
-              memory: 64Mi
+              memory: 128Mi
           volumeMounts:
             - name: ca-secret
               mountPath: /ca-secret
