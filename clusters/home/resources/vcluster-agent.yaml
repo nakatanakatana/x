@@ -54,3 +54,4 @@ spec:
                       "agent/egress-proxy-secret": "proxy/egress-proxy-secret"
                       "agent/egress-proxy-ca-public": "sandbox/egress-proxy-ca-public"
                       "agent/opencode-server-auth": "sandbox/opencode-server-auth"
+                      "agent/sandbox-control-secret": "agent-sandbox-system/sandbox-control-secret"

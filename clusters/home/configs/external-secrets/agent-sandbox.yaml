@@ -66,3 +66,21 @@ spec:
     - secretKey: OPENCODE_SERVER_PASSWORD
       remoteRef:
         key: agent-sandbox/OPENCODE_SERVER_PASSWORD
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: sandbox-control-secret
+  namespace: agent
+spec:
+  refreshInterval: 14h23m
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: 1password-sdk
+  target:
+    name: sandbox-control-secret
+    creationPolicy: Owner
+  data:
+    - secretKey: GITHUB_APP_CLIENT_ID
+      remoteRef:
+        key: agent-sandbox/GITHUB_APP_CLIENT_ID
