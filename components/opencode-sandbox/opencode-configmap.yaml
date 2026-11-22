@@ -7,11 +7,29 @@ data:
   opencode.json: |
     {
       "$schema": "https://opencode.ai/config.json",
+      "enabled_providers": ["bifrost"],
+      "model": "bifrost/deepseek-v4.1-flash",
       "provider": {
-        "openai": {
+        "bifrost": {
+          "npm": "@ai-sdk/openai-compatible",
+          "name": "Bifrost (llm-proxy)",
           "options": {
             "baseURL": "http://bifrost.proxy.svc.cluster.local:8080/v1",
             "apiKey": "unused-proxied-by-bifrost"
+          },
+          "models": {
+            "deepseek-v4.1-flash": {
+              "name": "deepseek-v4.1-flash"
+            },
+            "glm-5.3-flash": {
+              "name": "glm-5.3-flash"
+            },
+            "hy4-flash-free": {
+              "name": "hy4-flash-free"
+            },
+            "deepseek-v4.1-flash-free": {
+              "name": "deepseek-v4.1-flash-free"
+            }
           }
         }
       }
