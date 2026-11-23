@@ -30,7 +30,7 @@ spec:
                       - slow
       containers:
         - name: opencode
-          image: ghcr.io/anomalyco/opencode:2.4.0@sha256:24cb5af76785f0ab69518e370ee515f5ed7536536684428c9cfd9abef15252d2
+          image: ghcr.io/anomalyco/opencode:2.4.1@sha256:10e340e3e86d7b23e95cd9960f5a934beae8a87593d7398b5629b6112ed1fc63
           command:
             - opencode
             - serve
