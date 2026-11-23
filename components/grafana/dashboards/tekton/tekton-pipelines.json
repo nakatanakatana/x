@@ -978,6 +978,99 @@
             }
           }
         }
+      },
+      "p14": {
+        "kind": "Panel",
+        "spec": {
+          "id": 14,
+          "title": "Active Preview Environments",
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "table",
+            "spec": {
+              "fieldConfig": {
+                "defaults": {"custom": {"align": "auto"}},
+                "overrides": [
+                  {
+                    "matcher": {"id": "byName", "options": "URL"},
+                    "properties": [
+                      {
+                        "id": "links",
+                        "value": [
+                          {
+                            "targetBlank": true,
+                            "title": "Open Preview",
+                            "url": "${__value.raw}"
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "matcher": {"id": "byName", "options": "Memory"},
+                    "properties": [
+                      {"id": "unit", "value": "bytes"},
+                      {"id": "decimals", "value": 1}
+                    ]
+                  }
+                ]
+              },
+              "options": {
+                "sortBy": [{"desc": false, "displayName": "Environment"}]
+              }
+            }
+          },
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "refId": "A",
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "prometheus",
+                      "datasource": {"name": "local-mimir"},
+                      "spec": {
+                        "expr": "max by (preview_env, url, image, node) (label_replace(label_replace(container_memory_working_set_bytes{namespace=\"app\", container!=\"\", container!=\"POD\", pod=~\".*-x-.*-pr-[0-9]+-x-vcluster\"}, \"preview_env\", \"$1\", \"pod\", \".*-x-(.*-pr-[0-9]+)-x-vcluster\"), \"url\", \"https://$1-preview.nakatanakatana.app\", \"preview_env\", \"(.*)\"))",
+                        "format": "table",
+                        "instant": true
+                      }
+                    }
+                  }
+                }
+              ],
+              "transformations": [
+                {
+                  "kind": "organize",
+                  "spec": {
+                    "id": "organize",
+                    "options": {
+                      "excludeByName": {
+                        "Time": true
+                      },
+                      "indexByName": {
+                        "preview_env": 0,
+                        "url": 1,
+                        "Value": 2,
+                        "node": 3,
+                        "image": 4
+                      },
+                      "renameByName": {
+                        "preview_env": "Environment",
+                        "url": "URL",
+                        "Value": "Memory",
+                        "node": "Node",
+                        "image": "Image"
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
       }
     },
     "layout": {
@@ -1069,6 +1162,23 @@
                     {
                       "kind": "GridLayoutItem",
                       "spec": {"x": 0, "y": 0, "width": 24, "height": 16, "element": {"kind": "ElementReference", "name": "p9"}}
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "kind": "TabsLayoutTab",
+            "spec": {
+              "title": "Preview Environments",
+              "layout": {
+                "kind": "GridLayout",
+                "spec": {
+                  "items": [
+                    {
+                      "kind": "GridLayoutItem",
+                      "spec": {"x": 0, "y": 0, "width": 24, "height": 16, "element": {"kind": "ElementReference", "name": "p14"}}
                     }
                   ]
                 }
