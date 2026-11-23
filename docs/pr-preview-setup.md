@@ -37,7 +37,7 @@ flowchart LR
 
   PR -- "Webhook" --> PaC
   PaC --> Pipeline
-  Pipeline -- "1. Kaniko Push" --> Zot
+  Pipeline -- "1. BuildKit Push" --> Zot
   Pipeline -- "2. Deploy Namespace" --> PreviewNS
   CFGateway -- "*-preview.nakatanakatana.app" --> AuthProxy
   AuthProxy -- "Passkey OIDC" --> Workload
@@ -102,7 +102,7 @@ Register a new OIDC client in the PocketID administration interface at `https://
 
 To enable PR preview environments in an application repository, add two Pipelines-as-Code pipeline definitions under `.tekton/`:
 
-1. `.tekton/preview-deploy.yaml`: Builds the container image with Kaniko, pushes to Zot, and provisions the preview environment when a PR is labeled with `preview` or updated.
+1. `.tekton/preview-deploy.yaml`: Builds the container image with BuildKit (using a temporary Ceph RBD PVC for build storage), pushes to Zot, and provisions the preview environment when a PR is labeled with `preview` or updated.
 2. `.tekton/preview-cleanup.yaml`: Tears down the preview environment when the PR is closed or the `preview` label is removed.
 
 ### Example A: Single Application (`feed-reader`)
@@ -121,6 +121,7 @@ metadata:
       event == "pull_request" &&
       body.action in ["labeled", "synchronize", "reopened"] &&
       body.pull_request.head.repo.full_name == body.repository.full_name &&
+      has(body.pull_request.labels) &&
       body.pull_request.labels.exists(l, l.name == "preview")
     pipelinesascode.tekton.dev/task: "git-clone"
     pipelinesascode.tekton.dev/max-keep-runs: "3"
@@ -135,6 +136,7 @@ spec:
   pipelineSpec:
     workspaces:
       - name: source
+      - name: buildkit-storage
     tasks:
       - name: fetch-repository
         taskRef:
@@ -163,6 +165,8 @@ spec:
         workspaces:
           - name: source
             workspace: source
+          - name: buildkit-storage
+            workspace: buildkit-storage
         params:
           - name: APP_NAME
             value: feed-reader
@@ -170,6 +174,8 @@ spec:
             value: $(params.pull_request_number)
           - name: COMMIT_SHA
             value: $(params.revision)
+          - name: TARGET
+            value: primary
 
       - name: deploy
         runAfter:
@@ -201,15 +207,29 @@ spec:
             value: "8080"
           - name: LITESTREAM_INJECT
             value: feed-reader-db-preview
+  taskRunTemplate:
+    podTemplate:
+      securityContext:
+        fsGroup: 1000
   workspaces:
     - name: source
       volumeClaimTemplate:
         spec:
+          storageClassName: rook-ceph-block
           accessModes:
             - ReadWriteOnce
           resources:
             requests:
               storage: 1Gi
+    - name: buildkit-storage
+      volumeClaimTemplate:
+        spec:
+          storageClassName: rook-ceph-block
+          accessModes:
+            - ReadWriteOnce
+          resources:
+            requests:
+              storage: 10Gi
 ```
 
 #### `.tekton/preview-cleanup.yaml`
@@ -265,6 +285,7 @@ metadata:
       event == "pull_request" &&
       body.action in ["labeled", "synchronize", "reopened"] &&
       body.pull_request.head.repo.full_name == body.repository.full_name &&
+      has(body.pull_request.labels) &&
       body.pull_request.labels.exists(l, l.name == "preview")
     pipelinesascode.tekton.dev/task: "git-clone"
     pipelinesascode.tekton.dev/max-keep-runs: "3"
@@ -279,6 +300,7 @@ spec:
   pipelineSpec:
     workspaces:
       - name: source
+      - name: buildkit-storage
     tasks:
       - name: fetch-repository
         taskRef:
@@ -310,6 +332,8 @@ spec:
         workspaces:
           - name: source
             workspace: source
+          - name: buildkit-storage
+            workspace: buildkit-storage
         params:
           - name: APP_NAME
             value: mytools-http-tool
@@ -369,6 +393,8 @@ spec:
         workspaces:
           - name: source
             workspace: source
+          - name: buildkit-storage
+            workspace: buildkit-storage
         params:
           - name: APP_NAME
             value: mytools-worker
@@ -407,15 +433,29 @@ spec:
             value: "{{repo_owner}}/{{repo_name}}"
           - name: EXPOSE_HTTP
             value: "false"
+  taskRunTemplate:
+    podTemplate:
+      securityContext:
+        fsGroup: 1000
   workspaces:
     - name: source
       volumeClaimTemplate:
         spec:
+          storageClassName: rook-ceph-block
           accessModes:
             - ReadWriteOnce
           resources:
             requests:
               storage: 1Gi
+    - name: buildkit-storage
+      volumeClaimTemplate:
+        spec:
+          storageClassName: rook-ceph-block
+          accessModes:
+            - ReadWriteOnce
+          resources:
+            requests:
+              storage: 10Gi
 ```
 
 #### `.tekton/preview-cleanup.yaml`

@@ -17,17 +17,48 @@ spec:
     - name: DOCKERFILE
       type: string
       default: "Dockerfile"
+    - name: TARGET
+      type: string
+      default: ""
   workspaces:
     - name: source
+    - name: buildkit-storage
+      mountPath: /home/user/.local/share/buildkit
+      optional: true
   steps:
     - name: build-and-push
-      image: gcr.io/kaniko-project/executor:v1.24.0@sha256:4e7a52dd1f14872430652bb3b027405b8dfd17c4538751c620ac005741ef9698
-      args:
-        - --dockerfile=$(params.DOCKERFILE)
-        - --context=$(workspaces.source.path)/$(params.CONTEXT_DIR)
-        - --destination=zot-registry.tekton-workspace.svc.cluster.local:5000/$(params.APP_NAME):pr-$(params.PR_NUMBER)-$(params.COMMIT_SHA)
-        - --insecure
-        - --skip-tls-verify
+      image: moby/buildkit:v0.35.1-rootless@sha256:7d02292556e66feea6d2d89b7ec143503b57e4f59a4efc6b7ece8547e4d3e5be
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        runAsNonRoot: true
+        seccompProfile:
+          type: Unconfined
+      env:
+        - name: BUILDKITD_FLAGS
+          value: "--oci-worker-no-process-sandbox"
+      script: |
+        #!/bin/sh
+        set -eu
+
+        CONTEXT_PATH="$(workspaces.source.path)/$(params.CONTEXT_DIR)"
+        DOCKERFILE_PATH="${CONTEXT_PATH}/$(params.DOCKERFILE)"
+        DOCKERFILE_DIR="$(dirname "${DOCKERFILE_PATH}")"
+        DOCKERFILE_NAME="$(basename "${DOCKERFILE_PATH}")"
+        IMAGE="zot-registry.tekton-workspace.svc.cluster.local:5000/$(params.APP_NAME):pr-$(params.PR_NUMBER)-$(params.COMMIT_SHA)"
+
+        set -- \
+          --frontend=dockerfile.v0 \
+          --local "context=${CONTEXT_PATH}" \
+          --local "dockerfile=${DOCKERFILE_DIR}" \
+          --opt "filename=${DOCKERFILE_NAME}"
+
+        if [ -n "$(params.TARGET)" ]; then
+          set -- "$@" --opt "target=$(params.TARGET)"
+        fi
+
+        exec buildctl-daemonless.sh build "$@" \
+          --output "type=image,name=${IMAGE},push=true,registry.insecure=true"
 ---
 apiVersion: tekton.dev/v1
 kind: Task
