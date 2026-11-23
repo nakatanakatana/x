@@ -669,7 +669,8 @@
                             "type": "value",
                             "options": {
                               "True": {"color": "green", "text": "True"},
-                              "False": {"color": "red", "text": "False"}
+                              "False": {"color": "red", "text": "False"},
+                              "Unknown": {"color": "blue", "text": "Unknown"}
                             }
                           }
                         ]
@@ -681,7 +682,7 @@
                 ]
               },
               "options": {
-                "sortBy": [{"desc": true, "displayName": "Completed At"}]
+                "sortBy": [{"desc": true, "displayName": "Last Updated"}]
               }
             }
           },
@@ -698,9 +699,9 @@
                       "group": "loki",
                       "datasource": {"name": "local-loki"},
                       "spec": {
-                        "expr": "{namespace=\"ci\", container=\"tekton-pipelines-controller\"} |= \"status is being set to &{Succeeded \" != \"Succeeded Unknown\" | json | knative_dev_key =~ \"(${exported_namespace:regex})/.*\" | knative_dev_key =~ \"[^/]+/(${pipeline:regex}).*\" | line_format \"{{.message}}\" | regexp `^PipelineRun (?P<run>\\S+) status is being set to &\\{Succeeded (?P<status>\\S+)\\s+\\{[^\\}]+\\}\\s+(?P<reason>\\S+)\\s+(?P<details>.+)\\}$` | keep knative_dev_key, status, reason, details",
+                        "expr": "{namespace=\"ci\", container=\"tekton-pipelines-controller\"} |= \"status is being set to &{Succeeded \" | json | knative_dev_key =~ \"(${exported_namespace:regex})/.*\" | knative_dev_key =~ \"[^/]+/(${pipeline:regex}).*\" | line_format \"{{.message}}\" | regexp `^PipelineRun (?P<run>\\S+) status is being set to &\\{Succeeded (?P<status>\\S+)\\s+\\{[^\\}]+\\}\\s+(?P<reason>\\S+)\\s+(?P<details>.+)\\}$` | keep knative_dev_key, status, reason, details",
                         "queryType": "range",
-                        "maxLines": 200
+                        "maxLines": 1000
                       }
                     }
                   }
@@ -715,29 +716,49 @@
                   }
                 },
                 {
+                  "kind": "sortBy",
+                  "spec": {
+                    "id": "sortBy",
+                    "options": {
+                      "fields": {},
+                      "sort": [{"desc": false, "field": "Time"}]
+                    }
+                  }
+                },
+                {
+                  "kind": "groupBy",
+                  "spec": {
+                    "id": "groupBy",
+                    "options": {
+                      "fields": {
+                        "Time": {"aggregations": ["last"], "operation": "aggregate"},
+                        "details": {"aggregations": ["last"], "operation": "aggregate"},
+                        "knative_dev_key": {"aggregations": [], "operation": "groupby"},
+                        "reason": {"aggregations": ["last"], "operation": "aggregate"},
+                        "status": {"aggregations": ["last"], "operation": "aggregate"}
+                      }
+                    }
+                  }
+                },
+                {
                   "kind": "organize",
                   "spec": {
                     "id": "organize",
                     "options": {
-                      "excludeByName": {
-                        "Line": true,
-                        "id": true,
-                        "labels": true,
-                        "tsNs": true
-                      },
+                      "excludeByName": {},
                       "indexByName": {
-                        "Time": 0,
+                        "Time (last)": 0,
                         "knative_dev_key": 1,
-                        "status": 2,
-                        "reason": 3,
-                        "details": 4
+                        "status (last)": 2,
+                        "reason (last)": 3,
+                        "details (last)": 4
                       },
                       "renameByName": {
-                        "Time": "Completed At",
+                        "Time (last)": "Last Updated",
                         "knative_dev_key": "PipelineRun",
-                        "status": "Succeeded",
-                        "reason": "Reason",
-                        "details": "Details"
+                        "status (last)": "Succeeded",
+                        "reason (last)": "Reason",
+                        "details (last)": "Details"
                       }
                     }
                   }
@@ -769,7 +790,8 @@
                             "type": "value",
                             "options": {
                               "True": {"color": "green", "text": "True"},
-                              "False": {"color": "red", "text": "False"}
+                              "False": {"color": "red", "text": "False"},
+                              "Unknown": {"color": "blue", "text": "Unknown"}
                             }
                           }
                         ]
@@ -781,7 +803,7 @@
                 ]
               },
               "options": {
-                "sortBy": [{"desc": true, "displayName": "Completed At"}]
+                "sortBy": [{"desc": true, "displayName": "Last Updated"}]
               }
             }
           },
@@ -798,9 +820,9 @@
                       "group": "loki",
                       "datasource": {"name": "local-loki"},
                       "spec": {
-                        "expr": "{namespace=\"ci\", container=\"tekton-pipelines-controller\"} |= \"Successfully reconciled taskrun \" | json | knative_dev_key =~ \"(${exported_namespace:regex})/.*\" | knative_dev_key =~ \"[^/]+/(${pipeline:regex}).*\" | message =~ `.*Status:\"(True|False)\".*` | line_format \"{{.message}}\" | regexp `^Successfully reconciled taskrun (?P<run>[^/]+)/(?P<run_namespace>\\S+) with status: &apis\\.Condition\\{Type:\"Succeeded\", Status:\"(?P<status>[^\"]+)\",.*Reason:\"(?P<reason>[^\"]+)\", Message:\"(?P<details>.+)\"\\}$` | keep knative_dev_key, status, reason, details",
+                        "expr": "{namespace=\"ci\", container=\"tekton-pipelines-controller\"} |= \"Successfully reconciled taskrun \" | json | knative_dev_key =~ \"(${exported_namespace:regex})/.*\" | knative_dev_key =~ \"[^/]+/(${pipeline:regex}).*\" | message =~ `.*Status:\"(True|False|Unknown)\".*` | line_format \"{{.message}}\" | regexp `^Successfully reconciled taskrun (?P<run>[^/]+)/(?P<run_namespace>\\S+) with status: &apis\\.Condition\\{Type:\"Succeeded\", Status:\"(?P<status>[^\"]+)\",.*Reason:\"(?P<reason>[^\"]+)\", Message:\"(?P<details>.+)\"\\}$` | keep knative_dev_key, status, reason, details",
                         "queryType": "range",
-                        "maxLines": 200
+                        "maxLines": 1000
                       }
                     }
                   }
@@ -815,29 +837,49 @@
                   }
                 },
                 {
+                  "kind": "sortBy",
+                  "spec": {
+                    "id": "sortBy",
+                    "options": {
+                      "fields": {},
+                      "sort": [{"desc": false, "field": "Time"}]
+                    }
+                  }
+                },
+                {
+                  "kind": "groupBy",
+                  "spec": {
+                    "id": "groupBy",
+                    "options": {
+                      "fields": {
+                        "Time": {"aggregations": ["last"], "operation": "aggregate"},
+                        "details": {"aggregations": ["last"], "operation": "aggregate"},
+                        "knative_dev_key": {"aggregations": [], "operation": "groupby"},
+                        "reason": {"aggregations": ["last"], "operation": "aggregate"},
+                        "status": {"aggregations": ["last"], "operation": "aggregate"}
+                      }
+                    }
+                  }
+                },
+                {
                   "kind": "organize",
                   "spec": {
                     "id": "organize",
                     "options": {
-                      "excludeByName": {
-                        "Line": true,
-                        "id": true,
-                        "labels": true,
-                        "tsNs": true
-                      },
+                      "excludeByName": {},
                       "indexByName": {
-                        "Time": 0,
+                        "Time (last)": 0,
                         "knative_dev_key": 1,
-                        "status": 2,
-                        "reason": 3,
-                        "details": 4
+                        "status (last)": 2,
+                        "reason (last)": 3,
+                        "details (last)": 4
                       },
                       "renameByName": {
-                        "Time": "Completed At",
+                        "Time (last)": "Last Updated",
                         "knative_dev_key": "TaskRun",
-                        "status": "Succeeded",
-                        "reason": "Reason",
-                        "details": "Details"
+                        "status (last)": "Succeeded",
+                        "reason (last)": "Reason",
+                        "details (last)": "Details"
                       }
                     }
                   }
