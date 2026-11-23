@@ -44,7 +44,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: feed-reader
-          image: ghcr.io/nakatanakatana/feed-reader:0.27.1@sha256:8ac7dc86956c446d11723a8d0fe24c5e51698cc55dc058276f153114f9f94751
+          image: ghcr.io/nakatanakatana/feed-reader:0.27.2@sha256:0b1c025d77e45891e1cbc2ac96726a888e4a2cde91acdb152bb37a80337acab9
           imagePullPolicy: Always
           securityContext:
             allowPrivilegeEscalation: false
