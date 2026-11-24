@@ -17,6 +17,16 @@
       "automerge": true
     },
     {
+      "matchDatasources": [
+        "docker"
+      ],
+      "matchUpdateTypes": [
+        "digest",
+        "pinDigest"
+      ],
+      "automerge": true
+    },
+    {
       "matchUpdateTypes": [
         "major"
       ],
