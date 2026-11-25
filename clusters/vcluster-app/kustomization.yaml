@@ -5,6 +5,7 @@ resources:
   - feed-reader-debug/workload
   - nostr
   - nostr-nip05.yaml
+  - observability/namespace.yaml
   - obsidian-clippings-feed.yaml
   - feed-reader
   - preview-system

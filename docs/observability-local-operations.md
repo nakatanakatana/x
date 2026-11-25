@@ -818,3 +818,142 @@ authorized recovery, recheck each backend's known pre-failure data, bucket
 objects, and local/Cloud destinations before enabling any new
 route. Keep metric and trace routes disabled until their product-specific
 Ceph persistence and post-restart query gates pass.
+
+## Local OpenTelemetry Tracing Pipeline and Instrumentation Contract
+
+This section defines the Phase 1 OpenTelemetry distributed tracing pipeline,
+pre-cutover persistence gate, deduplication label contract, native and custom
+application instrumentation requirements, and verification/rollback procedures.
+
+### Pre-cutover Gate (Gate 1-0)
+
+Before reconciling the trace routing cutover in `components/monitoring/values.yaml`
+and `components/pocket-id/deployment.yaml`, verify that Tempo v3 block persistence
+and post-restart retrieval pass against Ceph RGW:
+
+1. **Parquet block upload without HTTP 403**: Confirm `tempo-block-builder`
+   flushes and writes Parquet blocks to the `observability-tempo` bucket on
+   `rook-ceph-rgw-celld.rook-ceph.svc.cluster.local:443` under the TLS
+   configuration (`storage.trace.s3.insecure: false`,
+   `tls_insecure_skip_verify: true`) without HTTP `403` `AccessDenied` errors.
+2. **Post-restart trace queryability**: Send a smoke-test trace to Tempo, wait for
+   `tempo-block-builder` to flush the block to Ceph S3, restart `liveStore` so
+   in-memory/WAL state is cleared, and confirm the smoke-test trace remains
+   queryable via `tempo-query-frontend.monitoring.svc.cluster.local:3200`.
+
+### Collection Pipeline
+
+- **Host-cluster receiver (`alloy-receiver`)**:
+  `grafana-k8s-monitoring-alloy-receiver.monitoring.svc.cluster.local`
+  (configured via `applicationObservability` in `components/monitoring/values.yaml`)
+  listens on OTLP gRPC (`:4317`) and OTLP HTTP (`:4318`), and forwards traces via
+  OTLP gRPC with `tls.insecure: true` (`destinations.tracesService`) to
+  `tempo-distributor.monitoring.svc.cluster.local:4317`.
+- **`vcluster-app` service replication**:
+  `clusters/home/resources/vcluster-app.yaml` replicates
+  `monitoring/grafana-k8s-monitoring-alloy-receiver` into the virtual cluster as
+  `observability/otel-collector`. Workloads inside `vcluster-app` send OTLP
+  traces to `otel-collector.observability.svc.cluster.local:4317` (gRPC) or
+  `otel-collector.observability.svc.cluster.local:4318` (HTTP).
+- **Trace-to-log correlation in Grafana**:
+  The `Local Tempo` datasource (`uid: local-tempo`) in
+  `components/grafana/values.yaml` links to `Local Loki` (`uid: local-loki`) via
+  `tracesToLogsV2`, mapping `k8s.namespace.name` -> `namespace` and
+  `k8s.pod.name` -> `pod` with `filterByTraceID: true` and `filterBySpanID: false`
+  (`spanStartTimeShift: -5m`, `spanEndTimeShift: 5m`).
+
+### Deduplication Label Contract
+
+- Every workload emitting OpenTelemetry SDK traces or native OpenTelemetry traces
+  **MUST** set the Pod template label:
+
+  ```yaml
+  labels:
+    observability.nakatanakatana.app/otel-sdk: "true"
+  ```
+
+- This label acts as the exclusion selector so Phase 2 Beyla eBPF
+  auto-instrumentation skips SDK-instrumented Pods and prevents duplicate spans.
+
+### Native OTel (`pocket-id`)
+
+`components/pocket-id/deployment.yaml` enables native OpenTelemetry tracing for
+`pocket-id` with the deduplication Pod label and the following container
+environment variables:
+
+- `OTEL_TRACES_EXPORTER=otlp`
+- `OTEL_METRICS_EXPORTER=none`
+- `OTEL_LOGS_EXPORTER=none`
+- `OTEL_EXPORTER_OTLP_ENDPOINT=http://grafana-k8s-monitoring-alloy-receiver.monitoring.svc.cluster.local:4318`
+- `OTEL_SERVICE_NAME=pocket-id`
+- Pod template label: `observability.nakatanakatana.app/otel-sdk: "true"`
+
+### Custom Application OTel Contract (HTTP + SQLite)
+
+Custom HTTP + SQLite services deployed in `vcluster-app` (or the host cluster)
+must adhere to the following deployment and application-level contract.
+
+#### Deployment environment and labels
+
+Set the Pod template label `observability.nakatanakatana.app/otel-sdk: "true"` and
+expose `POD_NAMESPACE` / `POD_NAME` via the Kubernetes Downward API so
+`OTEL_RESOURCE_ATTRIBUTES` populates correlation tags:
+
+```yaml
+env:
+  - name: POD_NAMESPACE
+    valueFrom:
+      fieldRef:
+        fieldPath: metadata.namespace
+  - name: POD_NAME
+    valueFrom:
+      fieldRef:
+        fieldPath: metadata.name
+  - name: OTEL_EXPORTER_OTLP_ENDPOINT
+    value: "http://otel-collector.observability.svc.cluster.local:4317" # or :4318 for HTTP
+  - name: OTEL_EXPORTER_OTLP_PROTOCOL
+    value: "grpc" # or "http/protobuf"
+  - name: OTEL_SERVICE_NAME
+    value: "<app-name>"
+  - name: OTEL_RESOURCE_ATTRIBUTES
+    value: "deployment.environment=home,k8s.namespace.name=$(POD_NAMESPACE),k8s.pod.name=$(POD_NAME)"
+```
+
+(Host-cluster custom applications may point `OTEL_EXPORTER_OTLP_ENDPOINT` directly
+at `http://grafana-k8s-monitoring-alloy-receiver.monitoring.svc.cluster.local:4317`
+or `:4318`.)
+
+#### Application requirements
+
+- **HTTP propagation and filtering**: Wrap HTTP servers and outbound HTTP clients
+  with OTel middleware (`otelhttp`) propagating W3C `traceparent` headers, and
+  exclude probe/scrape paths (`/healthz`, `/readyz`, `/metrics`) from span
+  creation.
+- **SQLite tracing**: Wrap `database/sql` with `otelsql` (`db.system=sqlite`),
+  execute queries with `QueryContext` / `ExecContext` / `BeginTx` so spans inherit request
+  context, and use parameterized SQL only (do not record raw bind values in span
+  attributes).
+- **Structured JSON log correlation**: Emit `trace_id` and `span_id` fields in
+  structured JSON logs whenever an active span context is present so Grafana
+  `tracesToLogsV2` (`filterByTraceID: true`) resolves matching Loki log lines.
+- **Graceful shutdown**: Flush and shut down the `TracerProvider` with a bounded
+  context timeout on `SIGTERM` before exiting.
+
+### Phase 1 Verification & Rollback
+
+- **Verification**:
+  1. Open Grafana Explore against the `Local Tempo` datasource (`local-tempo`)
+     and query `service.name="pocket-id"`.
+  2. Confirm both HTTP server spans and SQLite DB spans appear in the trace
+     waterfall.
+  3. Trigger the **Logs for this span** (`tracesToLogsV2`) link from a `pocket-id`
+     span and verify it jumps to `Local Loki` (`local-loki`) filtered by
+     `namespace`, `pod`, and `trace_id`.
+- **Rollback**:
+  - Restore the commented-out Grafana Cloud `destinations.tracesService` block
+    in `components/monitoring/values.yaml` (pointing to
+    `https://tempo-us-central1.grafana.net:443` with `grafana-cloud-secret`),
+    remove `tls.insecure: true` along with the local `tempo-distributor` `url`
+    and duplicate `protocol`, and remove or revert the `OTEL_*` variables in
+    `components/pocket-id/deployment.yaml` if local trace ingestion needs to be
+    paused.

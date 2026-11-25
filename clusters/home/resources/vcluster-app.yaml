@@ -38,6 +38,8 @@ spec:
                     to: feed-reader/storage
                   - from: tailscale/storage-clusterip
                     to: preview-system/storage
+                  - from: monitoring/grafana-k8s-monitoring-alloy-receiver
+                    to: observability/otel-collector
             sync:
               fromHost:
                 gatewayClasses:
