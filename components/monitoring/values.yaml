@@ -520,6 +520,32 @@ applicationObservability:
         - 'replace_pattern(attributes["db.query.text"], " {2,}", " ") where attributes["db.query.text"] != nil'
         - 'replace_pattern(attributes["db.query.text"], "^ | $", "") where attributes["db.query.text"] != nil'
   collector: alloy-receiver
+autoInstrumentation:
+  enabled: true
+  beyla:
+    enabled: true
+    deliverTracesToApplicationObservability: true
+    config:
+      data:
+        attributes:
+          kubernetes:
+            enable: true
+        discovery:
+          instrument:
+            - k8s_namespace: app
+            - k8s_namespace: auth
+          exclude_services:
+            - k8s_pod_labels:
+                observability.nakatanakatana.app/otel-sdk: "true"
+            - k8s_pod_labels:
+                app: vcluster
+            - exe_path: ".*litestream.*"
+        routes:
+          unmatched: heuristic
+          ignore_patterns:
+            - /healthz
+            - /readyz
+            - /metrics
 podLogsViaLoki:
   enabled: true
   extraDiscoveryRules: |
