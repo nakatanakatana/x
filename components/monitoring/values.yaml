@@ -29,22 +29,27 @@ destinations:
     #   passwordKey: password
   tracesService:
     type: otlp
-    url: https://tempo-us-central1.grafana.net:443
+    url: http://tempo-distributor.monitoring.svc.cluster.local:4317
     protocol: grpc
+    tls:
+      insecure: true
     metrics:
       enabled: false
     logs:
       enabled: false
     traces:
       enabled: true
-    secret:
-      create: false
-      name: grafana-cloud-secret
-      namespace: monitoring
-    auth:
-      type: basic
-      usernameKey: tempo_user
-      passwordKey: password
+    # Grafana Cloud destination (commented out for rollback):
+    # url: https://tempo-us-central1.grafana.net:443
+    # protocol: grpc
+    # secret:
+    #   create: false
+    #   name: grafana-cloud-secret
+    #   namespace: monitoring
+    # auth:
+    #   type: basic
+    #   usernameKey: tempo_user
+    #   passwordKey: password
 collectors:
   alloy-metrics:
     presets:
@@ -502,6 +507,8 @@ applicationObservability:
     otlp:
       includeDebugMetrics: true
       grpc:
+        enabled: true
+      http:
         enabled: true
   collector: alloy-receiver
 podLogsViaLoki:

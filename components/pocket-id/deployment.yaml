@@ -21,6 +21,7 @@ spec:
       labels:
         app: pocket-id
         observability.nakatanakatana.app/local: "true"
+        observability.nakatanakatana.app/otel-sdk: "true"
     spec:
       securityContext:
         fsGroup: 65532
@@ -60,6 +61,16 @@ spec:
                 secretKeyRef:
                   name: pocket-id-secret
                   key: ENCRYPTION_KEY
+            - name: OTEL_TRACES_EXPORTER
+              value: "otlp"
+            - name: OTEL_METRICS_EXPORTER
+              value: "none"
+            - name: OTEL_LOGS_EXPORTER
+              value: "none"
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: "http://grafana-k8s-monitoring-alloy-receiver.monitoring.svc.cluster.local:4318"
+            - name: OTEL_SERVICE_NAME
+              value: "pocket-id"
           volumeMounts:
             - name: data
               mountPath: /app/data

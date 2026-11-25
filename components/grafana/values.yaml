@@ -81,6 +81,18 @@ datasources:
         uid: local-tempo
         url: http://tempo-query-frontend.monitoring.svc.cluster.local:3200
         access: proxy
+        jsonData:
+          tracesToLogsV2:
+            datasourceUid: local-loki
+            spanStartTimeShift: -5m
+            spanEndTimeShift: 5m
+            tags:
+              - key: k8s.namespace.name
+                value: namespace
+              - key: k8s.pod.name
+                value: pod
+            filterByTraceID: true
+            filterBySpanID: false
 
 sidecar:
   dashboards:
