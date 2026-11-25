@@ -542,7 +542,7 @@ autoInstrumentation:
             - exe_path: ".*litestream.*"
         routes:
           unmatched: heuristic
-          ignore_patterns:
+          ignored_patterns:
             - /healthz
             - /readyz
             - /metrics
