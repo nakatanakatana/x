@@ -1,0 +1,1283 @@
+{
+  "apiVersion": "dashboard.grafana.app/v2",
+  "kind": "Dashboard",
+  "metadata": {
+    "name": "otel-traces-overview"
+  },
+  "spec": {
+    "title": "OTel Traces — HTTP & DB",
+    "description": "HTTP request and database query traces from Local Tempo (OTel SDK, native OTel, and Beyla)",
+    "tags": ["otel", "tempo", "traces", "http", "db"],
+    "timeSettings": {
+      "from": "now-1h",
+      "to": "now",
+      "timezone": "browser",
+      "autoRefresh": "30s"
+    },
+    "links": [],
+    "variables": [
+      {
+        "kind": "QueryVariable",
+        "spec": {
+          "name": "service",
+          "label": "Service",
+          "multi": true,
+          "includeAll": true,
+          "allValue": ".*",
+          "refresh": "onTimeRangeChanged",
+          "query": {
+            "kind": "DataQuery",
+            "group": "tempo",
+            "datasource": { "name": "local-tempo" },
+            "spec": {
+              "type": 1,
+              "label": "service.name",
+              "refId": "TempoVariableQuery"
+            }
+          }
+        }
+      },
+      {
+        "kind": "CustomVariable",
+        "spec": {
+          "name": "min_duration",
+          "label": "Min Duration",
+          "multi": false,
+          "includeAll": false,
+          "query": "0ms,50ms,100ms,500ms,1s",
+          "current": { "text": "0ms", "value": "0ms" },
+          "options": [
+            { "selected": true, "text": "0ms", "value": "0ms" },
+            { "selected": false, "text": "50ms", "value": "50ms" },
+            { "selected": false, "text": "100ms", "value": "100ms" },
+            { "selected": false, "text": "500ms", "value": "500ms" },
+            { "selected": false, "text": "1s", "value": "1s" }
+          ]
+        }
+      },
+      {
+        "kind": "TextVariable",
+        "spec": {
+          "name": "db_query",
+          "label": "DB Query (click table row)",
+          "hide": "hideVariable",
+          "current": { "text": "", "value": "" },
+          "query": ""
+        }
+      }
+    ],
+    "elements": {
+      "p1": {
+        "kind": "Panel",
+        "spec": {
+          "id": 1,
+          "title": "HTTP Request Rate by Service",
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "timeseries",
+            "spec": {
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "reqps",
+                  "custom": {
+                    "drawStyle": "line",
+                    "lineInterpolation": "linear",
+                    "fillOpacity": 15,
+                    "showPoints": "auto"
+                  }
+                },
+                "overrides": []
+              },
+              "options": {
+                "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["mean", "max", "lastNotNull"] },
+                "tooltip": { "mode": "multi", "sort": "desc" }
+              }
+            }
+          },
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "refId": "A",
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "tempo",
+                      "datasource": { "name": "local-tempo" },
+                      "spec": {
+                        "queryType": "traceql",
+                        "query": "{ resource.service.name =~ \"${service:regex}\" && kind = server && (span.http.request.method != nil || span.http.method != nil) } | rate() by (resource.service.name)"
+                      }
+                    }
+                  }
+                }
+              ],
+              "transformations": []
+            }
+          }
+        }
+      },
+      "p2": {
+        "kind": "Panel",
+        "spec": {
+          "id": 2,
+          "title": "HTTP Error Rate by Service",
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "timeseries",
+            "spec": {
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "reqps",
+                  "custom": {
+                    "drawStyle": "line",
+                    "lineInterpolation": "linear",
+                    "fillOpacity": 15,
+                    "showPoints": "auto"
+                  }
+                },
+                "overrides": []
+              },
+              "options": {
+                "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["mean", "max", "lastNotNull"] },
+                "tooltip": { "mode": "multi", "sort": "desc" }
+              }
+            }
+          },
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "refId": "A",
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "tempo",
+                      "datasource": { "name": "local-tempo" },
+                      "spec": {
+                        "queryType": "traceql",
+                        "query": "{ resource.service.name =~ \"${service:regex}\" && kind = server && (status = error || span.http.response.status_code >= 500 || span.http.status_code >= 500) } | rate() by (resource.service.name)"
+                      }
+                    }
+                  }
+                }
+              ],
+              "transformations": []
+            }
+          }
+        }
+      },
+      "p3": {
+        "kind": "Panel",
+        "spec": {
+          "id": 3,
+          "title": "HTTP Server Latency (p50 / p95 / p99)",
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "timeseries",
+            "spec": {
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "s",
+                  "custom": {
+                    "drawStyle": "line",
+                    "lineInterpolation": "linear",
+                    "fillOpacity": 10,
+                    "showPoints": "auto"
+                  }
+                },
+                "overrides": []
+              },
+              "options": {
+                "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["mean", "max", "lastNotNull"] },
+                "tooltip": { "mode": "multi", "sort": "desc" }
+              }
+            }
+          },
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "refId": "A",
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "tempo",
+                      "datasource": { "name": "local-tempo" },
+                      "spec": {
+                        "queryType": "traceql",
+                        "query": "{ resource.service.name =~ \"${service:regex}\" && kind = server && (span.http.request.method != nil || span.http.method != nil) } | quantile_over_time(duration, .50) by (resource.service.name)"
+                      }
+                    }
+                  }
+                },
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "refId": "B",
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "tempo",
+                      "datasource": { "name": "local-tempo" },
+                      "spec": {
+                        "queryType": "traceql",
+                        "query": "{ resource.service.name =~ \"${service:regex}\" && kind = server && (span.http.request.method != nil || span.http.method != nil) } | quantile_over_time(duration, .95) by (resource.service.name)"
+                      }
+                    }
+                  }
+                },
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "refId": "C",
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "tempo",
+                      "datasource": { "name": "local-tempo" },
+                      "spec": {
+                        "queryType": "traceql",
+                        "query": "{ resource.service.name =~ \"${service:regex}\" && kind = server && (span.http.request.method != nil || span.http.method != nil) } | quantile_over_time(duration, .99) by (resource.service.name)"
+                      }
+                    }
+                  }
+                }
+              ],
+              "transformations": []
+            }
+          }
+        }
+      },
+      "p4": {
+        "kind": "Panel",
+        "spec": {
+          "id": 4,
+          "title": "HTTP Latency Heatmap (with Exemplars)",
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "heatmap",
+            "spec": {
+              "fieldConfig": { "defaults": {}, "overrides": [] },
+              "options": {
+                "calculate": false,
+                "cellGap": 1,
+                "color": { "scheme": "Spectral", "mode": "scheme", "steps": 64 },
+                "exemplars": { "color": "rgba(255,0,255,0.8)" },
+                "filterValues": { "le": 1e-9 },
+                "legend": { "show": true },
+                "tooltip": { "show": true, "yHistogram": false },
+                "yAxis": { "axisPlacement": "left", "unit": "s" }
+              }
+            }
+          },
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "refId": "A",
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "tempo",
+                      "datasource": { "name": "local-tempo" },
+                      "spec": {
+                        "queryType": "traceql",
+                        "query": "{ resource.service.name =~ \"${service:regex}\" && kind = server && (span.http.request.method != nil || span.http.method != nil) } | histogram_over_time(duration)"
+                      }
+                    }
+                  }
+                }
+              ],
+              "transformations": []
+            }
+          }
+        }
+      },
+      "p5": {
+        "kind": "Panel",
+        "spec": {
+          "id": 5,
+          "title": "HTTP Endpoint Latency p95 (Slowest Endpoints)",
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "bargauge",
+            "spec": {
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "s",
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      { "color": "green", "value": null },
+                      { "color": "yellow", "value": 0.1 },
+                      { "color": "red", "value": 0.5 }
+                    ]
+                  }
+                },
+                "overrides": []
+              },
+              "options": {
+                "displayMode": "gradient",
+                "orientation": "horizontal",
+                "reduceOptions": { "calcs": ["max"], "fields": "", "values": false },
+                "showUnfilled": true,
+                "valueMode": "color"
+              }
+            }
+          },
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "refId": "A",
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "tempo",
+                      "datasource": { "name": "local-tempo" },
+                      "spec": {
+                        "queryType": "traceql",
+                        "query": "{ resource.service.name =~ \"${service:regex}\" && kind = server && (span.http.request.method != nil || span.http.method != nil) } | quantile_over_time(duration, .95) by (resource.service.name, name)"
+                      }
+                    }
+                  }
+                }
+              ],
+              "transformations": []
+            }
+          }
+        }
+      },
+      "p6": {
+        "kind": "Panel",
+        "spec": {
+          "id": 6,
+          "title": "DB Query Rate by Service & System",
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "timeseries",
+            "spec": {
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "ops",
+                  "custom": {
+                    "drawStyle": "line",
+                    "lineInterpolation": "linear",
+                    "fillOpacity": 15,
+                    "showPoints": "auto"
+                  }
+                },
+                "overrides": []
+              },
+              "options": {
+                "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["mean", "max", "lastNotNull"] },
+                "tooltip": { "mode": "multi", "sort": "desc" }
+              }
+            }
+          },
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "refId": "A",
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "tempo",
+                      "datasource": { "name": "local-tempo" },
+                      "spec": {
+                        "queryType": "traceql",
+                        "query": "{ resource.service.name =~ \"${service:regex}\" && (span.db.system != nil || span.db.system.name != nil) } | rate() by (resource.service.name, span.db.system.name)"
+                      }
+                    }
+                  }
+                }
+              ],
+              "transformations": []
+            }
+          }
+        }
+      },
+      "p7": {
+        "kind": "Panel",
+        "spec": {
+          "id": 7,
+          "title": "DB Query Latency (p50 / p95)",
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "timeseries",
+            "spec": {
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "s",
+                  "custom": {
+                    "drawStyle": "line",
+                    "lineInterpolation": "linear",
+                    "fillOpacity": 10,
+                    "showPoints": "auto"
+                  }
+                },
+                "overrides": []
+              },
+              "options": {
+                "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["mean", "max", "lastNotNull"] },
+                "tooltip": { "mode": "multi", "sort": "desc" }
+              }
+            }
+          },
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "refId": "A",
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "tempo",
+                      "datasource": { "name": "local-tempo" },
+                      "spec": {
+                        "queryType": "traceql",
+                        "query": "{ resource.service.name =~ \"${service:regex}\" && (span.db.system != nil || span.db.system.name != nil) } | quantile_over_time(duration, .50) by (resource.service.name)"
+                      }
+                    }
+                  }
+                },
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "refId": "B",
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "tempo",
+                      "datasource": { "name": "local-tempo" },
+                      "spec": {
+                        "queryType": "traceql",
+                        "query": "{ resource.service.name =~ \"${service:regex}\" && (span.db.system != nil || span.db.system.name != nil) } | quantile_over_time(duration, .95) by (resource.service.name)"
+                      }
+                    }
+                  }
+                }
+              ],
+              "transformations": []
+            }
+          }
+        }
+      },
+      "p8": {
+        "kind": "Panel",
+        "spec": {
+          "id": 8,
+          "title": "DB Query Latency Heatmap (with Exemplars)",
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "heatmap",
+            "spec": {
+              "fieldConfig": { "defaults": {}, "overrides": [] },
+              "options": {
+                "calculate": false,
+                "cellGap": 1,
+                "color": { "scheme": "Spectral", "mode": "scheme", "steps": 64 },
+                "exemplars": { "color": "rgba(255,0,255,0.8)" },
+                "filterValues": { "le": 1e-9 },
+                "legend": { "show": true },
+                "tooltip": { "show": true, "yHistogram": false },
+                "yAxis": { "axisPlacement": "left", "unit": "s" }
+              }
+            }
+          },
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "refId": "A",
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "tempo",
+                      "datasource": { "name": "local-tempo" },
+                      "spec": {
+                        "queryType": "traceql",
+                        "query": "{ resource.service.name =~ \"${service:regex}\" && (span.db.system != nil || span.db.system.name != nil) } | histogram_over_time(duration)"
+                      }
+                    }
+                  }
+                }
+              ],
+              "transformations": []
+            }
+          }
+        }
+      },
+      "p9": {
+        "kind": "Panel",
+        "spec": {
+          "id": 9,
+          "title": "Recent HTTP Traces",
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "table",
+            "spec": {
+              "fieldConfig": { "defaults": {}, "overrides": [] },
+              "options": { "showHeader": true, "cellHeight": "sm" }
+            }
+          },
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "refId": "A",
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "tempo",
+                      "datasource": { "name": "local-tempo" },
+                      "spec": {
+                        "queryType": "traceql",
+                        "tableType": "traces",
+                        "limit": 25,
+                        "query": "{ resource.service.name =~ \"${service:regex}\" && kind = server && duration >= ${min_duration} } with (most_recent=true)"
+                      }
+                    }
+                  }
+                }
+              ],
+              "transformations": []
+            }
+          }
+        }
+      },
+      "p10": {
+        "kind": "Panel",
+        "spec": {
+          "id": 10,
+          "title": "Recent / Slow DB Spans",
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "table",
+            "spec": {
+              "fieldConfig": { "defaults": {}, "overrides": [] },
+              "options": { "showHeader": true, "cellHeight": "sm" }
+            }
+          },
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "refId": "A",
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "tempo",
+                      "datasource": { "name": "local-tempo" },
+                      "spec": {
+                        "queryType": "traceql",
+                        "tableType": "spans",
+                        "limit": 25,
+                        "query": "{ resource.service.name =~ \"${service:regex}\" && (span.db.system != nil || span.db.system.name != nil) && duration >= ${min_duration} } with (most_recent=true)"
+                      }
+                    }
+                  }
+                }
+              ],
+              "transformations": []
+            }
+          }
+        }
+      },
+      "p11": {
+        "kind": "Panel",
+        "spec": {
+          "id": 11,
+          "title": "Error Traces",
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "table",
+            "spec": {
+              "fieldConfig": { "defaults": {}, "overrides": [] },
+              "options": { "showHeader": true, "cellHeight": "sm" }
+            }
+          },
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "refId": "A",
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "tempo",
+                      "datasource": { "name": "local-tempo" },
+                      "spec": {
+                        "queryType": "traceql",
+                        "tableType": "traces",
+                        "limit": 25,
+                        "query": "{ resource.service.name =~ \"${service:regex}\" && status = error } with (most_recent=true)"
+                      }
+                    }
+                  }
+                }
+              ],
+              "transformations": []
+            }
+          }
+        }
+      },
+      "p14": {
+        "kind": "Panel",
+        "spec": {
+          "id": 14,
+          "title": "Slowest DB Queries — Max Latency",
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "table",
+            "spec": {
+              "fieldConfig": {
+                "defaults": {},
+                "overrides": [
+                  {
+                    "matcher": { "id": "byName", "options": "max" },
+                    "properties": [
+                      { "id": "unit", "value": "s" },
+                      { "id": "custom.width", "value": 100 }
+                    ]
+                  },
+                  {
+                    "matcher": { "id": "byName", "options": "name" },
+                    "properties": [
+                      { "id": "custom.width", "value": 100 }
+                    ]
+                  },
+                  {
+                    "matcher": { "id": "byName", "options": "operation" },
+                    "properties": [
+                      { "id": "custom.width", "value": 90 }
+                    ]
+                  },
+                  {
+                    "matcher": { "id": "byName", "options": "query" },
+                    "properties": [
+                      {
+                        "id": "links",
+                        "value": [
+                          {
+                            "title": "Inspect query (Max / Avg / Count)",
+                            "url": "/d/${__dashboard.uid}?from=${__from}&to=${__to}&var-service=${service:percentencode}&var-min_duration=${min_duration:percentencode}&var-db_query=${__value.raw:percentencode}&dtab=DB",
+                            "targetBlank": false
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              },
+              "options": {
+                "showHeader": true,
+                "cellHeight": "sm",
+                "sortBy": [{ "displayName": "max", "desc": true }]
+              }
+            }
+          },
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "refId": "A",
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "tempo",
+                      "datasource": { "name": "local-tempo" },
+                      "spec": {
+                        "queryType": "traceql",
+                        "metricsQueryType": "instant",
+                        "query": "{ resource.service.name =~ \"${service:regex}\" && (span.db.system != nil || span.db.system.name != nil) && span.db.query.text != nil } | max_over_time(duration) by (resource.service.name, span.db.operation.name, span.db.query.text)"
+                      }
+                    }
+                  }
+                }
+              ],
+              "transformations": [
+                {
+                  "kind": "labelsToFields",
+                  "spec": {
+                    "id": "labelsToFields",
+                    "options": { "mode": "columns" }
+                  }
+                },
+                {
+                  "kind": "merge",
+                  "spec": {
+                    "id": "merge",
+                    "options": {}
+                  }
+                },
+                {
+                  "kind": "renameByRegex",
+                  "spec": {
+                    "id": "renameByRegex",
+                    "options": { "regex": "^resource\\.service\\.name$", "renamePattern": "name" }
+                  }
+                },
+                {
+                  "kind": "renameByRegex",
+                  "spec": {
+                    "id": "renameByRegex",
+                    "options": { "regex": "^span\\.db\\.operation\\.name$", "renamePattern": "operation" }
+                  }
+                },
+                {
+                  "kind": "renameByRegex",
+                  "spec": {
+                    "id": "renameByRegex",
+                    "options": { "regex": "^span\\.db\\.query\\.text$", "renamePattern": "query" }
+                  }
+                },
+                {
+                  "kind": "organize",
+                  "spec": {
+                    "id": "organize",
+                    "options": {
+                      "excludeByName": { "Time": true, "time": true },
+                      "renameByName": { "value": "max" }
+                    }
+                  }
+                },
+                {
+                  "kind": "organize",
+                  "spec": {
+                    "id": "organize",
+                    "options": {
+                      "indexByName": {
+                        "name": 0,
+                        "operation": 1,
+                        "query": 2,
+                        "max": 3
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "p15": {
+        "kind": "Panel",
+        "spec": {
+          "id": 15,
+          "title": "Slowest DB Queries — Avg Latency",
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "table",
+            "spec": {
+              "fieldConfig": {
+                "defaults": {},
+                "overrides": [
+                  {
+                    "matcher": { "id": "byName", "options": "avg" },
+                    "properties": [
+                      { "id": "unit", "value": "s" },
+                      { "id": "custom.width", "value": 100 }
+                    ]
+                  },
+                  {
+                    "matcher": { "id": "byName", "options": "name" },
+                    "properties": [
+                      { "id": "custom.width", "value": 100 }
+                    ]
+                  },
+                  {
+                    "matcher": { "id": "byName", "options": "operation" },
+                    "properties": [
+                      { "id": "custom.width", "value": 90 }
+                    ]
+                  },
+                  {
+                    "matcher": { "id": "byName", "options": "query" },
+                    "properties": [
+                      {
+                        "id": "links",
+                        "value": [
+                          {
+                            "title": "Inspect query (Max / Avg / Count)",
+                            "url": "/d/${__dashboard.uid}?from=${__from}&to=${__to}&var-service=${service:percentencode}&var-min_duration=${min_duration:percentencode}&var-db_query=${__value.raw:percentencode}&dtab=DB",
+                            "targetBlank": false
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              },
+              "options": {
+                "showHeader": true,
+                "cellHeight": "sm",
+                "sortBy": [{ "displayName": "avg", "desc": true }]
+              }
+            }
+          },
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "refId": "A",
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "tempo",
+                      "datasource": { "name": "local-tempo" },
+                      "spec": {
+                        "queryType": "traceql",
+                        "metricsQueryType": "instant",
+                        "query": "{ resource.service.name =~ \"${service:regex}\" && (span.db.system != nil || span.db.system.name != nil) && span.db.query.text != nil } | avg_over_time(duration) by (resource.service.name, span.db.operation.name, span.db.query.text)"
+                      }
+                    }
+                  }
+                }
+              ],
+              "transformations": [
+                {
+                  "kind": "labelsToFields",
+                  "spec": {
+                    "id": "labelsToFields",
+                    "options": { "mode": "columns" }
+                  }
+                },
+                {
+                  "kind": "merge",
+                  "spec": {
+                    "id": "merge",
+                    "options": {}
+                  }
+                },
+                {
+                  "kind": "renameByRegex",
+                  "spec": {
+                    "id": "renameByRegex",
+                    "options": { "regex": "^resource\\.service\\.name$", "renamePattern": "name" }
+                  }
+                },
+                {
+                  "kind": "renameByRegex",
+                  "spec": {
+                    "id": "renameByRegex",
+                    "options": { "regex": "^span\\.db\\.operation\\.name$", "renamePattern": "operation" }
+                  }
+                },
+                {
+                  "kind": "renameByRegex",
+                  "spec": {
+                    "id": "renameByRegex",
+                    "options": { "regex": "^span\\.db\\.query\\.text$", "renamePattern": "query" }
+                  }
+                },
+                {
+                  "kind": "organize",
+                  "spec": {
+                    "id": "organize",
+                    "options": {
+                      "excludeByName": { "Time": true, "time": true },
+                      "renameByName": { "value": "avg" }
+                    }
+                  }
+                },
+                {
+                  "kind": "organize",
+                  "spec": {
+                    "id": "organize",
+                    "options": {
+                      "indexByName": {
+                        "name": 0,
+                        "operation": 1,
+                        "query": 2,
+                        "avg": 3
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "p16": {
+        "kind": "Panel",
+        "spec": {
+          "id": 16,
+          "title": "DB Queries — Execution Count",
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "table",
+            "spec": {
+              "fieldConfig": {
+                "defaults": {},
+                "overrides": [
+                  {
+                    "matcher": { "id": "byName", "options": "count" },
+                    "properties": [
+                      { "id": "unit", "value": "short" },
+                      { "id": "decimals", "value": 0 },
+                      { "id": "custom.width", "value": 100 }
+                    ]
+                  },
+                  {
+                    "matcher": { "id": "byName", "options": "name" },
+                    "properties": [
+                      { "id": "custom.width", "value": 100 }
+                    ]
+                  },
+                  {
+                    "matcher": { "id": "byName", "options": "operation" },
+                    "properties": [
+                      { "id": "custom.width", "value": 90 }
+                    ]
+                  },
+                  {
+                    "matcher": { "id": "byName", "options": "query" },
+                    "properties": [
+                      {
+                        "id": "links",
+                        "value": [
+                          {
+                            "title": "Inspect query (Max / Avg / Count)",
+                            "url": "/d/${__dashboard.uid}?from=${__from}&to=${__to}&var-service=${service:percentencode}&var-min_duration=${min_duration:percentencode}&var-db_query=${__value.raw:percentencode}&dtab=DB",
+                            "targetBlank": false
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              },
+              "options": {
+                "showHeader": true,
+                "cellHeight": "sm",
+                "sortBy": [{ "displayName": "count", "desc": true }]
+              }
+            }
+          },
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "refId": "A",
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "tempo",
+                      "datasource": { "name": "local-tempo" },
+                      "spec": {
+                        "queryType": "traceql",
+                        "metricsQueryType": "instant",
+                        "query": "{ resource.service.name =~ \"${service:regex}\" && (span.db.system != nil || span.db.system.name != nil) && span.db.query.text != nil } | count_over_time() by (resource.service.name, span.db.operation.name, span.db.query.text)"
+                      }
+                    }
+                  }
+                }
+              ],
+              "transformations": [
+                {
+                  "kind": "labelsToFields",
+                  "spec": {
+                    "id": "labelsToFields",
+                    "options": { "mode": "columns" }
+                  }
+                },
+                {
+                  "kind": "merge",
+                  "spec": {
+                    "id": "merge",
+                    "options": {}
+                  }
+                },
+                {
+                  "kind": "renameByRegex",
+                  "spec": {
+                    "id": "renameByRegex",
+                    "options": { "regex": "^resource\\.service\\.name$", "renamePattern": "name" }
+                  }
+                },
+                {
+                  "kind": "renameByRegex",
+                  "spec": {
+                    "id": "renameByRegex",
+                    "options": { "regex": "^span\\.db\\.operation\\.name$", "renamePattern": "operation" }
+                  }
+                },
+                {
+                  "kind": "renameByRegex",
+                  "spec": {
+                    "id": "renameByRegex",
+                    "options": { "regex": "^span\\.db\\.query\\.text$", "renamePattern": "query" }
+                  }
+                },
+                {
+                  "kind": "organize",
+                  "spec": {
+                    "id": "organize",
+                    "options": {
+                      "excludeByName": { "Time": true, "time": true },
+                      "renameByName": { "value": "count" }
+                    }
+                  }
+                },
+                {
+                  "kind": "organize",
+                  "spec": {
+                    "id": "organize",
+                    "options": {
+                      "indexByName": {
+                        "name": 0,
+                        "operation": 1,
+                        "query": 2,
+                        "count": 3
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "p17": {
+        "kind": "Panel",
+        "spec": {
+          "id": 17,
+          "title": "Selected Query — Max",
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "stat",
+            "spec": {
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "s",
+                  "noValue": "Click a query row below"
+                },
+                "overrides": []
+              },
+              "options": {
+                "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+                "colorMode": "value",
+                "graphMode": "none"
+              }
+            }
+          },
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "refId": "A",
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "tempo",
+                      "datasource": { "name": "local-tempo" },
+                      "spec": {
+                        "queryType": "traceql",
+                        "metricsQueryType": "instant",
+                        "query": "{ resource.service.name =~ \"${service:regex}\" && (span.db.system != nil || span.db.system.name != nil) && span.db.query.text = ${db_query:json} } | max_over_time(duration)"
+                      }
+                    }
+                  }
+                }
+              ],
+              "transformations": []
+            }
+          }
+        }
+      },
+      "p18": {
+        "kind": "Panel",
+        "spec": {
+          "id": 18,
+          "title": "Selected Query — Avg",
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "stat",
+            "spec": {
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "s",
+                  "noValue": "Click a query row below"
+                },
+                "overrides": []
+              },
+              "options": {
+                "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+                "colorMode": "value",
+                "graphMode": "none"
+              }
+            }
+          },
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "refId": "A",
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "tempo",
+                      "datasource": { "name": "local-tempo" },
+                      "spec": {
+                        "queryType": "traceql",
+                        "metricsQueryType": "instant",
+                        "query": "{ resource.service.name =~ \"${service:regex}\" && (span.db.system != nil || span.db.system.name != nil) && span.db.query.text = ${db_query:json} } | avg_over_time(duration)"
+                      }
+                    }
+                  }
+                }
+              ],
+              "transformations": []
+            }
+          }
+        }
+      },
+      "p19": {
+        "kind": "Panel",
+        "spec": {
+          "id": 19,
+          "title": "Selected Query — Count",
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "stat",
+            "spec": {
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "short",
+                  "decimals": 0,
+                  "noValue": "Click a query row below"
+                },
+                "overrides": []
+              },
+              "options": {
+                "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+                "colorMode": "value",
+                "graphMode": "none"
+              }
+            }
+          },
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "refId": "A",
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "tempo",
+                      "datasource": { "name": "local-tempo" },
+                      "spec": {
+                        "queryType": "traceql",
+                        "metricsQueryType": "instant",
+                        "query": "{ resource.service.name =~ \"${service:regex}\" && (span.db.system != nil || span.db.system.name != nil) && span.db.query.text = ${db_query:json} } | count_over_time()"
+                      }
+                    }
+                  }
+                }
+              ],
+              "transformations": []
+            }
+          }
+        }
+      }
+    },
+    "layout": {
+      "kind": "TabsLayout",
+      "spec": {
+        "tabs": [
+          {
+            "kind": "TabsLayoutTab",
+            "spec": {
+              "title": "HTTP",
+              "layout": {
+                "kind": "GridLayout",
+                "spec": {
+                  "items": [
+                    { "kind": "GridLayoutItem", "spec": { "x": 0, "y": 0, "width": 8, "height": 8, "element": { "kind": "ElementReference", "name": "p1" } } },
+                    { "kind": "GridLayoutItem", "spec": { "x": 8, "y": 0, "width": 8, "height": 8, "element": { "kind": "ElementReference", "name": "p2" } } },
+                    { "kind": "GridLayoutItem", "spec": { "x": 16, "y": 0, "width": 8, "height": 8, "element": { "kind": "ElementReference", "name": "p3" } } },
+                    { "kind": "GridLayoutItem", "spec": { "x": 0, "y": 8, "width": 24, "height": 9, "element": { "kind": "ElementReference", "name": "p4" } } },
+                    { "kind": "GridLayoutItem", "spec": { "x": 0, "y": 17, "width": 24, "height": 9, "element": { "kind": "ElementReference", "name": "p5" } } }
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "kind": "TabsLayoutTab",
+            "spec": {
+              "title": "DB",
+              "layout": {
+                "kind": "GridLayout",
+                "spec": {
+                  "items": [
+                    { "kind": "GridLayoutItem", "spec": { "x": 0, "y": 0, "width": 12, "height": 8, "element": { "kind": "ElementReference", "name": "p6" } } },
+                    { "kind": "GridLayoutItem", "spec": { "x": 12, "y": 0, "width": 12, "height": 8, "element": { "kind": "ElementReference", "name": "p7" } } },
+                    { "kind": "GridLayoutItem", "spec": { "x": 0, "y": 8, "width": 24, "height": 9, "element": { "kind": "ElementReference", "name": "p8" } } },
+                    { "kind": "GridLayoutItem", "spec": { "x": 0, "y": 17, "width": 8, "height": 4, "element": { "kind": "ElementReference", "name": "p17" } } },
+                    { "kind": "GridLayoutItem", "spec": { "x": 8, "y": 17, "width": 8, "height": 4, "element": { "kind": "ElementReference", "name": "p18" } } },
+                    { "kind": "GridLayoutItem", "spec": { "x": 16, "y": 17, "width": 8, "height": 4, "element": { "kind": "ElementReference", "name": "p19" } } },
+                    { "kind": "GridLayoutItem", "spec": { "x": 0, "y": 21, "width": 24, "height": 10, "element": { "kind": "ElementReference", "name": "p14" } } },
+                    { "kind": "GridLayoutItem", "spec": { "x": 0, "y": 31, "width": 24, "height": 10, "element": { "kind": "ElementReference", "name": "p15" } } },
+                    { "kind": "GridLayoutItem", "spec": { "x": 0, "y": 41, "width": 24, "height": 10, "element": { "kind": "ElementReference", "name": "p16" } } }
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "kind": "TabsLayoutTab",
+            "spec": {
+              "title": "Explorer",
+              "layout": {
+                "kind": "GridLayout",
+                "spec": {
+                  "items": [
+                    { "kind": "GridLayoutItem", "spec": { "x": 0, "y": 0, "width": 24, "height": 10, "element": { "kind": "ElementReference", "name": "p9" } } },
+                    { "kind": "GridLayoutItem", "spec": { "x": 0, "y": 10, "width": 24, "height": 10, "element": { "kind": "ElementReference", "name": "p10" } } },
+                    { "kind": "GridLayoutItem", "spec": { "x": 0, "y": 20, "width": 24, "height": 10, "element": { "kind": "ElementReference", "name": "p11" } } }
+                  ]
+                }
+              }
+            }
+          }
+        ]
+      }
+    }
+  }
+}

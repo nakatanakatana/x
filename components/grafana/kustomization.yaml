@@ -46,5 +46,14 @@ configMapGenerator:
         grafana_dashboard: "1"
       annotations:
         grafana_folder: "Tekton"
+  - name: grafana-dashboards-observability
+    files:
+      - dashboards/observability/traces-overview.json
+    options:
+      disableNameSuffixHash: true
+      labels:
+        grafana_dashboard: "1"
+      annotations:
+        grafana_folder: "Observability"
 configurations:
   - kustomizeconfig.yaml

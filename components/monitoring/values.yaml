@@ -510,6 +510,15 @@ applicationObservability:
         enabled: true
       http:
         enabled: true
+  traces:
+    transforms:
+      span:
+        - 'set(attributes["db.system.name"], attributes["db.system"]) where attributes["db.system.name"] == nil and attributes["db.system"] != nil'
+        - 'set(attributes["db.operation.name"], attributes["db.operation"]) where attributes["db.operation.name"] == nil and attributes["db.operation"] != nil'
+        - 'set(attributes["db.query.text"], attributes["db.statement"]) where attributes["db.query.text"] == nil and attributes["db.statement"] != nil'
+        - 'replace_pattern(attributes["db.query.text"], "[\\r\\n\\t]+", " ") where attributes["db.query.text"] != nil'
+        - 'replace_pattern(attributes["db.query.text"], " {2,}", " ") where attributes["db.query.text"] != nil'
+        - 'replace_pattern(attributes["db.query.text"], "^ | $", "") where attributes["db.query.text"] != nil'
   collector: alloy-receiver
 podLogsViaLoki:
   enabled: true
