@@ -682,7 +682,7 @@
                         "value": [
                           {
                             "title": "Inspect query (Max / Avg / Count)",
-                            "url": "/d/${__dashboard.uid}?from=${__from}&to=${__to}&var-service=${service:percentencode}&var-min_duration=${min_duration:percentencode}&var-db_query=${__value.raw:percentencode}&dtab=DB",
+                            "url": "/d/${__dashboard.uid}?${__url_time_range}&var-service=${service:percentencode}&var-min_duration=${min_duration:percentencode}&var-db_query=${__value.raw:percentencode}&dtab=DB",
                             "targetBlank": false
                           }
                         ]
@@ -823,7 +823,7 @@
                         "value": [
                           {
                             "title": "Inspect query (Max / Avg / Count)",
-                            "url": "/d/${__dashboard.uid}?from=${__from}&to=${__to}&var-service=${service:percentencode}&var-min_duration=${min_duration:percentencode}&var-db_query=${__value.raw:percentencode}&dtab=DB",
+                            "url": "/d/${__dashboard.uid}?${__url_time_range}&var-service=${service:percentencode}&var-min_duration=${min_duration:percentencode}&var-db_query=${__value.raw:percentencode}&dtab=DB",
                             "targetBlank": false
                           }
                         ]
@@ -965,7 +965,7 @@
                         "value": [
                           {
                             "title": "Inspect query (Max / Avg / Count)",
-                            "url": "/d/${__dashboard.uid}?from=${__from}&to=${__to}&var-service=${service:percentencode}&var-min_duration=${min_duration:percentencode}&var-db_query=${__value.raw:percentencode}&dtab=DB",
+                            "url": "/d/${__dashboard.uid}?${__url_time_range}&var-service=${service:percentencode}&var-min_duration=${min_duration:percentencode}&var-db_query=${__value.raw:percentencode}&dtab=DB",
                             "targetBlank": false
                           }
                         ]
