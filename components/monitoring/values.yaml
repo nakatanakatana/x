@@ -546,6 +546,7 @@ autoInstrumentation:
             - /healthz
             - /readyz
             - /metrics
+  collector: alloy-metrics
 podLogsViaLoki:
   enabled: true
   extraDiscoveryRules: |
