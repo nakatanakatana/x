@@ -525,21 +525,40 @@ autoInstrumentation:
   beyla:
     enabled: true
     deliverTracesToApplicationObservability: true
+    affinity:
+      nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+            - matchExpressions:
+                - key: kubernetes.io/hostname
+                  operator: NotIn
+                  values:
+                    - lm3h1
+                    - lm3h2
+                    - lm3h3
+                    - rpi
     config:
       data:
         attributes:
           kubernetes:
             enable: true
+        prometheus_export:
+          features:
+            - application
+            - application_service_graph
+            - application_span
+            - application_host
         discovery:
           instrument:
             - k8s_namespace: app
             - k8s_namespace: auth
-          exclude_services:
+          exclude_instrument:
             - k8s_pod_labels:
                 observability.nakatanakatana.app/otel-sdk: "true"
             - k8s_pod_labels:
                 app: vcluster
             - exe_path: ".*litestream.*"
+            - exe_path: ".*cloudflared.*"
         routes:
           unmatched: heuristic
           ignored_patterns:
