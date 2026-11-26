@@ -31,6 +31,7 @@ spec:
         litestream.mytools.nakatanakatana.app/volume: data
       labels:
         app: nostr-bridge
+        observability.nakatanakatana.app/otel-sdk: "true"
     spec:
       automountServiceAccountToken: false
       securityContext:
@@ -42,7 +43,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: nostr-bridge
-          image: ghcr.io/nakatanakatana/nostr-bridge:0.14.0@sha256:c79995be76dca6ce210e44a9810f86db1ec690ef7da228f3a50b315c92f097fb
+          image: ghcr.io/nakatanakatana/nostr-bridge:0.15.0@sha256:11645d0dd16c2140c7b11921daeac70b12ed4dbb4a3e508f32e2a920219bcce4
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
@@ -125,6 +126,24 @@ spec:
                 secretKeyRef:
                   name: nostr-credentials
                   key: mastodon-oauth-encryption-key
+            - name: K8S_POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: K8S_NAMESPACE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: OTEL_TRACES_EXPORTER
+              value: otlp
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: http://otel-collector.observability.svc.cluster.local:4318
+            - name: OTEL_EXPORTER_OTLP_PROTOCOL
+              value: http/protobuf
+            - name: OTEL_SERVICE_NAME
+              value: nostr-bridge
+            - name: OTEL_RESOURCE_ATTRIBUTES
+              value: k8s.pod.name=$(K8S_POD_NAME),k8s.namespace.name=$(K8S_NAMESPACE_NAME),k8s.cluster.name=vcluster-app
           ports:
             - name: http
               containerPort: 8080
