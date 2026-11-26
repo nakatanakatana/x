@@ -34,7 +34,7 @@ spec:
                       - slow
       containers:
         - name: sandbox-control
-          image: ghcr.io/nakatanakatana/sandbox-control:0.15.0@sha256:d4116a9b22307e76c1e8a09f4cc51a588698a9c1021ad77c979c13f8d60edd5c
+          image: ghcr.io/nakatanakatana/sandbox-control:0.15.1@sha256:45e2ff1d2d8418aa427a848a41069a5d0bf4f3838ee74b2ef62502ebc36b087f
           ports:
             - name: http
               containerPort: 8080
