@@ -675,6 +675,22 @@
                     ]
                   },
                   {
+                    "matcher": { "id": "byName", "options": "summary" },
+                    "properties": [
+                      { "id": "custom.width", "value": 240 },
+                      {
+                        "id": "links",
+                        "value": [
+                          {
+                            "title": "Inspect query (Max / Avg / Count)",
+                            "url": "/d/${__dashboard.uid}?${__url_time_range}&${service:queryparam}&${min_duration:queryparam}&var-db_query=${__value.raw:percentencode}&dtab=DB",
+                            "targetBlank": false
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
                     "matcher": { "id": "byName", "options": "query" },
                     "properties": [
                       {
@@ -682,7 +698,7 @@
                         "value": [
                           {
                             "title": "Inspect query (Max / Avg / Count)",
-                            "url": "/d/${__dashboard.uid}?${__url_time_range}&var-service=${service:percentencode}&var-min_duration=${min_duration:percentencode}&var-db_query=${__value.raw:percentencode}&dtab=DB",
+                            "url": "/d/${__dashboard.uid}?${__url_time_range}&${service:queryparam}&${min_duration:queryparam}&var-db_query=${__value.raw:percentencode}&dtab=DB",
                             "targetBlank": false
                           }
                         ]
@@ -713,7 +729,23 @@
                       "spec": {
                         "queryType": "traceql",
                         "metricsQueryType": "instant",
-                        "query": "{ resource.service.name =~ \"${service:regex}\" && (span.db.system != nil || span.db.system.name != nil) && span.db.query.text != nil } | max_over_time(duration) by (resource.service.name, span.db.operation.name, span.db.query.text)"
+                        "query": "{ resource.service.name =~ \"${service:regex}\" && (span.db.system != nil || span.db.system.name != nil) && span.db.query.summary != nil } | max_over_time(duration) by (resource.service.name, span.db.operation.name, span.db.query.summary)"
+                      }
+                    }
+                  }
+                },
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "refId": "B",
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "tempo",
+                      "datasource": { "name": "local-tempo" },
+                      "spec": {
+                        "queryType": "traceql",
+                        "metricsQueryType": "instant",
+                        "query": "{ resource.service.name =~ \"${service:regex}\" && (span.db.system != nil || span.db.system.name != nil) && span.db.query.summary = nil && span.db.query.text != nil } | max_over_time(duration) by (resource.service.name, span.db.operation.name, span.db.query.text)"
                       }
                     }
                   }
@@ -752,6 +784,13 @@
                   "kind": "renameByRegex",
                   "spec": {
                     "id": "renameByRegex",
+                    "options": { "regex": "^span\\.db\\.query\\.summary$", "renamePattern": "summary" }
+                  }
+                },
+                {
+                  "kind": "renameByRegex",
+                  "spec": {
+                    "id": "renameByRegex",
                     "options": { "regex": "^span\\.db\\.query\\.text$", "renamePattern": "query" }
                   }
                 },
@@ -773,8 +812,9 @@
                       "indexByName": {
                         "name": 0,
                         "operation": 1,
-                        "query": 2,
-                        "max": 3
+                        "summary": 2,
+                        "query": 3,
+                        "max": 4
                       }
                     }
                   }
@@ -816,6 +856,22 @@
                     ]
                   },
                   {
+                    "matcher": { "id": "byName", "options": "summary" },
+                    "properties": [
+                      { "id": "custom.width", "value": 240 },
+                      {
+                        "id": "links",
+                        "value": [
+                          {
+                            "title": "Inspect query (Max / Avg / Count)",
+                            "url": "/d/${__dashboard.uid}?${__url_time_range}&${service:queryparam}&${min_duration:queryparam}&var-db_query=${__value.raw:percentencode}&dtab=DB",
+                            "targetBlank": false
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
                     "matcher": { "id": "byName", "options": "query" },
                     "properties": [
                       {
@@ -823,7 +879,7 @@
                         "value": [
                           {
                             "title": "Inspect query (Max / Avg / Count)",
-                            "url": "/d/${__dashboard.uid}?${__url_time_range}&var-service=${service:percentencode}&var-min_duration=${min_duration:percentencode}&var-db_query=${__value.raw:percentencode}&dtab=DB",
+                            "url": "/d/${__dashboard.uid}?${__url_time_range}&${service:queryparam}&${min_duration:queryparam}&var-db_query=${__value.raw:percentencode}&dtab=DB",
                             "targetBlank": false
                           }
                         ]
@@ -854,7 +910,23 @@
                       "spec": {
                         "queryType": "traceql",
                         "metricsQueryType": "instant",
-                        "query": "{ resource.service.name =~ \"${service:regex}\" && (span.db.system != nil || span.db.system.name != nil) && span.db.query.text != nil } | avg_over_time(duration) by (resource.service.name, span.db.operation.name, span.db.query.text)"
+                        "query": "{ resource.service.name =~ \"${service:regex}\" && (span.db.system != nil || span.db.system.name != nil) && span.db.query.summary != nil } | avg_over_time(duration) by (resource.service.name, span.db.operation.name, span.db.query.summary)"
+                      }
+                    }
+                  }
+                },
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "refId": "B",
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "tempo",
+                      "datasource": { "name": "local-tempo" },
+                      "spec": {
+                        "queryType": "traceql",
+                        "metricsQueryType": "instant",
+                        "query": "{ resource.service.name =~ \"${service:regex}\" && (span.db.system != nil || span.db.system.name != nil) && span.db.query.summary = nil && span.db.query.text != nil } | avg_over_time(duration) by (resource.service.name, span.db.operation.name, span.db.query.text)"
                       }
                     }
                   }
@@ -893,6 +965,13 @@
                   "kind": "renameByRegex",
                   "spec": {
                     "id": "renameByRegex",
+                    "options": { "regex": "^span\\.db\\.query\\.summary$", "renamePattern": "summary" }
+                  }
+                },
+                {
+                  "kind": "renameByRegex",
+                  "spec": {
+                    "id": "renameByRegex",
                     "options": { "regex": "^span\\.db\\.query\\.text$", "renamePattern": "query" }
                   }
                 },
@@ -914,8 +993,9 @@
                       "indexByName": {
                         "name": 0,
                         "operation": 1,
-                        "query": 2,
-                        "avg": 3
+                        "summary": 2,
+                        "query": 3,
+                        "avg": 4
                       }
                     }
                   }
@@ -958,6 +1038,22 @@
                     ]
                   },
                   {
+                    "matcher": { "id": "byName", "options": "summary" },
+                    "properties": [
+                      { "id": "custom.width", "value": 240 },
+                      {
+                        "id": "links",
+                        "value": [
+                          {
+                            "title": "Inspect query (Max / Avg / Count)",
+                            "url": "/d/${__dashboard.uid}?${__url_time_range}&${service:queryparam}&${min_duration:queryparam}&var-db_query=${__value.raw:percentencode}&dtab=DB",
+                            "targetBlank": false
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
                     "matcher": { "id": "byName", "options": "query" },
                     "properties": [
                       {
@@ -965,7 +1061,7 @@
                         "value": [
                           {
                             "title": "Inspect query (Max / Avg / Count)",
-                            "url": "/d/${__dashboard.uid}?${__url_time_range}&var-service=${service:percentencode}&var-min_duration=${min_duration:percentencode}&var-db_query=${__value.raw:percentencode}&dtab=DB",
+                            "url": "/d/${__dashboard.uid}?${__url_time_range}&${service:queryparam}&${min_duration:queryparam}&var-db_query=${__value.raw:percentencode}&dtab=DB",
                             "targetBlank": false
                           }
                         ]
@@ -996,7 +1092,23 @@
                       "spec": {
                         "queryType": "traceql",
                         "metricsQueryType": "instant",
-                        "query": "{ resource.service.name =~ \"${service:regex}\" && (span.db.system != nil || span.db.system.name != nil) && span.db.query.text != nil } | count_over_time() by (resource.service.name, span.db.operation.name, span.db.query.text)"
+                        "query": "{ resource.service.name =~ \"${service:regex}\" && (span.db.system != nil || span.db.system.name != nil) && span.db.query.summary != nil } | count_over_time() by (resource.service.name, span.db.operation.name, span.db.query.summary)"
+                      }
+                    }
+                  }
+                },
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "refId": "B",
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "tempo",
+                      "datasource": { "name": "local-tempo" },
+                      "spec": {
+                        "queryType": "traceql",
+                        "metricsQueryType": "instant",
+                        "query": "{ resource.service.name =~ \"${service:regex}\" && (span.db.system != nil || span.db.system.name != nil) && span.db.query.summary = nil && span.db.query.text != nil } | count_over_time() by (resource.service.name, span.db.operation.name, span.db.query.text)"
                       }
                     }
                   }
@@ -1035,6 +1147,13 @@
                   "kind": "renameByRegex",
                   "spec": {
                     "id": "renameByRegex",
+                    "options": { "regex": "^span\\.db\\.query\\.summary$", "renamePattern": "summary" }
+                  }
+                },
+                {
+                  "kind": "renameByRegex",
+                  "spec": {
+                    "id": "renameByRegex",
                     "options": { "regex": "^span\\.db\\.query\\.text$", "renamePattern": "query" }
                   }
                 },
@@ -1056,8 +1175,9 @@
                       "indexByName": {
                         "name": 0,
                         "operation": 1,
-                        "query": 2,
-                        "count": 3
+                        "summary": 2,
+                        "query": 3,
+                        "count": 4
                       }
                     }
                   }
@@ -1105,7 +1225,7 @@
                       "spec": {
                         "queryType": "traceql",
                         "metricsQueryType": "instant",
-                        "query": "{ resource.service.name =~ \"${service:regex}\" && (span.db.system != nil || span.db.system.name != nil) && span.db.query.text = ${db_query:json} } | max_over_time(duration)"
+                        "query": "{ resource.service.name =~ \"${service:regex}\" && (span.db.system != nil || span.db.system.name != nil) && (span.db.query.summary = ${db_query:json} || (span.db.query.summary = nil && span.db.query.text = ${db_query:json})) } | max_over_time(duration)"
                       }
                     }
                   }
@@ -1154,7 +1274,7 @@
                       "spec": {
                         "queryType": "traceql",
                         "metricsQueryType": "instant",
-                        "query": "{ resource.service.name =~ \"${service:regex}\" && (span.db.system != nil || span.db.system.name != nil) && span.db.query.text = ${db_query:json} } | avg_over_time(duration)"
+                        "query": "{ resource.service.name =~ \"${service:regex}\" && (span.db.system != nil || span.db.system.name != nil) && (span.db.query.summary = ${db_query:json} || (span.db.query.summary = nil && span.db.query.text = ${db_query:json})) } | avg_over_time(duration)"
                       }
                     }
                   }
@@ -1204,7 +1324,7 @@
                       "spec": {
                         "queryType": "traceql",
                         "metricsQueryType": "instant",
-                        "query": "{ resource.service.name =~ \"${service:regex}\" && (span.db.system != nil || span.db.system.name != nil) && span.db.query.text = ${db_query:json} } | count_over_time()"
+                        "query": "{ resource.service.name =~ \"${service:regex}\" && (span.db.system != nil || span.db.system.name != nil) && (span.db.query.summary = ${db_query:json} || (span.db.query.summary = nil && span.db.query.text = ${db_query:json})) } | count_over_time()"
                       }
                     }
                   }
