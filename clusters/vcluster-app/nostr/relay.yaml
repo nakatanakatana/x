@@ -43,7 +43,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: nostr-relay
-          image: ghcr.io/nakatanakatana/nostr-relay:0.15.0@sha256:b7ef8724dbf6980a633c3554c250ac8331122bcdd76cbfd78da9bb2c5653776b
+          image: ghcr.io/nakatanakatana/nostr-relay:0.15.1@sha256:8eb15f78b2ddd6740c03913924e7199cbf5f997527edc4893d4846e2336af56e
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
