@@ -480,6 +480,13 @@ telemetryServices:
 hostMetrics:
   linuxHosts:
     enabled: true
+    metricsTuning:
+      includeMetrics:
+        - node_hwmon_temp_celsius
+        - node_hwmon_chip_names
+        - node_hwmon_sensor_label
+        - node_hwmon_fan_rpm
+        - node_thermal_zone_temp
   enabled: true
   collector: alloy-metrics
 cluster:
