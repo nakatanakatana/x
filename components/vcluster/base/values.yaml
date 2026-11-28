@@ -20,7 +20,8 @@ controlPlane:
   service:
     enabled: true
     spec:
-      type: ClusterIP
+      type: LoadBalancer
+      loadBalancerClass: tailscale
   proxy:
     extraSANs:
       - rpi
