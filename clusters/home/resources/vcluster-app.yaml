@@ -23,7 +23,6 @@ spec:
             controlPlane:
               service:
                 annotations:
-                  tailscale.com/expose: "true"
                   tailscale.com/hostname: "vcluster-app"
                   tailscale.com/proxy-group: "ingress-proxies"
             exportKubeConfig:

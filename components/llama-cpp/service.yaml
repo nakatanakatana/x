@@ -4,13 +4,13 @@ metadata:
   name: llama-cpp
   namespace: llama-cpp
   annotations:
-    tailscale.com/expose: "true"
     tailscale.com/hostname: "llama-cpp"
     tailscale.com/proxy-group: "ingress-proxies"
   labels:
     app.kubernetes.io/name: llama-cpp
 spec:
-  type: ClusterIP
+  type: LoadBalancer
+  loadBalancerClass: tailscale
   selector:
     app.kubernetes.io/name: llama-cpp
   ports:
