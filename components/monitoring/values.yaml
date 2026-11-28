@@ -486,6 +486,8 @@ hostMetrics:
         - node_hwmon_chip_names
         - node_hwmon_sensor_label
         - node_hwmon_fan_rpm
+        - node_hwmon_power_.*
+        - node_rapl_.*
         - node_thermal_zone_temp
   enabled: true
   collector: alloy-metrics
