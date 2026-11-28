@@ -1974,6 +1974,89 @@
             }
           }
         }
+      },
+      "panel-20": {
+        "kind": "Panel",
+        "spec": {
+          "id": 20,
+          "title": "Max Temperature by Node",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "refId": "A",
+                    "hidden": false,
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "prometheus",
+                      "version": "v0",
+                      "datasource": {
+                        "name": "local-mimir"
+                      },
+                      "spec": {
+                        "editorMode": "code",
+                        "expr": "max by (instance) (node_hwmon_temp_celsius{cluster=~\"${cluster:raw}\", instance=~\"${instance:regex}\"} or node_thermal_zone_temp{cluster=~\"${cluster:raw}\", instance=~\"${instance:regex}\"})",
+                        "legendFormat": "{{instance}}",
+                        "range": true
+                      }
+                    }
+                  }
+                }
+              ],
+              "transformations": [],
+              "queryOptions": {}
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "stat",
+            "spec": {
+              "options": {
+                "reduceOptions": {
+                  "calcs": [
+                    "lastNotNull"
+                  ],
+                  "fields": "",
+                  "values": false
+                },
+                "colorMode": "value",
+                "graphMode": "area",
+                "textMode": "auto"
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "celsius",
+                  "decimals": 1,
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "value": null,
+                        "color": "green"
+                      },
+                      {
+                        "value": 65,
+                        "color": "yellow"
+                      },
+                      {
+                        "value": 80,
+                        "color": "red"
+                      }
+                    ]
+                  },
+                  "color": {
+                    "mode": "thresholds"
+                  }
+                },
+                "overrides": []
+              }
+            }
+          }
+        }
       }
     },
     "layout": {
@@ -2006,6 +2089,19 @@
                       "spec": {
                         "x": 0,
                         "y": 4,
+                        "width": 24,
+                        "height": 5,
+                        "element": {
+                          "kind": "ElementReference",
+                          "name": "panel-20"
+                        }
+                      }
+                    },
+                    {
+                      "kind": "GridLayoutItem",
+                      "spec": {
+                        "x": 0,
+                        "y": 9,
                         "width": 12,
                         "height": 8,
                         "element": {
@@ -2018,7 +2114,7 @@
                       "kind": "GridLayoutItem",
                       "spec": {
                         "x": 12,
-                        "y": 4,
+                        "y": 9,
                         "width": 12,
                         "height": 8,
                         "element": {
@@ -2031,7 +2127,7 @@
                       "kind": "GridLayoutItem",
                       "spec": {
                         "x": 0,
-                        "y": 12,
+                        "y": 17,
                         "width": 12,
                         "height": 8,
                         "element": {
@@ -2044,7 +2140,7 @@
                       "kind": "GridLayoutItem",
                       "spec": {
                         "x": 12,
-                        "y": 12,
+                        "y": 17,
                         "width": 12,
                         "height": 8,
                         "element": {
@@ -2057,7 +2153,7 @@
                       "kind": "GridLayoutItem",
                       "spec": {
                         "x": 0,
-                        "y": 20,
+                        "y": 25,
                         "width": 12,
                         "height": 7,
                         "element": {
@@ -2070,7 +2166,7 @@
                       "kind": "GridLayoutItem",
                       "spec": {
                         "x": 12,
-                        "y": 20,
+                        "y": 25,
                         "width": 12,
                         "height": 8,
                         "element": {
