@@ -4,20 +4,14 @@ metadata:
   name: feed-reader
   namespace: feed-reader
   annotations:
-    tailscale.com/hostname: "feed-reader"
-    tailscale.com/proxy-class: "avoid-slow-nodes"
+    tailscale.com/proxy-group: "ingress-proxies"
 spec:
   ingressClassName: tailscale
+  defaultBackend:
+    service:
+      name: feed-reader
+      port:
+        number: 8080
   tls:
     - hosts:
         - feed-reader
-  rules:
-    - http:
-        paths:
-          - path: /
-            pathType: Prefix
-            backend:
-              service:
-                name: feed-reader
-                port:
-                  number: 8080

@@ -3,6 +3,7 @@ kind: Component
 namespace: monitoring
 resources:
   - release.yaml
+  - ingress.yaml
   - mcp.yaml
 configMapGenerator:
   - name: grafana-values

@@ -5,3 +5,4 @@ resources:
   - repository.yaml
   - release.yaml
   - proxyclass.yaml
+  - proxygroup.yaml

@@ -145,19 +145,15 @@ kind: Ingress
 metadata:
   name: nostr-relay
   namespace: nostr
+  annotations:
+    tailscale.com/proxy-group: ingress-proxies
 spec:
   ingressClassName: tailscale
+  defaultBackend:
+    service:
+      name: nostr-relay-protocol
+      port:
+        number: 8080
   tls:
     - hosts:
         - nostr-relay
-  rules:
-    - host: nostr-relay
-      http:
-        paths:
-          - path: /
-            pathType: Prefix
-            backend:
-              service:
-                name: nostr-relay-protocol
-                port:
-                  number: 8080

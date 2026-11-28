@@ -6,6 +6,7 @@ metadata:
   annotations:
     tailscale.com/expose: "true"
     tailscale.com/hostname: "llama-cpp"
+    tailscale.com/proxy-group: "ingress-proxies"
   labels:
     app.kubernetes.io/name: llama-cpp
 spec:

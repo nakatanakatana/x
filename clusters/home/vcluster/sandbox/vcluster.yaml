@@ -25,6 +25,7 @@ spec:
                 annotations:
                   tailscale.com/expose: "true"
                   tailscale.com/hostname: "vcluster-sandbox"
+                  tailscale.com/proxy-group: "ingress-proxies"
             exportKubeConfig:
               server: "https://vcluster.sandbox.svc.cluster.local:443"
             sync:

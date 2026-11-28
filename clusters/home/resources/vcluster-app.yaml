@@ -25,6 +25,7 @@ spec:
                 annotations:
                   tailscale.com/expose: "true"
                   tailscale.com/hostname: "vcluster-app"
+                  tailscale.com/proxy-group: "ingress-proxies"
             exportKubeConfig:
               server: "https://vcluster.app.svc.cluster.local:443"
             networking:

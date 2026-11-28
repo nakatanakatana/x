@@ -144,20 +144,14 @@ metadata:
   name: grafana-mcp
   namespace: monitoring
   annotations:
-    tailscale.com/proxy-class: avoid-slow-nodes
+    tailscale.com/proxy-group: ingress-proxies
 spec:
   ingressClassName: tailscale
+  defaultBackend:
+    service:
+      name: grafana-mcp
+      port:
+        number: 80
   tls:
     - hosts:
         - grafana-mcp
-  rules:
-    - host: grafana-mcp
-      http:
-        paths:
-          - path: /
-            pathType: Prefix
-            backend:
-              service:
-                name: grafana-mcp
-                port:
-                  number: 80
