@@ -22,6 +22,7 @@ configMapGenerator:
   - name: grafana-dashboards-general
     files:
       - dashboards/general/clusters.json
+      - dashboards/general/node-hardware.json
     options:
       disableNameSuffixHash: true
       labels:

@@ -1,0 +1,321 @@
+{
+  "apiVersion": "dashboard.grafana.app/v2",
+  "kind": "Dashboard",
+  "metadata": {
+    "name": "node-hardware"
+  },
+  "spec": {
+    "title": "Node Hardware — Temperature & Fans",
+    "description": "CPU/hardware temperatures and fan speeds from node-exporter (hwmon & thermal_zone)",
+    "tags": ["node", "hardware", "temperature", "fan"],
+    "timeSettings": {
+      "from": "now-1h",
+      "to": "now",
+      "timezone": "browser",
+      "autoRefresh": "30s"
+    },
+    "links": [],
+    "variables": [
+      {
+        "kind": "QueryVariable",
+        "spec": {
+          "name": "instance",
+          "label": "Node",
+          "multi": true,
+          "includeAll": true,
+          "allValue": ".+",
+          "refresh": "onDashboardLoad",
+          "query": {
+            "kind": "DataQuery",
+            "group": "prometheus",
+            "version": "v0",
+            "datasource": { "name": "local-mimir" },
+            "spec": {
+              "qryType": 1,
+              "query": "label_values(node_uname_info, instance)",
+              "refId": "PrometheusVariableQueryEditor-VariableQuery"
+            }
+          }
+        }
+      }
+    ],
+    "elements": {
+      "p1": {
+        "kind": "Panel",
+        "spec": {
+          "id": 1,
+          "title": "Max Temperature by Node",
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "stat",
+            "spec": {
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "celsius",
+                  "decimals": 1,
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      { "value": null, "color": "green" },
+                      { "value": 65, "color": "yellow" },
+                      { "value": 80, "color": "red" }
+                    ]
+                  },
+                  "color": { "mode": "thresholds" }
+                },
+                "overrides": []
+              },
+              "options": {
+                "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+                "colorMode": "value",
+                "graphMode": "area",
+                "textMode": "auto"
+              }
+            }
+          },
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "refId": "A",
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "prometheus",
+                      "version": "v0",
+                      "datasource": { "name": "local-mimir" },
+                      "spec": {
+                        "editorMode": "code",
+                        "expr": "max by (instance) (node_hwmon_temp_celsius{instance=~\"${instance:regex}\"} or node_thermal_zone_temp{instance=~\"${instance:regex}\"})",
+                        "legendFormat": "{{instance}}",
+                        "range": true
+                      }
+                    }
+                  }
+                }
+              ],
+              "transformations": []
+            }
+          }
+        }
+      },
+      "p2": {
+        "kind": "Panel",
+        "spec": {
+          "id": 2,
+          "title": "Hardware Monitor Temperature (hwmon)",
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "timeseries",
+            "spec": {
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "celsius",
+                  "decimals": 1,
+                  "custom": {
+                    "drawStyle": "line",
+                    "lineInterpolation": "linear",
+                    "fillOpacity": 10,
+                    "showPoints": "auto"
+                  }
+                },
+                "overrides": []
+              },
+              "options": {
+                "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["mean", "max", "lastNotNull"] },
+                "tooltip": { "mode": "multi", "sort": "desc" }
+              }
+            }
+          },
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "refId": "A",
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "prometheus",
+                      "version": "v0",
+                      "datasource": { "name": "local-mimir" },
+                      "spec": {
+                        "editorMode": "code",
+                        "expr": "node_hwmon_temp_celsius{instance=~\"${instance:regex}\"} * on(instance, chip, sensor) group_left(label) node_hwmon_sensor_label",
+                        "legendFormat": "{{instance}} / {{chip}} / {{label}}",
+                        "range": true
+                      }
+                    }
+                  }
+                },
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "refId": "B",
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "prometheus",
+                      "version": "v0",
+                      "datasource": { "name": "local-mimir" },
+                      "spec": {
+                        "editorMode": "code",
+                        "expr": "node_hwmon_temp_celsius{instance=~\"${instance:regex}\"} unless on(instance, chip, sensor) node_hwmon_sensor_label",
+                        "legendFormat": "{{instance}} / {{chip}} / {{sensor}}",
+                        "range": true
+                      }
+                    }
+                  }
+                }
+              ],
+              "transformations": []
+            }
+          }
+        }
+      },
+      "p3": {
+        "kind": "Panel",
+        "spec": {
+          "id": 3,
+          "title": "Thermal Zone Temperature",
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "timeseries",
+            "spec": {
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "celsius",
+                  "decimals": 1,
+                  "custom": {
+                    "drawStyle": "line",
+                    "lineInterpolation": "linear",
+                    "fillOpacity": 10,
+                    "showPoints": "auto"
+                  }
+                },
+                "overrides": []
+              },
+              "options": {
+                "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["mean", "max", "lastNotNull"] },
+                "tooltip": { "mode": "multi", "sort": "desc" }
+              }
+            }
+          },
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "refId": "A",
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "prometheus",
+                      "version": "v0",
+                      "datasource": { "name": "local-mimir" },
+                      "spec": {
+                        "editorMode": "code",
+                        "expr": "node_thermal_zone_temp{instance=~\"${instance:regex}\"}",
+                        "legendFormat": "{{instance}} / {{type}} ({{zone}})",
+                        "range": true
+                      }
+                    }
+                  }
+                }
+              ],
+              "transformations": []
+            }
+          }
+        }
+      },
+      "p4": {
+        "kind": "Panel",
+        "spec": {
+          "id": 4,
+          "title": "Fan Speed",
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "timeseries",
+            "spec": {
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "rotrpm",
+                  "decimals": 0,
+                  "custom": {
+                    "drawStyle": "line",
+                    "lineInterpolation": "linear",
+                    "fillOpacity": 10,
+                    "showPoints": "auto"
+                  }
+                },
+                "overrides": []
+              },
+              "options": {
+                "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["mean", "max", "lastNotNull"] },
+                "tooltip": { "mode": "multi", "sort": "desc" }
+              }
+            }
+          },
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "refId": "A",
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "prometheus",
+                      "version": "v0",
+                      "datasource": { "name": "local-mimir" },
+                      "spec": {
+                        "editorMode": "code",
+                        "expr": "node_hwmon_fan_rpm{instance=~\"${instance:regex}\"} * on(instance, chip, sensor) group_left(label) node_hwmon_sensor_label",
+                        "legendFormat": "{{instance}} / {{chip}} / {{label}}",
+                        "range": true
+                      }
+                    }
+                  }
+                },
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "refId": "B",
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "prometheus",
+                      "version": "v0",
+                      "datasource": { "name": "local-mimir" },
+                      "spec": {
+                        "editorMode": "code",
+                        "expr": "node_hwmon_fan_rpm{instance=~\"${instance:regex}\"} unless on(instance, chip, sensor) node_hwmon_sensor_label",
+                        "legendFormat": "{{instance}} / {{chip}} / {{sensor}}",
+                        "range": true
+                      }
+                    }
+                  }
+                }
+              ],
+              "transformations": []
+            }
+          }
+        }
+      }
+    },
+    "layout": {
+      "kind": "GridLayout",
+      "spec": {
+        "items": [
+          { "kind": "GridLayoutItem", "spec": { "x": 0, "y": 0, "width": 24, "height": 5, "element": { "kind": "ElementReference", "name": "p1" } } },
+          { "kind": "GridLayoutItem", "spec": { "x": 0, "y": 5, "width": 12, "height": 9, "element": { "kind": "ElementReference", "name": "p2" } } },
+          { "kind": "GridLayoutItem", "spec": { "x": 12, "y": 5, "width": 12, "height": 9, "element": { "kind": "ElementReference", "name": "p3" } } },
+          { "kind": "GridLayoutItem", "spec": { "x": 0, "y": 14, "width": 24, "height": 8, "element": { "kind": "ElementReference", "name": "p4" } } }
+        ]
+      }
+    }
+  }
+}
