@@ -186,22 +186,18 @@ kind: Ingress
 metadata:
   name: nostr-bridge
   namespace: nostr
+  annotations:
+    tailscale.com/proxy-group: ingress-proxies
 spec:
   ingressClassName: tailscale
+  defaultBackend:
+    service:
+      name: nostr-bridge
+      port:
+        number: 8080
   tls:
     - hosts:
         - nostr-bridge
-  rules:
-    - host: nostr-bridge
-      http:
-        paths:
-          - path: /
-            pathType: Prefix
-            backend:
-              service:
-                name: nostr-bridge
-                port:
-                  number: 8080
 ---
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute

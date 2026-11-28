@@ -4,21 +4,14 @@ metadata:
   name: sandbox-control
   namespace: agent-sandbox-system
   annotations:
-    tailscale.com/hostname: "sandbox-control"
-    tailscale.com/proxy-class: "avoid-slow-nodes"
+    tailscale.com/proxy-group: "ingress-proxies"
 spec:
   ingressClassName: tailscale
+  defaultBackend:
+    service:
+      name: sandbox-control
+      port:
+        number: 8080
   tls:
     - hosts:
         - sandbox-control
-  rules:
-    - host: sandbox-control
-      http:
-        paths:
-          - path: /
-            pathType: Prefix
-            backend:
-              service:
-                name: sandbox-control
-                port:
-                  number: 8080

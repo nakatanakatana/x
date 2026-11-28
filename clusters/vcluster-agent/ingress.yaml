@@ -4,21 +4,14 @@ metadata:
   name: bifrost
   namespace: proxy
   annotations:
-    tailscale.com/hostname: "llm-proxy"
-    tailscale.com/proxy-class: "avoid-slow-nodes"
+    tailscale.com/proxy-group: "ingress-proxies"
 spec:
   ingressClassName: tailscale
+  defaultBackend:
+    service:
+      name: bifrost
+      port:
+        number: 8080
   tls:
     - hosts:
         - llm-proxy
-  rules:
-    - host: llm-proxy
-      http:
-        paths:
-          - path: /
-            pathType: Prefix
-            backend:
-              service:
-                name: bifrost
-                port:
-                  number: 8080

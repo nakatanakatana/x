@@ -4,6 +4,7 @@ namespace: couchdb
 resources:
   - repository.yaml
   - release.yaml
+  - ingress.yaml
 configMapGenerator:
   - name: couchdb
     files:

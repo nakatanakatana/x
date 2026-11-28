@@ -20,7 +20,7 @@ metadata:
   annotations:
     tailscale.com/expose: "true"
     tailscale.com/hostname: "sandbox-ctl"
-    tailscale.com/proxy-class: "avoid-slow-nodes"
+    tailscale.com/proxy-group: "ingress-proxies"
 spec:
   type: ClusterIP
   selector:

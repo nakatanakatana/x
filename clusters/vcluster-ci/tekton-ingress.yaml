@@ -25,20 +25,14 @@ metadata:
   name: tekton-dashboard
   namespace: tekton-pipelines
   annotations:
-    tailscale.com/proxy-class: avoid-slow-nodes
+    tailscale.com/proxy-group: ingress-proxies
 spec:
   ingressClassName: tailscale
-  rules:
-    - host: ci
-      http:
-        paths:
-          - path: /
-            pathType: Prefix
-            backend:
-              service:
-                name: tekton-dashboard
-                port:
-                  number: 9097
+  defaultBackend:
+    service:
+      name: tekton-dashboard
+      port:
+        number: 9097
   tls:
     - hosts:
         - ci
