@@ -62,7 +62,7 @@ metadata:
   name: cloudflare-infrastructure
   namespace: app
 data:
-  replicas: "1"
+  replicas: "2"
   affinity: |
     nodeAffinity:
       requiredDuringSchedulingIgnoredDuringExecution:
@@ -72,6 +72,26 @@ data:
                 operator: NotIn
                 values:
                   - slow
+    podAntiAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 100
+          podAffinityTerm:
+            labelSelector:
+              matchLabels:
+                cfargotunnel.com/name: cloudflare-app
+            topologyKey: kubernetes.io/hostname
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: cloudflare-app
+  namespace: app
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: cloudflare-kubernetes-gateway
+      cfargotunnel.com/name: cloudflare-app
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -79,7 +99,7 @@ metadata:
   name: cloudflare-infrastructure
   namespace: ci
 data:
-  replicas: "1"
+  replicas: "2"
   affinity: |
     nodeAffinity:
       requiredDuringSchedulingIgnoredDuringExecution:
@@ -89,6 +109,26 @@ data:
                 operator: NotIn
                 values:
                   - slow
+    podAntiAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 100
+          podAffinityTerm:
+            labelSelector:
+              matchLabels:
+                cfargotunnel.com/name: cloudflare-ci
+            topologyKey: kubernetes.io/hostname
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: cloudflare-ci
+  namespace: ci
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: cloudflare-kubernetes-gateway
+      cfargotunnel.com/name: cloudflare-ci
 ---
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
@@ -118,7 +158,7 @@ metadata:
   name: cloudflare-infrastructure
   namespace: auth
 data:
-  replicas: "1"
+  replicas: "2"
   affinity: |
     nodeAffinity:
       requiredDuringSchedulingIgnoredDuringExecution:
@@ -128,3 +168,23 @@ data:
                 operator: NotIn
                 values:
                   - slow
+    podAntiAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 100
+          podAffinityTerm:
+            labelSelector:
+              matchLabels:
+                cfargotunnel.com/name: cloudflare-auth
+            topologyKey: kubernetes.io/hostname
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: cloudflare-auth
+  namespace: auth
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: cloudflare-kubernetes-gateway
+      cfargotunnel.com/name: cloudflare-auth
